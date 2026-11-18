@@ -12,8 +12,8 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     outputs:
       asset_sha: ${{ steps.stage.outputs.asset_sha }}
     steps:
@@ -27,7 +27,7 @@ jobs:
       - run: npm test
       - run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gdal python3-numpy
+          sudo apt-get install -y --no-install-recommends python3-gdal python3-numpy
           /usr/bin/python3 -B test/reality-import.py
       - run: npm run test:browser -- --release
         env:
@@ -54,7 +54,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write
