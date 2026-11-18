@@ -39,6 +39,19 @@ jobs:
       - run: npm run test:browser -- --release
         env:
           BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Benchmark La Balme junction signs (PR #9 ABBA)
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 9
+        env:
+          BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          node docs/reality-network/benchmark.mjs dist/dev.html dist/reality/alpe-dhuez.json junction-abba.json abba
+          node -e "const d=require('./junction-abba.json'); console.log(JSON.stringify(d.frame.scenarios.map(s=>({distance:s.s, paired:s.paired})),null,2));"
+      - name: Upload junction frame time samples
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 9
+        uses: actions/upload-artifact@v4
+        with:
+          name: junction-abba-profiling
+          path: junction-abba.json
       - name: Stage website
         id: stage
         run: |
