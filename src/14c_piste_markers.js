@@ -39,6 +39,8 @@ const PisteMarkers = (() => {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const background = colour(terrain.difficulty);
+    // Convert the same sRGB sign colour to shader inputs for the support posts.
+    const postColor = [1, 3, 5].map(i => parseInt(background.slice(i, i + 2), 16) / 255);
     for (const [index, post] of posts.entries()) {
       const cx = index * size + size / 2;
       ctx.beginPath();
@@ -83,7 +85,7 @@ const PisteMarkers = (() => {
       lib: [SL.common, SL.fog],
       buffers: [{ attrs: [['pos', 'vec3f'], ['uv', 'vec2f']] }],
       varyings: { wp: 'vec3f', uv: 'vec2f' },
-      uniforms: { origin: 'vec4f' },
+      uniforms: { origin: 'vec4f', postColor: 'vec4f' },
       textures: { tSign: '2d', tSky: '2d' },
       vs: `fn vert(a: VIn) -> VOut {
         var v: VOut; v.wp = a.pos - M.origin.xyz; v.uv = a.uv;
@@ -93,7 +95,7 @@ const PisteMarkers = (() => {
         var o: FOut;
         let ink: vec4f = tex(tSign, v.uv);
         var col: vec3f = ink.rgb * ink.rgb;
-        if (v.uv.x < 0.0) { col = vec3f(0.32, 0.14, 0.043); }
+        if (v.uv.x < 0.0) { col = M.postColor.rgb * M.postColor.rgb; }
         else { if (ink.a < 0.5) { discard; } }
         col *= vec3f(0.28) + 0.55 * U.ambSky.rgb + 0.45 * U.ambGnd.rgb + 0.30 * U.sunCol.rgb;
         o.color = vec4f(applyFog(col, v.wp), 0.0); return o;
@@ -102,7 +104,7 @@ const PisteMarkers = (() => {
     return {
       pipe,
       draw(origin) {
-        gfx.draw(pipe, { u: { origin: [...origin, 0] }, tex: { tSign: texture, tSky: Sky.lut }, vb: [vb], count: verts.length / 5 });
+        gfx.draw(pipe, { u: { origin: [...origin, 0], postColor: [...postColor, 1] }, tex: { tSign: texture, tSky: Sky.lut }, vb: [vb], count: verts.length / 5 });
       },
     };
   }
