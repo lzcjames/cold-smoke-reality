@@ -11,6 +11,17 @@ permissions:
   contents: read
 
 jobs:
+  gis:
+    name: GIS importer checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-gdal python3-numpy
+          /usr/bin/python3 -B test/reality-import.py
+
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -25,10 +36,6 @@ jobs:
         id: chrome
       - run: npm run check
       - run: npm test
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-gdal python3-numpy
-          /usr/bin/python3 -B test/reality-import.py
       - run: npm run test:browser -- --release
         env:
           BROWSER: ${{ steps.chrome.outputs.chrome-path }}
