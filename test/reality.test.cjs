@@ -131,7 +131,20 @@ test('uses exact OSM nodes, downhill exits, and one DEM for the piste network', 
     [256295592, 256295592, '←', 'intermediate'],
     [256295592, 23257919, '→', 'advanced'],
     [23257919, 23257916, '←', 'intermediate'],
+    [23257919, 23257916, '←', 'intermediate'],
   ]);
+  // La Balme ends at the Campanules join. Give the player one advance
+  // warning and another readable roadside board before the junction.
+  const lower = asset.junctions[1], [jx, jz] = terrain.project(...lower.point);
+  const campanules = network.signs.filter(sign => sign.from === 23257919 &&
+    sign.to === 23257916);
+  assert.equal(campanules.length, 2);
+  assert.equal(campanules[0].advance, true);
+  assert.equal(campanules[1].advance, false);
+  const gap = sign => Math.hypot(sign.x - jx, sign.z - jz);
+  assert.ok(gap(campanules[0]) > 90 && gap(campanules[0]) < 130);
+  assert.ok(gap(campanules[1]) > 25 && gap(campanules[1]) < 55);
+  assert.ok(gap(campanules[0]) > gap(campanules[1]) + 50);
   for (const post of [...network.signs, ...network.stakes]) {
     assert(terrain.withinDEM(post.x, post.z));
     assert.equal(post.y, terrain.height(post.x, post.z));
