@@ -71,7 +71,10 @@ def centreline(document, elevation, way_id):
 
             if sample_run(14) <= sample_run(22):
                 continue
-            options.append((h0 - h1, way["id"], {"osmWay": way["id"], "name": name, "points": points}))
+            piste = {"osmWay": way["id"], "name": name, "points": points}
+            if tags.get("piste:difficulty"):
+                piste["difficulty"] = tags["piste:difficulty"]
+            options.append((h0 - h1, way["id"], piste))
     if not options:
         raise ValueError("No named downhill OSM way fits the DEM and the single-piste MVP.")
     return max(options, key=lambda option: option[:2])[2]

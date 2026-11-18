@@ -58,6 +58,8 @@ async function boot(stage) {
   await step(0.44, '种树');
   { const t0 = performance.now(); Trees.init(gfx); if (DEV) console.log('trees', Math.round(performance.now() - t0) + 'ms', Math.round(Trees.stats.tris) + ' tris'); }
   Gates.init(gfx);
+  const pisteMarkers = Course.reality && PisteMarkers.init(gfx, Course.reality);
+  if (pisteMarkers) Render.passes.opaque.push(R => pisteMarkers.draw(R.origin));
   await step(0.56, '点亮星云');
   Spray.init(gfx); Grains.init(gfx); Dust.init(gfx); Nebula.init(gfx, +QS.get('nebres') || (gfx.caps.maxTex >= 4096 && (navigator.deviceMemory || 8) >= 4 ? 1536 : 768)); Clouds.init(gfx, +QS.get('cloudres') || 0); Shafts.init(gfx); Tracks.init(gfx);
   Wind.init(gfx);                                                        // snow the wind carries off the crests and along the ground (11b_wind.js)
@@ -84,6 +86,7 @@ async function boot(stage) {
   await step(0.70, '调光');
   const pipes = [].concat(Sky.pipes, Terrain.pipes, Post.pipes, Skier.pipes, Deer.pipes, Trees.pipes, Spray.pipes, Grains.pipes, Dust.pipes, Nebula.pipes, Clouds.pipes, Shafts.pipes, Tracks.pipes, Wind.pipes);
   pipes.push(...Gates.pipes);
+  if (pisteMarkers) pipes.push(pisteMarkers.pipe);
   for (let i = 0; i < pipes.length; i++) { const p = pipes[i]; if (p.held) continue; if (gfx.finishPipelineAsync) await gfx.finishPipelineAsync(p); else gfx.finishPipeline(p); if (stage && !manual && i % 6 === 5) await step(0.70 + 0.16 * (i + 1) / pipes.length, null); }
   await step(0.87, '铺雪');
   fit();
