@@ -108,7 +108,7 @@ try {
       const k = window.__ski;
       const boot = await k.boot();
       if (!boot.startsWith('ok')) return { boot };
-      let junctionDraws = 0;
+      let junctionDraws = 0, lowerJunctionDraws = 0;
       const gfx = k.app().gfx, draw = gfx.draw;
       gfx.draw = (pipe, args) => {
         if (pipe.name === 'junctionSigns') junctionDraws++;
@@ -126,6 +126,12 @@ try {
         game.s.v = [0, 0, -6];
         const transition = k.sim(0.5, null, {draw: false});
         continued = transition.p[2] < nz && Math.abs(transition.p[2] - terrain.network.spawn[1]) > 1000;
+        const lowerSign = terrain.network.signs.find(s => s.to === 23257916 && !s.advance);
+        if (!lowerSign) throw Error('Campanules junction sign missing');
+        const seen = junctionDraws;
+        k.view([lowerSign.x, lowerSign.y + 2.6, lowerSign.z + 14],
+          [lowerSign.x, lowerSign.y + 1.9, lowerSign.z], 0.85, 0);
+        lowerJunctionDraws = junctionDraws - seen;
         game.s.p[0] = 50000;
         restarted = Math.abs(k.sim(1/60, null, {draw: false}).p[2] - terrain.network.spawn[1]) < 0.01;
       } else if (terrain) {
@@ -133,7 +139,7 @@ try {
         restarted = k.sim(1 / 60, null, { draw: false }).p[2] === -terrain.start;
       }
       return { boot, start, end, error: k.err(), surface, graphicsAlive: !k.app().gfx.lost,
-        lang: k.i18n().lang, reality: Boolean(terrain), restarted, continued, junctionDraws,
+        lang: k.i18n().lang, reality: Boolean(terrain), restarted, continued, junctionDraws, lowerJunctionDraws,
         piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length) };
       } catch (error) {
         return { failure: error.message || String(error), stack: error.stack,
@@ -151,7 +157,8 @@ try {
       assert.equal(result.osmWay, realityAsset.piste.osmWay);
       assert(result.descent > 25);
       assert.equal(result.restarted, true);
-      if (network) assert(result.continued && result.junctionDraws > 0, JSON.stringify(result));
+      if (network) assert(result.continued && result.junctionDraws > 0 &&
+        result.lowerJunctionDraws > 0, JSON.stringify(result));
       else assert.equal(result.junctionDraws, 0);
     }
     console.log(mode, result.piste || 'seeded mountain', lang, backend, 'skiing, rendered frame and ground contact passed');
