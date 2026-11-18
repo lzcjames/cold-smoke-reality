@@ -15,7 +15,7 @@ async function boot(stage) {
   await step(0.03, '醒来');
   if (typeof XHS !== 'undefined') await XHS.restore();               // (inside 小红书: the player's settings from the container's own storage)
   if (REALITY_MODE) {
-    Course.setReality(await Reality.load());
+    Course.setReality(await Reality.load(QS.get('network') === '1'));
     const credits = document.getElementById('reality-credits');
     const piste = document.getElementById('reality-piste');
     piste.textContent = Course.reality.piste;
@@ -60,6 +60,8 @@ async function boot(stage) {
   Gates.init(gfx);
   const pisteMarkers = Course.reality && PisteMarkers.init(gfx, Course.reality);
   if (pisteMarkers) Render.passes.opaque.push(R => pisteMarkers.draw(R.origin));
+  const junctionSigns = JunctionSigns.init(gfx, Course.reality?.network);
+  if (junctionSigns) Render.passes.opaque.push(R => junctionSigns.draw(R));
   await step(0.56, '点亮星云');
   Spray.init(gfx); Grains.init(gfx); Dust.init(gfx); Nebula.init(gfx, +QS.get('nebres') || (gfx.caps.maxTex >= 4096 && (navigator.deviceMemory || 8) >= 4 ? 1536 : 768)); Clouds.init(gfx, +QS.get('cloudres') || 0); Shafts.init(gfx); Tracks.init(gfx);
   Wind.init(gfx);                                                        // snow the wind carries off the crests and along the ground (11b_wind.js)
@@ -87,11 +89,13 @@ async function boot(stage) {
   const pipes = [].concat(Sky.pipes, Terrain.pipes, Post.pipes, Skier.pipes, Deer.pipes, Trees.pipes, Spray.pipes, Grains.pipes, Dust.pipes, Nebula.pipes, Clouds.pipes, Shafts.pipes, Tracks.pipes, Wind.pipes);
   pipes.push(...Gates.pipes);
   if (pisteMarkers) pipes.push(pisteMarkers.pipe);
+  if (junctionSigns) pipes.push(junctionSigns.pipe);
   for (let i = 0; i < pipes.length; i++) { const p = pipes[i]; if (p.held) continue; if (gfx.finishPipelineAsync) await gfx.finishPipelineAsync(p); else gfx.finishPipeline(p); if (stage && !manual && i % 6 === 5) await step(0.70 + 0.16 * (i + 1) / pipes.length, null); }
   await step(0.87, '铺雪');
   fit();
   Input.init(canvas);
-  Game.reset(Course.reality?.start);
+  if (Course.reality) Game.resetReality();
+  else Game.reset();
   App.skierRoot = Game.root; App.skierPose = Game.pose;
   tick(1 / 60, false);
   { const t0 = performance.now(); Terrain.update(Render.cam.pos[0], Render.cam.pos[2], true); if (DEV) console.log('terrain', Math.round(performance.now() - t0) + 'ms'); }
@@ -296,7 +300,7 @@ App.onTick.push(() => {
 App.onMountain = [];                             // called with the seed after every change of mountain
 App.newMountain = function (seed, now) {
   if (Course.reality) {
-    App.swap(() => Game.reset(Course.reality.start), now);
+    App.swap(Game.resetReality, now);
     return Course.seed;
   }
   seed = Math.floor(+seed) >= 1 ? +seed : App.randomSeed();
@@ -393,11 +397,25 @@ else {
     const query = new URLSearchParams(location.search);
     if (REALITY_MODE) {
       query.delete('reality');
+      query.delete('network');
       link.textContent = 'Cold Smoke';
       document.getElementById('reality-back').href = '?' + query;
     } else {
       query.set('reality', Reality.id);
     }
+    const networkLink = document.getElementById('reality-network');
+    const networkQuery = new URLSearchParams(location.search);
+    networkQuery.set('reality', Reality.id);
+    if (QS.get('network') === '1') {
+      networkQuery.delete('network');
+      networkLink.textContent = I18N.en() ? 'La Balme only' : '仅滑 La Balme';
+    } else {
+      networkQuery.set('network', '1');
+      networkLink.textContent = I18N.en() ? 'Alpe d’Huez piste network' : 'Alpe d’Huez 雪道网络';
+    }
+    networkLink.href = '?' + networkQuery;
+    networkLink.hidden = networkLink.dataset.networkAsset !== 'available';
+    networkLink.addEventListener('click', event => event.stopPropagation());
     link.href = '?' + query;
     link.addEventListener('click', event => event.stopPropagation());
   }

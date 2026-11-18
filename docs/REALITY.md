@@ -43,3 +43,7 @@ The browser checks use Chromium and SwiftShader. Set `BROWSER` to override the e
 ## Piste markers
 
 Reality Mode places signs along the mapped centreline at the sides of the estimated ski corridor. Each sign displays the piste name and an in-game number that counts down toward the finish. The difficulty colour follows the French green/blue/red/black scale from the OSM `piste:difficulty` tag. La Balme is tagged `advanced` and uses black signs. The numbers and placement are generated for the game.
+
+## Piste network
+
+The optional [La Balme piste network](reality-network/README.md) adds surveyed connections to Déversoir and Campanules, directional panels and branch stakes on the same DEM. Open it from the title screen or append `&network=1` to the Alpe d’Huez URL.

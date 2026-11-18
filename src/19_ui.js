@@ -178,8 +178,10 @@ const UI = (() => {
     // short of the line has already been told; a skier put somewhere else altogether is told afresh)
     const sg = Course.segAt(-S.p[2] + 2.5 * Math.max(0, -S.v[2]));
     if (sg.idx < U.segIdx - 1) U.segIdx = -1;
-    if (sg.idx > U.segIdx && since > 1.6 && !dayUp()) {
-      U.segIdx = sg.idx; segCard(sg);
+    const network = Course.reality?.network;
+    const currentLine = network && network.lookup(S.p[0], S.p[2], networkHUD) ? networkHUD.piste : null;
+    if ((sg.idx > U.segIdx || currentLine && currentLine.osmWay !== U.networkWay) && since > 1.6 && !dayUp()) {
+      U.segIdx = sg.idx; U.networkWay = currentLine?.osmWay; segCard(sg, currentLine);
       // (on a phone held flat the card stands beside the speed, in the sky over the city, and goes sooner: the horizon is the picture there)
       segHold(el.app.classList.contains('short') && !el.app.classList.contains('desk') ? 2.5 : 3.6);
     }
@@ -332,9 +334,10 @@ const UI = (() => {
   }
   // 陡坡 · 28.4 s · 132 km/h ▲ · 飞行 38 m
   // the card of a run: its number and its name (in English the name is the big line, and the number stands alone over it)
-  function segCard(sg) {
+  const networkHUD = {};
+  function segCard(sg, line) {
     if (Course.reality) {
-      el.segCn.textContent = Course.reality.piste;
+      el.segCn.textContent = line?.name || networkHUD.piste?.name || Course.reality.piste;
       el.segEn.textContent = 'Alpe d’Huez';
       return;
     }

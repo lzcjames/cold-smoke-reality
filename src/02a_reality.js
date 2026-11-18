@@ -63,21 +63,28 @@ const Reality = (() => {
     if (height(centre(start + 8), -start - 8) >= height(centre(start), -start)) {
       throw new Error('Alpe d’Huez piste spawn has no downhill gradient.');
     }
+    const withinDEM = (x, z) => inside(e0 - x * dn - z * de, n0 + x * de - z * dn);
     return {
       id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
       difficulty: typeof piste.difficulty === 'string' ? piste.difficulty : null,
       height, centre,
+      project(e, n) {
+        return [(n - n0) * de - (e - e0) * dn, -(e - e0) * de - (n - n0) * dn];
+      },
+      withinDEM,
       contains(x, z) {
-        return -z < length && inside(e0 - x * dn - z * de, n0 + x * de - z * dn);
+        return -z < length && withinDEM(x, z);
       },
     };
   }
 
-  async function load() {
+  async function load(network = false) {
     try {
       const response = await fetch(filename);
       if (!response.ok) throw new Error('HTTP ' + response.status);
-      return create(await response.json());
+      const data = await response.json(), terrain = create(data);
+      if (network) terrain.network = PisteNetwork.create(terrain, data);
+      return terrain;
     } catch (error) {
       throw new Error('Alpe d’Huez terrain unavailable: ' + error.message);
     }

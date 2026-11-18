@@ -530,7 +530,14 @@ const Course = ((vn1, vn2, h2U) => {
   function centre(s, mean) { return (bend(s) - bend(0) + mean * (wander(s) - wander(0))) * smooth(0, 400, s); }
   // which way the valley runs at s: the angle of its centre line off straight down the mountain (radians, positive toward +x)
   const _py = {};
-  C.yawAt = function (s) { const a = at(s - 5, _py).cx; return Math.atan2(at(s + 35, _py).cx - a, 40); };
+  const networkSample = {};
+  C.yawAt = function (s, x) {
+    if (C.reality?.network && x != null && C.reality.network.lookup(x, -s, networkSample)) return networkSample.yaw;
+    const a = at(s - 5, _py).cx;
+    return Math.atan2(at(s + 35, _py).cx - a, 40);
+  };
+  C.realityOffset = (x, z) => C.reality.network.lookup(x, z, networkSample) ?
+    networkSample.distance - C.reality.halfWidth : 70 - C.reality.halfWidth;
 
   const cur = { baseY: 0, cx: 0, hw: 40, dish: 0, shoulder: 0.3, gul: 0, gw: 10, goff: 0, roll: 0, mog: 0, forest: 0, glade: 0, powder: 0, ridge: 0, wall: 1, rtail: 0, tilt: 0, bank: 0, enc: 0, gU: 0, s: 0 };
   function at(s, out) {

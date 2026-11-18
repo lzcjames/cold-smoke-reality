@@ -1,0 +1,168 @@
+{
+  "start": {
+    "boot": "ok webgl2",
+    "bootMs": 15698.10000000149,
+    "navigationToReadyMs": 16550.400000002235
+  },
+  "frame": {
+    "scenarios": [
+      {
+        "s": 20,
+        "camera": [
+          23.878158366004346,
+          -1.0338777716578988,
+          -15
+        ],
+        "target": [
+          37.338058785765845,
+          -7.476268950748363,
+          -45
+        ],
+        "frames": [
+          {
+            "ms": 683.5999999977648,
+            "draws": 61,
+            "triangles": 356561,
+            "lines": 0,
+            "hideJunctions": false
+          },
+          {
+            "ms": 755.1999999992549,
+            "draws": 60,
+            "triangles": 356393,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 651.8999999985099,
+            "draws": 60,
+            "triangles": 356393,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 690.6999999992549,
+            "draws": 61,
+            "triangles": 356561,
+            "lines": 0,
+            "hideJunctions": false
+          },
+          {
+            "ms": 710.3999999985099,
+            "draws": 61,
+            "triangles": 356561,
+            "lines": 0,
+            "hideJunctions": false
+          },
+          {
+            "ms": 770.5,
+            "draws": 60,
+            "triangles": 356393,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 830.7000000029802,
+            "draws": 60,
+            "triangles": 356393,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 687.1999999992549,
+            "draws": 61,
+            "triangles": 356561,
+            "lines": 0,
+            "hideJunctions": false
+          }
+        ]
+      },
+      {
+        "s": 1741.7773840774494,
+        "camera": [
+          14.856658462277135,
+          -513.4157602978271,
+          -1736.7773840774494
+        ],
+        "target": [
+          2.6091154753086556,
+          -519.0473336735504,
+          -1766.7773840774494
+        ],
+        "frames": [
+          {
+            "ms": 572.5,
+            "draws": 55,
+            "triangles": 332077,
+            "lines": 0,
+            "hideJunctions": false
+          },
+          {
+            "ms": 621.2000000029802,
+            "draws": 54,
+            "triangles": 331741,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 541.5,
+            "draws": 54,
+            "triangles": 331741,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 648.6999999992549,
+            "draws": 55,
+            "triangles": 332077,
+            "lines": 0,
+            "hideJunctions": false
+          },
+          {
+            "ms": 856.2000000029802,
+            "draws": 55,
+            "triangles": 332077,
+            "lines": 0,
+            "hideJunctions": false
+          },
+          {
+            "ms": 795.0999999977648,
+            "draws": 54,
+            "triangles": 331741,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 680.8999999985099,
+            "draws": 54,
+            "triangles": 331741,
+            "lines": 0,
+            "hideJunctions": true
+          },
+          {
+            "ms": 635.2000000029802,
+            "draws": 55,
+            "triangles": 332077,
+            "lines": 0,
+            "hideJunctions": false
+          }
+        ]
+      }
+    ],
+    "allocationBytes": 265587218.66666666,
+    "viewport": [
+      320,
+      180
+    ]
+  },
+  "heap": [
+    {
+      "name": "JSHeapUsedSize",
+      "value": 13115368
+    },
+    {
+      "name": "JSHeapTotalSize",
+      "value": 13881344
+    }
+  ]
+}
