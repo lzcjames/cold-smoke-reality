@@ -65,6 +65,7 @@ const Reality = (() => {
     }
     return {
       id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
+      difficulty: typeof piste.difficulty === 'string' ? piste.difficulty : null,
       height, centre,
       contains(x, z) {
         return -z < length && inside(e0 - x * dn - z * de, n0 + x * de - z * dn);

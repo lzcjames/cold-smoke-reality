@@ -56,3 +56,22 @@ test('Course retains its seeded terrain and shares Reality height with collision
   assert.ok(values.normal[1] > 0.9 && values.normal[2] < 0);
   assert.ok(values.snow >= values.fine);
 });
+
+test('places numbered piste signs on the DEM and uses the French difficulty colours', () => {
+  const { layout, colour } = vm.runInNewContext(run(['14c_piste_markers.js']) + '\nPisteMarkers');
+  const asset = require('../data/reality/alpe-dhuez.json');
+  const terrain = create(asset);
+  const posts = layout(terrain);
+  assert.equal(terrain.difficulty, 'advanced');
+  assert.equal(colour(terrain.difficulty), '#171b20');
+  assert.equal(colour('expert'), colour('advanced'));
+  assert.notEqual(colour('easy'), colour('intermediate'));
+  assert.notEqual(colour(create(fixture()).difficulty), colour('advanced'));
+  assert.ok(posts.length > 1);
+  for (const [index, post] of posts.entries()) {
+    assert.equal(post.number, posts.length - index);
+    assert.equal(post.y, terrain.height(post.x, post.z));
+    assert.ok(terrain.contains(post.x, post.z));
+    assert.ok((post.x - terrain.centre(-post.z)) * (index % 2 === 0 ? 1 : -1) > 0);
+  }
+});

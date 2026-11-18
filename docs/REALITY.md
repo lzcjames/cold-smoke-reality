@@ -39,3 +39,7 @@ npm run test:browser -- --release
 ```
 
 The browser checks use Chromium and SwiftShader. Set `BROWSER` to override the executable. The CI workflow uploads a static site artifact on branches and pull requests. For public deployment, set **Settings → Pages → Source** to **GitHub Actions**. The deploy job publishes and checks the site on `main` after validation.
+
+## Piste markers
+
+Reality Mode places signs along the mapped centreline at the sides of the estimated ski corridor. Each sign displays the piste name and an in-game number that counts down toward the finish. The difficulty colour follows the French green/blue/red/black scale from the OSM `piste:difficulty` tag. La Balme is tagged `advanced` and uses black signs. The numbers and placement are generated for the game.
