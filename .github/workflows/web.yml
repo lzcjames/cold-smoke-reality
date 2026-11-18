@@ -2,7 +2,9 @@ name: Web validation and Pages
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +14,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    outputs:
+      asset_sha: ${{ steps.stage.outputs.asset_sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,16 +27,21 @@ jobs:
       - run: npm test
       - run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gdal
+          sudo apt-get install -y python3-gdal python3-numpy
           /usr/bin/python3 -B test/reality-import.py
-      - run: npm run test:browser
+      - run: npm run test:browser -- --release
         env:
           BROWSER: ${{ steps.chrome.outputs.chrome-path }}
       - name: Stage website
+        id: stage
         run: |
+          test -s dist/dev.html
+          grep -qi '<!doctype html>' dist/dev.html
+          test -s dist/reality/alpe-dhuez.json
           mkdir -p site
           cp dist/dev.html site/index.html
-          if [ -d dist/reality ]; then cp -R dist/reality site/; fi
+          cp -R dist/reality site/
+          echo "asset_sha=$(sha256sum site/reality/alpe-dhuez.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: cold-smoke-web
@@ -62,10 +71,11 @@ jobs:
       - name: Verify deployed website
         env:
           PAGE_URL: ${{ steps.deploy.outputs.page_url }}
+          ASSET_SHA: ${{ needs.validate.outputs.asset_sha }}
         run: |
-          curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL}" -o /tmp/cold-smoke-index.html
+          curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL}?v=${ASSET_SHA}" -o /tmp/cold-smoke-index.html
           grep -q 'id="view"' /tmp/cold-smoke-index.html
-          if grep -q 'data-reality-asset="available"' /tmp/cold-smoke-index.html; then
-            curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/alpe-dhuez.json" -o /tmp/alpe-dhuez.json
-            node -e 'if (require("/tmp/alpe-dhuez.json").id !== "alpe-dhuez") process.exit(1)'
-          fi
+          grep -q 'data-reality-asset="available"' /tmp/cold-smoke-index.html
+          curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/alpe-dhuez.json?v=${ASSET_SHA}" -o /tmp/alpe-dhuez.json
+          test -n "$ASSET_SHA"
+          printf '%s  %s\n' "$ASSET_SHA" /tmp/alpe-dhuez.json | sha256sum --check

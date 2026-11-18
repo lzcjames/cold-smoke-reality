@@ -13,11 +13,14 @@ const pages = new Map([
   ...await Promise.all(['00_util.js', '01_gfx.js'].map(async file =>
     ['/src/' + file, [await readFile(new URL('src/' + file, root)), 'text/javascript']])),
 ]);
-let serveFixture = false;
+const realityAsset = process.argv.includes('--release')
+  ? JSON.parse(await readFile(new URL('dist/reality/alpe-dhuez.json', root), 'utf8'))
+  : fixture();
+let serveReality = false;
 const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
-  const page = path === '/reality/alpe-dhuez.json' && serveFixture ?
-    [JSON.stringify(fixture()), 'application/json'] : pages.get(path);
+  const page = path === '/reality/alpe-dhuez.json' && serveReality ?
+    [JSON.stringify(realityAsset), 'application/json'] : pages.get(path);
   if (!page) return res.writeHead(404).end();
   res.writeHead(200, { 'Content-Type': page[1] }).end(page[0]);
 }).listen(0, '127.0.0.1');
@@ -83,7 +86,7 @@ try {
   assert.match(await evaluate('window.__ski.boot()'), /^ERR Alpe d’Huez terrain unavailable/);
   assert.equal(await evaluate('window.__ski.app().ready'), false);
   console.log('Missing Reality data stops startup');
-  serveFixture = true;
+  serveReality = true;
 
   for (const [mode, lang, backend] of [
     ['procedural', 'en', 'webgpu'], ['reality', 'zh', 'webgl2'], ['reality', 'en', 'webgpu'],
@@ -108,7 +111,7 @@ try {
       }
       return { boot, start, end, error: k.err(), surface, graphicsAlive: !k.app().gfx.lost,
         lang: k.i18n().lang, reality: Boolean(terrain), restarted,
-        fixtureHeight: terrain && k.height(5, -15) };
+        piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length) };
       } catch (error) {
         return { failure: error.message || String(error), stack: error.stack,
           graphicsError: window.__ski.err() };
@@ -118,13 +121,15 @@ try {
     assert.equal(result.boot, 'ok ' + backend);
     assert.equal(result.lang, lang);
     assert.equal(result.reality, reality);
-    assert(!result.error && result.graphicsAlive && result.end.speed > 0 && result.end.p[2] < result.start.p[2]);
-    assert(Math.abs(result.end.p[1] - result.surface) < 0.5);
+    assert(!result.error && result.graphicsAlive && result.end.speed > 0 && result.end.p[2] < result.start.p[2], JSON.stringify(result));
+    assert(Math.abs(result.end.p[1] - result.surface) < 0.5, JSON.stringify(result));
     if (reality) {
-      assert.equal(result.fixtureHeight, -4.375);
+      assert.equal(result.piste, realityAsset.piste.name);
+      assert.equal(result.osmWay, realityAsset.piste.osmWay);
+      assert(result.descent > 25);
       assert.equal(result.restarted, true);
     }
-    console.log(mode, lang, backend, 'skiing, rendered frame and ground contact passed');
+    console.log(mode, result.piste || 'seeded mountain', lang, backend, 'skiing, rendered frame and ground contact passed');
   }
 } finally {
   clearTimeout(timer);

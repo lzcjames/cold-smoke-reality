@@ -1,5 +1,7 @@
 # Reality Mode · Alpe d’Huez
 
+La Balme is bundled with this release. See the [source record](../data/reality/SOURCES.md) for the IGN and OpenStreetMap inputs.
+
 Cold Smoke starts on the procedural mountain by default. When a validated Alpe d’Huez data asset is bundled, the title links to Reality Mode. The direct entry point is `?reality=alpe-dhuez`. A missing or invalid asset produces a startup error and a link back to Cold Smoke.
 
 ## Source data and import
@@ -33,7 +35,7 @@ The import writes `data/reality/alpe-dhuez.json`. The build validates it and cop
 npm run check
 npm test
 /usr/bin/python3 -B test/reality-import.py
-npm run test:browser
+npm run test:browser -- --release
 ```
 
 The browser checks use Chromium and SwiftShader. Set `BROWSER` to override the executable. The CI workflow uploads a static site artifact on branches and pull requests. For public deployment, set **Settings → Pages → Source** to **GitHub Actions**. The deploy job publishes and checks the site on `main` after validation.
