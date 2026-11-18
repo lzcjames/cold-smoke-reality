@@ -89,6 +89,10 @@ Useful URL parameters: `?backend=webgl2` (force the fallback renderer), `?lang=e
 
 Add `?dev` (or open a path ending in `/dev`; the local server serves that as the game) for developer mode: the time of day, the weather and its random-function settings, encounters, and the version comparison. None of that is in the menu otherwise. The Xiaohongshu build never opens developer mode.
 
+### Reality Mode
+
+See [Alpe d’Huez data import and testing](docs/REALITY.md) for setup.
+
 ### Project structure
 
 ```

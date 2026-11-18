@@ -1390,6 +1390,10 @@ const Game = (() => {
       Course.rockCap = ROCK_CAP;
       if (acc > 1e-7) for (let k = 0; k < ns; k++) { step(Hs, Input.u); acc -= Hs; n++; G.stepT = G.t - Math.max(acc, 0); if (G.onStep) G.onStep(S, Hs); }
       acc = 0;
+      if (Course.reality && !Course.reality.contains(S.p[0], S.p[2])) {
+        G.reset(Course.reality.start);
+        if (G.onRealityRestart) G.onRealityRestart();
+      }
       if (n === 10) acc = 0;
       G.dist = -S.p[2]; G.drop = G.y0 - S.p[1]; if (S.speed > G.topSpeed) G.topSpeed = S.speed;
     }

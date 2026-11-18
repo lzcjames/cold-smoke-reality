@@ -89,9 +89,9 @@ const Sky = (() => {
         // in heavy snow the overcast is drawn over all of that, the sun coming and going through its breaks (05b_weather.js)
         col = overcast(d, mu, col);
         // beyond the mountain, nearest last: ranges on the horizon, the cloud deck, the city standing in it
-        col = farRanges(d, col);
+        if (M.pc.w < 0.5) { col = farRanges(d, col); }
         if (d.y < 0.0) { col = mix(col, cloudSea(d, mu, col), smoothstep(0.0, -0.006, d.y)); }
-        { let cb: vec3f = col; col = mix(cityLayer(d, col), cb, M.wf.w); }      // (behind heavy snow only a shape of it: 05b_weather.js)
+        if (M.pc.w < 0.5) { let cb: vec3f = col; col = mix(cityLayer(d, col), cb, M.wf.w); }      // (behind heavy snow only a shape of it: 05b_weather.js)
         // ...and nearer than all of it, a bolt of lightning
         col += bolt(d);
         o.color = vec4f(col, 0.0); return o; }`,
@@ -252,7 +252,7 @@ const Sky = (() => {
     const wx = typeof Weather !== 'undefined' ? Weather.sky : null, wk = wx && Weather.sunK != null ? Weather.sunK : 1;
     gfx.draw(pipeSky, { u: { au: [S.aurora(Render.time), 0.12, Render.time * 0.0035, Render.time], p: [S.nebDay * (NebDayV[Variants.val.nebday] ?? 1), S.nebNight * S.nebNightK * (NebNightV[Variants.val.nebnight] ?? 1), S.polar * lerp(0.5, 1, S.milk), lerp(1.0, S.nebSat, S.milk)], nr: b.nr, nu: [b.nu[0], b.nu[1], b.nu[2], b.nu[3] * S.nebShow()], nf: b.nf,
       sd: [S.disc[0], S.disc[1], S.disc[2], S.isMoon ? 0 : 1], mo: [md[0], md[1], md[2], S.moonVis], hi: [S.sunHi[0], S.sunHi[1], S.sunHi[2], S.night], fr: [S.sunFar[0] * wk, S.sunFar[1] * wk, S.sunFar[2] * wk, strobe + 0.5 * beacon],
-      pa: PL.on ? [PL.x - cam[0], PL.z - cam[2], S.hiAlt, 1] : [0, 0, S.hiAlt, 0], pb: [PL.hx, PL.hz, PL.len, PL.v], pc: [PL.cut, S.glare, (Variants.val.moon === 'b' ? 1 : 0) * S.night, 0], cs: [Clouds.sea.f, Clouds.sea.oA, Clouds.sea.oB, 0], ab: S.anti, ns: [NSKY.step(Render.time)[0], NSKY.v[1], 0, 0],
+      pa: PL.on ? [PL.x - cam[0], PL.z - cam[2], S.hiAlt, 1] : [0, 0, S.hiAlt, 0], pb: [PL.hx, PL.hz, PL.len, PL.v], pc: [PL.cut, S.glare, (Variants.val.moon === 'b' ? 1 : 0) * S.night, Course.reality ? 1 : 0], cs: [Clouds.sea.f, Clouds.sea.oA, Clouds.sea.oB, 0], ab: S.anti, ns: [NSKY.step(Render.time)[0], NSKY.v[1], 0, 0],
       wa: wx ? wx.wa : [0, 0, 0, 0], wb: wx ? wx.wb : [0, 0, 0, 0], wc: wx ? wx.wc : [0, 0, 0, 0], wd: wx ? wx.wd : [0, 0, 0, 0], we: wx ? wx.we : [0, 0, 0, 0], wf: wx ? wx.wf : [0, 0, 0, 0], wg: wx ? wx.wg : [0, 0, 0, 0] },
       tex: { tSky: lutTex, tNebA: Nebula.texA, tNebB: Nebula.texB, tDetail: Tex.detail, tFarA: Vista.farA, tFarB: Vista.farB, tCityA: Vista.cityA, tCityB: Vista.cityB, tCitySh: Vista.shTex, tSeaA: Clouds.sea.A, tSeaB: Clouds.sea.B }, count: 3 });
   };

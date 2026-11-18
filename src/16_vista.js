@@ -459,6 +459,7 @@ const Vista = (() => {
   // every frame, over the sky: the lit haze and the under-lit deck, the searchlights, the walls, the lamps. All additive, all behind
   // whatever the mountain puts in front (they are drawn at the far plane and tested against the scene's depth)
   V.drawLights = function (R) {
+    if (Course.reality) return;
     const L = V.lit; if (!litReady || !L.on) return;
     // nothing to do while the camera looks somewhere else
     const c = R.cam, th = Math.tan(c.fovY / 2), half = Math.atan(th * Math.hypot(1, R.W / R.H));

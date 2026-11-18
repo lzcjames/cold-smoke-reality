@@ -1,8 +1,10 @@
 // ---------------------------------------------------------------- boot, main loop, test hooks
 const App = { state: { speed: 0, lean: 0 }, ready: false, t: 0, lookYaw: null, lampTilt: 0.07 };
 const QS = new URLSearchParams(location.search);
+const REALITY_MODE = !(self.COLD_SMOKE && (/*native{*/self.COLD_SMOKE.createGraphics || /*}native*/self.COLD_SMOKE.noDev)) &&
+  QS.get('reality') === Reality.id;
 // ?dev, or a path ending in /dev, is the test harness and the developer menu. The 小红书 build sets COLD_SMOKE.noDev and never opens it.
-const DEV = !(self.COLD_SMOKE && self.COLD_SMOKE.noDev) && (QS.has('dev') || /(?:^|\/)dev\/?$/.test(location.pathname) || !!(self.COLD_SMOKE && self.COLD_SMOKE.dev));      // (COLD_SMOKE.dev: a test file opened as it is, with no address to put ?dev in)
+const DEV = !REALITY_MODE && !(self.COLD_SMOKE && self.COLD_SMOKE.noDev) && (QS.has('dev') || /(?:^|\/)dev\/?$/.test(location.pathname) || !!(self.COLD_SMOKE && self.COLD_SMOKE.dev));      // (COLD_SMOKE.dev: a test file opened as it is, with no address to put ?dev in)
 
 // Start-up runs in stages with a breath between them, so the loading page can show where it has got to
 Variants.def('bootq', '开机顺序', [['a', '全部编好再开'], ['b', '先编第一眼要的']], 'b');
@@ -12,6 +14,16 @@ async function boot(stage) {
   const canvas = document.getElementById('view');
   await step(0.03, '醒来');
   if (typeof XHS !== 'undefined') await XHS.restore();               // (inside 小红书: the player's settings from the container's own storage)
+  if (REALITY_MODE) {
+    Course.setReality(await Reality.load());
+    const credits = document.getElementById('reality-credits');
+    const piste = document.getElementById('reality-piste');
+    piste.textContent = Course.reality.piste;
+    piste.href = 'https://www.openstreetmap.org/way/' + Course.reality.osmWay;
+    document.getElementById('reality-dem').textContent = Course.reality.elevationSource;
+    credits.hidden = false;
+    Game.onRealityRestart = () => { Tracks.reset(); Spray.clear(); };
+  }
   Quality.decide(); App.applyQuality(true);                             // how much this device is asked to draw (00c_quality.js)
   if (DEV) console.log('quality', Quality.tier, Quality.why, Quality.gpu);
   // a browser that can open a headset's immersive mode (Safari on Apple Vision Pro) is drawn with WebGL2 from the start: WebXR hands its
@@ -28,7 +40,7 @@ async function boot(stage) {
   // (Variants 'bootq' b): the far city's lights, the night sky's bake, animals, gates, crest plumes, light shafts, the first-person body
   if (Variants.val.bootq !== 'a') gfx.hold = n => BOOT_LATER.test(n);
   Course.forceType = QS.get('seg') || null; Course.classic = QS.has('classic');      // dev: a mountain made of one kind of run; the runs in the order the first mountain had them
-  Course.setSeed(DEV ? (seedInHash() || Math.floor(+QS.get('seed')) || Course.seed) : Course.seed);      // outside dev: always the home mountain (寒烟山)
+  if (!Course.reality) Course.setSeed(DEV ? (seedInHash() || Math.floor(+QS.get('seed')) || Course.seed) : Course.seed);      // outside dev: always the home mountain (寒烟山)
   if (QS.get('tod')) { const q = QS.get('tod'); Sky.setClock(q in Sky.times ? Sky.times[q] : +q || 0); }
   await step(0.08, '磨雪');
   makeNoiseTextures(gfx); makeSnowTexture(gfx, Sky.az); Terrain.setSun(Sky.az);
@@ -76,7 +88,7 @@ async function boot(stage) {
   await step(0.87, '铺雪');
   fit();
   Input.init(canvas);
-  Game.reset();
+  Game.reset(Course.reality?.start);
   App.skierRoot = Game.root; App.skierPose = Game.pose;
   tick(1 / 60, false);
   { const t0 = performance.now(); Terrain.update(Render.cam.pos[0], Render.cam.pos[2], true); if (DEV) console.log('terrain', Math.round(performance.now() - t0) + 'ms'); }
@@ -101,7 +113,7 @@ function tick(dt, draw) {
   Skier.update(Game.root, Game.pose, Render.origin);
   Trees.update(Render.cam, Render.origin, Render.W / Render.H, Game.root.pos, dt);
   Gates.update(Render.cam, Render.origin, Game.root.pos, dt, App.t);
-  Deer.update(dt, App.t);
+  if (!Course.reality) Deer.update(dt, App.t);
   st.speed = S.speed; st.lean = S.lean; st.playerPos = Game.root.pos; st.air = S.air;
   // the headlamp sits on the forehead and looks where the skier is looking: down the mountain along the line being skied (the head stays
   // quiet while the skis swing under it), a little below the lie of the slope, so its pool falls a few lengths ahead
@@ -231,6 +243,7 @@ function retryOnWebGL2(e) {
 }
 function reportError(e) {
   console.error(e && e.message ? e.message : e); if (e && e.vs) console.log(e.vs.slice(0, 20000)); if (e && e.fs) console.log(e.fs.slice(0, 20000));
+  if (REALITY_MODE) document.getElementById('reality-back').hidden = false;
   const el = document.getElementById('fatal'); if (el) { el.hidden = false; el.textContent = I18N.t(String(e && e.message ? e.message : e)); }
 }
 
@@ -244,7 +257,7 @@ const seedInHash = () => { if (!DEV) return 0; const h = location.hash || ''; if
 // so it needs no server and every phone agrees. #today (or #daily) is today's mountain; once there the address names it as #seed-<n>.
 App.today = () => Math.floor((Date.now() + 8 * 3600e3) / 86400e3);
 App.dailySeed = (d = App.today()) => { let h = Math.imul(d ^ 0x2c1b3c6d, 0x297a2d39); h ^= h >>> 15; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return 100000 + (h >>> 0) % 900000; };
-App.isDaily = () => Course.seed === App.dailySeed();
+App.isDaily = () => !Course.reality && Course.seed === App.dailySeed();
 App.dayLabel = (d = App.today(), en = false) => { const t = new Date(d * 86400e3), m = t.getUTCMonth() + 1, n = t.getUTCDate(); return en ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1] + ' ' + n : m + '月' + n + '日'; };
 App.randomSeed = () => { let n; do n = 100000 + Math.floor(Math.random() * 900000); while (n === Course.seed || n === App.dailySeed()); return n; };      // six figures: easy to read out
 // Setting the skier down where no terrain has been made yet (another mountain, or far off on this one) is about a second of work for the
@@ -279,6 +292,10 @@ App.onTick.push(() => {
 // is thrown away or made again, and the skier stands at the top of it, on the title page or in a run as before. Returns the seed.
 App.onMountain = [];                             // called with the seed after every change of mountain
 App.newMountain = function (seed, now) {
+  if (Course.reality) {
+    App.swap(() => Game.reset(Course.reality.start), now);
+    return Course.seed;
+  }
   seed = Math.floor(+seed) >= 1 ? +seed : App.randomSeed();
   App.swap(() => {
     Course.setSeed(seed); if (Trees.reset) Trees.reset();
@@ -367,5 +384,19 @@ addEventListener('resize', () => App.redraw());
 if (QS.has('manual') && !QS.has('ui')) document.getElementById('app').classList.add('bare');
 else {
   UI.init();
+  const link = document.getElementById('reality-mode');
+  if (REALITY_MODE || (link.dataset.realityAsset === 'available' && !self.COLD_SMOKE?.noDev)) {
+    link.hidden = false;
+    const query = new URLSearchParams(location.search);
+    if (REALITY_MODE) {
+      query.delete('reality');
+      link.textContent = 'Cold Smoke';
+      document.getElementById('reality-back').href = '?' + query;
+    } else {
+      query.set('reality', Reality.id);
+    }
+    link.href = '?' + query;
+    link.addEventListener('click', event => event.stopPropagation());
+  }
   boot(UI.stage).then(() => { UI.ready(); lastT = performance.now(); requestAnimationFrame(loop); if (QS.has('autostart')) UI.go(); }).catch(e => { if (!retryOnWebGL2(e)) reportError(e); });
 }
