@@ -46,13 +46,19 @@ try {
   function cdp(method, params={}) {
     const seq=++id;
     return new Promise((resolve,reject)=>{
+      function close() {
+        socket.removeEventListener('message', receive);
+        reject(new Error('Chromium closed during ' + method));
+      }
       function receive(e) {
         const msg=JSON.parse(e.data);
         if(msg.id!==seq) return;
         socket.removeEventListener('message',receive);
+        socket.removeEventListener('close', close);
         if(msg.error) reject(msg.error); else resolve(msg.result);
       }
       socket.addEventListener('message',receive);
+      socket.addEventListener('close', close, { once: true });
       socket.send(JSON.stringify({id:seq,method,params}));
     });
   }

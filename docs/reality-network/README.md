@@ -64,3 +64,98 @@ To reproduce the graph from the retained extracts:
   --out /tmp/alpe-dhuez-network.json
 cmp /tmp/alpe-dhuez-network.json data/reality/alpe-dhuez.json
 ```
+
+## In-game captures
+
+The two overview frames use the same saved camera, DEM, 640 × 360
+viewport, clear weather, day lighting and WebGL2. Camera settings are
+in [views.json](views.json). The close-ups show each destination and
+its approach-facing arrow.
+
+| Baseline fork | Network fork |
+|---|---|
+| ![Fixed-camera baseline](fork-baseline.png) | ![Same camera with fork signs and red stakes](fork-network.png) |
+
+[Déversoir close-up](deversoir.png) · [La Balme close-up](la-balme.png) ·
+[Campanules close-up](campanules.png)
+
+## Performance protocol
+
+Baseline commit `facbe88d08c2ab42574963682b596d296bcdb0b9`. Run the
+baseline and network samples serially on the same runner:
+
+```sh
+baseline=$(mktemp -d)
+git archive facbe88d08c2ab42574963682b596d296bcdb0b9 | tar -x -C "$baseline"
+(cd "$baseline" && npm run build)
+npm run build
+node docs/reality-network/benchmark.mjs "$baseline/dist/dev.html" \
+  "$baseline/dist/reality/alpe-dhuez.json" /tmp/piste-before.json baseline
+node docs/reality-network/benchmark.mjs dist/dev.html \
+  dist/reality/alpe-dhuez.json /tmp/piste-after.json network
+```
+
+Chromium 156 / ANGLE SwiftShader, Xeon Platinum 8573C, 320 × 180,
+quality 2, governor off, clear weather, fixed daylight, no motion
+blur. Both runs initialize from the same La Balme spawn and step the
+same `pilot(0.45, 5.2)` 120 times at 1/60 s. The two fixed camera
+targets are centred at 20 m and 1,741.78 m on the original
+La Balme axis. Each camera discards three warm-up frames
+and records four rendered frames with a one-pixel synchronous
+WebGL readback. The FPS equivalent is 1,000 divided by the median
+completed-frame time. Software rendering and forced readback make
+the absolute values unsuitable as player FPS on hardware.
+
+Load time covers boot and the held pipeline release, and
+navigation-to-ready also includes document load. Each configuration
+records a cold browser sample. The memory figures are used JS heap
+after explicit garbage collection and estimated bytes requested from
+graphics texture and typed-array buffer constructors during the run.
+The graphics estimate does not track deallocation or driver overhead,
+and the two counters do not represent browser RSS. Draw calls and
+triangles count draw submissions across all passes.
+
+| Metric | Base | Network | Change |
+|---|---:|---:|---:|
+| Boot + held pipelines | 13.497 s | 12.725 s | −0.771 s |
+| Navigation to ready | 14.426 s | 13.046 s | −1.380 s |
+| Upper camera median frame / FPS equivalent | 567.4 ms / 1.762 | 716.0 ms / 1.397 | **−20.8% FPS** |
+| Lower camera median frame / FPS equivalent | 518.1 ms / 1.930 | 546.2 ms / 1.831 | **−5.1% FPS** |
+| Upper camera draw calls / submitted triangles | 60 / 356,393 | 61 / 356,561 | +1 / +168 |
+| Lower camera draw calls / submitted triangles | 54 / 331,741 | 55 / 332,077 | +1 / +336 |
+| Used JS heap after GC | 9.05 MB | 13.09 MB | +4.04 MB |
+| Tracked graphics allocations | 265.24 MB | 265.59 MB | +0.34 MB |
+
+[Baseline samples](baseline-final.json) · [Network samples](network-final.json).
+The one cold sample showed no loading increase. The two measured
+memory counters grew by about 4.39 MB in total. The cross-launch
+software FPS measurements exceed the 5% regression target at both
+cameras. The decoration draws have already been packed into a
+single visible range. Hardware FPS and multi-launch cold-start
+confidence remain open.
+
+### Same-browser diagnostic
+
+In an additional network boot, the harness alternated submitting or
+suppressing only the new decoration draw in paired sequences
+(visible, hidden, hidden, visible). The upper medians were 689.0 ms
+visible and 762.8 ms hidden. Lower medians were 642.0 ms visible and
+651.1 ms hidden. The spread is large and this does not show a
+consistent decoration penalty. It does not clear the cross-launch FPS
+regression or establish its cause. Hardware GPU and a larger set of
+cold and steady runs are needed for performance acceptance.
+[Diagnostic samples](ablation.json).
+
+## Verification
+
+- `npm run check` passed, including the web and native script checks.
+- `npm test` passed all six tests, including the shared-node graph,
+  direction arrows, difficulty colours and numbered La Balme signs.
+- The GDAL importer test passed and the retained OSM extracts
+  reproduced the checked-in network JSON byte for byte.
+- `npm run test:browser -- --release` passed in
+  [GitHub Actions](https://github.com/lzcjames/cold-smoke-reality/actions/runs/44406516276).
+  The suite exercised the procedural mountain, La Balme single-piste
+  mode and the network on WebGL2 and WebGPU. It checked uphill
+  network spawn, real drawing, ground contact, continuity past the
+  La Balme endpoint and restart outside the DEM.

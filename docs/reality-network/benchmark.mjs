@@ -13,6 +13,7 @@ const html = (await readFile(htmlPath,'utf8'))
   const draw = gfx.draw, texture = gfx.texture, buffer = gfx.buffer;
   gfx.draw = (p,d) => {
     const instances = d.instances ?? 1, topology = p.desc.topology;
+    if (perf.hideJunctions && p.name === 'junctionSigns') return;
     if (d.count > 0 && instances > 0) {
       perf.draws++;
       if (topology === 'lines') perf.lines += Math.floor(d.count/2)*instances;
@@ -56,13 +57,19 @@ try {
   function cdp(method, params={}) {
     const seq=++id;
     return new Promise((resolve,reject)=>{
+      function close() {
+        socket.removeEventListener('message', receive);
+        reject(new Error('Chromium closed during ' + method));
+      }
       function receive(e) {
         const msg=JSON.parse(e.data);
         if(msg.id!==seq) return;
         socket.removeEventListener('message',receive);
+        socket.removeEventListener('close', close);
         if(msg.error) reject(msg.error); else resolve(msg.result);
       }
       socket.addEventListener('message',receive);
+      socket.addEventListener('close', close, { once: true });
       socket.send(JSON.stringify({id:seq,method,params}));
     });
   }
@@ -87,7 +94,7 @@ try {
   }
 
   await cdp('Performance.enable');
-  await navigate('/?manual&w=320&h=180&quality=2&backend=webgl2&reality=alpe-dhuez&gov=0&wx=clear&tod=day'+(mode === 'network' ? '&network=1' : ''),'Boolean(window.__ski)');
+  await navigate('/?manual&w=320&h=180&quality=2&backend=webgl2&reality=alpe-dhuez&gov=0&wx=clear&tod=day'+(mode !== 'baseline' ? '&network=1' : ''),'Boolean(window.__ski)');
   const start = await evaluate(`(async () => {
     const k=window.__ski, t=performance.now(), boot=await k.boot();
     if(!boot.startsWith('ok')) return {boot};
@@ -100,23 +107,26 @@ try {
     return {boot, bootMs:performance.now()-t, navigationToReadyMs:performance.now()};
   })()`);
   assert.equal(start.boot,'ok webgl2',JSON.stringify(start));
+  console.log('Boot complete', start);
   const frame = await evaluate(`(() => {
     const k=window.__ski, {Render,Course}=k.m, perf=window.__pistePerf, gl=k.app().gfx.gl;
     const pilot=k.pilot(0.45,5.2);
     for(let i=0;i<120;i++) k.sim(1/60,pilot,{draw:false});
     // Same world-space camera relative to La Balme at its two surveyed intersections.
+    const ablate = ${mode === 'ablate'};
     const scenarios=[20, Course.reality.length-34].map(s=>{
       const x=Course.reality.centre(s), z=-s, y=Course.height(x,z);
       const targetX=Course.reality.centre(s+25), targetZ=z-25;
       const camera=[x+5,y+4,z+5], target=[targetX,Course.height(targetX,targetZ)+2,targetZ];
       const pixel = new Uint8Array(4);
       const run=()=>{k.view(camera,target,0.96,0);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);};
-      for(let i=0;i<4;i++) run();
+      for(let i=0;i<3;i++) run();
       const frames=[];
-      for(let i=0;i<8;i++){
+      for(let i=0;i<(ablate ? 8 : 4);i++){
+        perf.hideJunctions = ablate && (i % 4 === 1 || i % 4 === 2);
         perf.draws=perf.triangles=perf.lines=0;
         const t=performance.now(); run();
-        frames.push({ms:performance.now()-t,draws:perf.draws,triangles:perf.triangles,lines:perf.lines});
+        frames.push({ms:performance.now()-t,draws:perf.draws,triangles:perf.triangles,lines:perf.lines,hideJunctions:perf.hideJunctions});
       }
       return {s,camera,target,frames};
     });
