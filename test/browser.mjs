@@ -30,7 +30,7 @@ const browser = spawn(process.env.BROWSER || 'chromium', ['--headless', '--no-sa
 let socket;
 let launchError;
 browser.on('error', error => { launchError = error; });
-const timer = setTimeout(() => browser.kill(), 200_000);
+const timer = setTimeout(() => browser.kill(), 410_000);
 try {
   let port;
   for (let i=0;i<100 && !port;i++) {
@@ -90,27 +90,44 @@ try {
 
   for (const [mode, lang, backend] of [
     ['procedural', 'en', 'webgpu'], ['reality', 'zh', 'webgl2'], ['reality', 'en', 'webgpu'],
+    ...(realityAsset.junctions ? [['network', 'zh', 'webgl2'], ['network', 'en', 'webgpu']] : []),
   ]) {
-    const reality = mode === 'reality';
+    const reality = mode !== 'procedural', network = mode === 'network';
     const query = [options, 'lang=' + lang, 'backend=' + backend];
     if (reality) query.push('reality=alpe-dhuez');
+    if (network) query.push('network=1');
     await navigate('/?' + query.join('&'), 'Boolean(window.__ski)');
     const result = await evaluate(`(async () => {
       try {
       const k = window.__ski;
       const boot = await k.boot();
       if (!boot.startsWith('ok')) return { boot };
+      let junctionDraws = 0;
+      const gfx = k.app().gfx, draw = gfx.draw;
+      gfx.draw = (pipe, args) => {
+        if (pipe.name === 'junctionSigns') junctionDraws++;
+        return draw(pipe, args);
+      };
       const start = k.sim(0);
       const end = k.sim(2, k.pilot());
       const game = k.game(), surface = k.height(end.p[0], end.p[2]);
       const terrain = k.m.Course.reality;
-      let restarted = false;
-      if (terrain) {
+      let restarted = false, continued = false;
+      if (terrain?.network) {
+        const node = terrain.network.junctions.at(-1);
+        const [nx, nz] = terrain.project(...node.point);
+        game.reset(-nz - 1, nx);
+        game.s.v = [0, 0, -6];
+        const transition = k.sim(0.5, null, {draw: false});
+        continued = transition.p[2] < nz && Math.abs(transition.p[2] - terrain.network.spawn[1]) > 1000;
+        game.s.p[0] = 50000;
+        restarted = Math.abs(k.sim(1/60, null, {draw: false}).p[2] - terrain.network.spawn[1]) < 0.01;
+      } else if (terrain) {
         game.s.p[2] = -terrain.length - 10;
         restarted = k.sim(1 / 60, null, { draw: false }).p[2] === -terrain.start;
       }
       return { boot, start, end, error: k.err(), surface, graphicsAlive: !k.app().gfx.lost,
-        lang: k.i18n().lang, reality: Boolean(terrain), restarted,
+        lang: k.i18n().lang, reality: Boolean(terrain), restarted, continued, junctionDraws,
         piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length) };
       } catch (error) {
         return { failure: error.message || String(error), stack: error.stack,
@@ -128,6 +145,8 @@ try {
       assert.equal(result.osmWay, realityAsset.piste.osmWay);
       assert(result.descent > 25);
       assert.equal(result.restarted, true);
+      if (network) assert(result.continued && result.junctionDraws > 0, JSON.stringify(result));
+      else assert.equal(result.junctionDraws, 0);
     }
     console.log(mode, result.piste || 'seeded mountain', lang, backend, 'skiing, rendered frame and ground contact passed');
   }

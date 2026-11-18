@@ -32,8 +32,13 @@ const target = path.join(root, 'dist', realityAsset);
 const hasReality = fs.existsSync(source);
 if (hasReality) {
   const context = vm.createContext({ asset: fs.readFileSync(source, 'utf8') });
-  vm.runInContext(fs.readFileSync(path.join(srcDir, '02a_reality.js'), 'utf8') +
-    '\nReality.create(JSON.parse(asset));', context);
+  const runtime = ['02a_reality.js', '02b_piste_network.js'].map(file => fs.readFileSync(path.join(srcDir, file), 'utf8')).join('\n');
+  const hasNetwork = vm.runInContext(runtime + `
+    const data = JSON.parse(asset), terrain = Reality.create(data);
+    if (data.pistes || data.junctions) PisteNetwork.create(terrain, data);
+    Boolean(data.pistes);
+  `, context);
+  if (hasNetwork) tpl = tpl.replace('data-network-asset="missing"', 'data-network-asset="available"');
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(source, target);
   tpl = tpl.replace('data-reality-asset="missing"', 'data-reality-asset="available"');

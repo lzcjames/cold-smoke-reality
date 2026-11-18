@@ -228,13 +228,24 @@ const Game = (() => {
   const pc = {}, tn = { ok: false }, tnc = { ok: false }, rk = {}, ROCK_CAP = 0.3;
   let acc = 0;
 
-  G.reset = function (s0 = 14) {
-    const c = Course.at(s0, pc), x = c.cx, z = -s0, h = Course.height(x, z, 0.5);
+  G.reset = function (s0 = 14, x = Course.at(s0, pc).cx) {
+    const z = -s0, h = Course.height(x, z, 0.5);
     S.p = [x, h, z]; S.v = [0, 0, 0]; S.lean = S.leanV = S.beta = 0; S.air = false; S.speed = 0; S.tuck = 0; S.crash = 0; S.h = h; S.e = 0;
     const n = Course.normal(x, z, 0.35); S.n = [n[0], n[1], n[2]]; S.t = [0, 0, -1]; S.r = [1, 0, 0];
     cam.init = false; G.runT = 0; G.dist = 0; G.drop = 0; G.topSpeed = 0; G.y0 = h; acc = 0; pose.init = false;
     still();
   };
+
+  G.resetReality = function () {
+    const terrain = Course.reality, spawn = terrain.network?.spawn;
+    if (spawn) G.reset(-spawn[1], spawn[0]);
+    else G.reset(terrain.start);
+  };
+
+  function offRun(x, z, c) {
+    if (Course.reality?.network) return Course.realityOffset(x, z);
+    return Course.rich ? Course.offRun(x, z) : Math.abs(x - c.cx) - c.hw;
+  }
 
   function step(dt, u) {
     const p = S.p, v = S.v, n = S.n, FB = typeof Variants !== 'undefined' && Variants.val.feel === 'b', TB = typeof Variants !== 'undefined' && Variants.val.tb === 'b';
@@ -345,7 +356,7 @@ const Game = (() => {
     // the flank, read as an invisible hand dragging the skier back up against gravity.) What keeps a skier near the run is what can be
     // seen: the land (03_course.js: banks rise either side; off a ridge the flank runs down into hollows whose floors climb back to a
     // shoulder level with the run) and the snow, deep and unpacked off the run, which drags (below)
-    const eo = Course.rich ? Course.offRun(p[0], p[2]) : Math.abs(p[0] - c.cx) - c.hw; S.off = eo;      // (on the richer mountain a lane beside the run is not off it)
+    const eo = offRun(p[0], p[2], c); S.off = eo;      // (on the richer mountain a lane beside the run is not off it)
     // (no steering turns the skier on round until it faces up the hill: as the line swings across the slope the lean asked for fades to
     // nothing, so a turn held too long ends as a traverse, still going down; height is only ever won on speed already in hand. The slope is
     // the land's own under the skier, its fall line taken over some fifteen metres so that a bump or a roller does not swing it, the same on
@@ -1024,7 +1035,7 @@ const Game = (() => {
     // (mogul b, in a field of bumps: the trunk faces straight down the hill whichever way the skis point, the head still, as the judges want it:
     // the legs turn under it. fl.mogU eases in and out over half a second)
     fl.mogU = damp(fl.mogU || 0, Variants.val.mog !== 'a' && pc.mog > 0.01 ? 1 : 0, 2, kd);
-    const wr = a => Math.atan2(Math.sin(a), Math.cos(a)), fall = Course.yawAt(-P[2]), skY = Math.atan2(root.fwd[0], -root.fwd[2]), skR = wr(skY - fall), trR = vh > 1 ? wr(Math.atan2(v[0], -v[2]) - fall) : skR;
+    const wr = a => Math.atan2(Math.sin(a), Math.cos(a)), fall = Course.yawAt(-P[2], P[0]), skY = Math.atan2(root.fwd[0], -root.fwd[2]), skR = wr(skY - fall), trR = vh > 1 ? wr(Math.atan2(v[0], -v[2]) - fall) : skR;
     // (the trunk follows the skis, never leads them: its own heading is the skis' heading taken through the heavy spring, and only the part of
     // the turn it does not share (kS) is held back. Before, the spring sat on the separation itself, so the trunk's heading was the skis' less
     // a late copy of them, which runs AHEAD of the skis (by some 80 ms in a mogul line): the shoulders seemed to turn the legs, owner 2026-11-14.
@@ -1167,12 +1178,12 @@ const Game = (() => {
     if (first) { cam.sp = Math.hypot(v[0], v[1], v[2]); cam.spV = 0; }
     const sp = spring(cam, 'sp', Math.hypot(v[0], v[1], v[2]), 16, dt), k = smooth(6, 30, sp), kc = fl.kc;
     // the lens looks down the valley, whichever way the valley is running just here, and goes a little over half way with the skier's own turns
-    const cyw = Course.yawAt(-p[2]), vyaw = lerp(cyw, Math.atan2(v[0], -v[2]), smooth(0.8, 2.5, Math.hypot(v[0], v[2])));
+    const cyw = Course.yawAt(-p[2], p[0]), vyaw = lerp(cyw, Math.atan2(v[0], -v[2]), smooth(0.8, 2.5, Math.hypot(v[0], v[2])));
     // off the run and going slowly (lost among the trees, getting going again after one), the lens turns away from the skier's own line
     // toward the run: to a point on its middle some thirty metres down, so the open lane between the trees is in the picture and it is
     // plain which way to go; and it stands a little higher and further back to see over the snow. cam.lost 0..1, eased over a second or
     // two either way. (Nothing moves the skier: only the picture turns)
-    { const s0 = -p[2], c = Course.at(s0, _ca), eo = Course.rich ? Course.offRun(p[0], p[2]) : Math.abs(p[0] - c.cx) - c.hw, to = G.mode === 'run' ? smooth(3, 16, eo) * lerp(0.2, 1, smooth(8, 3.5, sp)) : 0;
+    { const s0 = -p[2], c = Course.at(s0, _ca), eo = offRun(p[0], p[2], c), to = G.mode === 'run' ? smooth(3, 16, eo) * lerp(0.2, 1, smooth(8, 3.5, sp)) : 0;
       spring(cam, 'lost', first ? 0 : to, to > (cam.lost || 0) ? 1.6 : 1.0, dt * q);
       if (cam.lost > 1e-3) { const cR = Course.at(s0 + 30, _cb), ry = Math.atan2(cR.cx - p[0], 30); cam.ryaw = 0 * clamp(ry - cyw, -0.3, 0.3); } }
     const lost = cam.lost || 0, cyl = cyw + lost * (cam.ryaw || 0);
@@ -1390,8 +1401,10 @@ const Game = (() => {
       Course.rockCap = ROCK_CAP;
       if (acc > 1e-7) for (let k = 0; k < ns; k++) { step(Hs, Input.u); acc -= Hs; n++; G.stepT = G.t - Math.max(acc, 0); if (G.onStep) G.onStep(S, Hs); }
       acc = 0;
-      if (Course.reality && !Course.reality.contains(S.p[0], S.p[2])) {
-        G.reset(Course.reality.start);
+      const terrain = Course.reality;
+      const [x, , z] = S.p;
+      if (terrain && !(terrain.network ? terrain.withinDEM(x, z) && Course.realityOffset(x, z) < 50 : terrain.contains(x, z))) {
+        G.resetReality();
         if (G.onRealityRestart) G.onRealityRestart();
       }
       if (n === 10) acc = 0;
