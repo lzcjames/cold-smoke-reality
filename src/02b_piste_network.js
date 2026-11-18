@@ -82,14 +82,31 @@ const PisteNetwork = (() => {
           const tx = x - pos[0], tz = z - pos[1];
           return { exit, angle: Math.atan2(tx * right[0] + tz * right[1], tx * f[0] + tz * f[1]) };
         }).sort((a, b) => a.angle - b.angle);
-        for (const [i, { exit, angle }] of options.entries()) {
-          const side = options.length > 1 ? (i === 0 ? -1 : 1) : 1;
-          const x = before[0] + right[0] * side * terrain.halfWidth;
-          const z = before[1] + right[1] * side * terrain.halfWidth;
-          if (!terrain.withinDEM(x, z)) throw Error('Junction sign outside the DEM.');
-          signs.push({ x, y: terrain.height(x, z), z, right, name: exit.line.name,
-            difficulty: exit.line.difficulty, arrow: angle < -0.26 ? '←' : angle > 0.26 ? '→' : '↑',
-            osmNode, from: id, to: exit.line.osmWay });
+        const isMainExit = id === main.osmWay && outgoing.length === 1 &&
+          outgoing[0] !== main.osmWay;
+        // The La Balme -> Campanules junction is at La Balme's very end.
+        // A single board 22 m beforehand, 18 m off-centre, can be missed at speed.
+        // Give downhill skiers both an advance warning and an approach-facing board.
+        const distances = isMainExit ? [105, 32] : [22];
+        for (const distance of distances) {
+          const before = at(approach.line, approach.s - distance);
+          const prev = at(approach.line, approach.s - distance - 8);
+          const next = at(approach.line, approach.s - distance + 8);
+          const local = unit(next[0] - prev[0], next[1] - prev[1]);
+          const boardRight = [-local[1], local[0]];
+          for (const [i, { exit, angle }] of options.entries()) {
+            const side = options.length > 1 ? (i === 0 ? -1 : 1) : 1;
+            // Keep signs visible near the piste edge, without blocking the centre.
+            const offset = terrain.halfWidth * 0.76 * side;
+            const x = before[0] + boardRight[0] * offset;
+            const z = before[1] + boardRight[1] * offset;
+            if (!terrain.withinDEM(x, z)) throw Error('Junction sign outside the DEM.');
+            signs.push({ x, y: terrain.height(x, z), z, right: boardRight,
+              name: exit.line.name, difficulty: exit.line.difficulty,
+              arrow: angle < -0.26 ? '←' : angle > 0.26 ? '→' : '↑',
+              osmNode, from: id, to: exit.line.osmWay,
+              advance: isMainExit && distance > 50 });
+          }
         }
       }
     }
