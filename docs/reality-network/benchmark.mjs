@@ -114,21 +114,48 @@ try {
     for(let i=0;i<120;i++) k.sim(1/60,pilot,{draw:false});
     // Same world-space camera relative to La Balme at its two surveyed intersections.
     const ablate = ${mode === 'ablate'};
+    const abba = ${mode === 'abba'};
     const scenarios=[20, Course.reality.length-34].map(s=>{
       const x=Course.reality.centre(s), z=-s, y=Course.height(x,z);
       const targetX=Course.reality.centre(s+25), targetZ=z-25;
       const camera=[x+5,y+4,z+5], target=[targetX,Course.height(targetX,targetZ)+2,targetZ];
       const pixel = new Uint8Array(4);
-      const run=()=>{k.view(camera,target,0.96,0);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);};
-      for(let i=0;i<3;i++) run();
-      const frames=[];
-      for(let i=0;i<(ablate ? 8 : 4);i++){
-        perf.hideJunctions = ablate && (i % 4 === 1 || i % 4 === 2);
-        perf.draws=perf.triangles=perf.lines=0;
-        const t=performance.now(); run();
-        frames.push({ms:performance.now()-t,draws:perf.draws,triangles:perf.triangles,lines:perf.lines,hideJunctions:perf.hideJunctions});
+      // For ABBA, measure submission and GPU-completed frame separately. gl.finish()
+      // avoids readback overhead, but still measures a synchronized software GL frame.
+      const run=()=>{
+        const t=performance.now();
+        k.view(camera,target,0.96,0);
+        const submitMs=performance.now()-t;
+        if (abba) gl.finish();
+        else gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+        return {ms:performance.now()-t,submitMs};
+      };
+      for(let i=0;i<(abba ? 8 : 3);i++) {
+        perf.hideJunctions=abba && (i % 4 === 1 || i % 4 === 2);
+        run();
       }
-      return {s,camera,target,frames};
+      const frames=[];
+      for(let i=0;i<(abba ? 96 : ablate ? 8 : 4);i++){
+        // ABBA pairing interleaves both conditions 48 times each per scene.
+        perf.hideJunctions=(abba || ablate) && (i % 4 === 1 || i % 4 === 2);
+        perf.draws=perf.triangles=perf.lines=0;
+        const timing=run();
+        frames.push({...timing,draws:perf.draws,triangles:perf.triangles,lines:perf.lines,hideJunctions:perf.hideJunctions});
+      }
+      const summarise=(items,key)=>{
+        const a=items.map(f=>f[key]).sort((x,y)=>x-y);
+        const p=q=>a[Math.min(a.length-1,Math.floor(q*(a.length-1)))];
+        return {count:a.length,median:p(0.5),p95:p(0.95),min:a[0],max:a[a.length-1]};
+      };
+      const paired=abba ? (()=>{
+        const on=frames.filter(f=>!f.hideJunctions), off=frames.filter(f=>f.hideJunctions);
+        const visible={complete:summarise(on,'ms'),submit:summarise(on,'submitMs')};
+        const hidden={complete:summarise(off,'ms'),submit:summarise(off,'submitMs')};
+        return {visible,hidden,
+          fpsDeltaPercent:(hidden.complete.median/visible.complete.median-1)*100,
+          submitDeltaPercent:(visible.submit.median/hidden.submit.median-1)*100};
+      })() : null;
+      return {s,camera,target,frames,paired};
     });
     return {scenarios,allocationBytes:perf.bytes,viewport:[Render.W,Render.H],graphicsError:k.err()};
   })()`);
