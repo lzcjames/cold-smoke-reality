@@ -40,9 +40,13 @@ at 15 m in EPSG:2154, the same 6.025–6.150° E and 45.050–45.145° N
 coverage and 20 m interior border as the original release. No DEM data,
 license, acquisition cost or area was added. The original numbers on La
 Balme are unchanged. Red stakes mark the two other pistes. Direction
-panels are approximately 22 m up the incoming line and 18 m to its
-side, using the destination's difficulty tint for the face and support.
-The panel rear omits the arrow. Crossing the former La Balme end on
+panels at the upper fork sit 22 m before the junction; the lower La Balme
+approach to Campanules has **two red, named left-arrow signs**, approximately
+105 m and 32 m beforehand. Each board sits about 14 m to the side of its
+local approach centreline and faces the local downhill traveller, with the
+destination's difficulty tint on the face and support. These positions are
+intended to give fast skiers a readable warning before La Balme ends; the
+panel rear omits the arrow. Crossing the former La Balme end on
 Campanules continues on the same surface. The network run restarts
 when the player leaves the DEM interior or skis 68 m from every
 surveyed line.
