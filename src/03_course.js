@@ -121,6 +121,14 @@ const Course = ((vn1, vn2, h2U) => {
     return C.seed;
   };
   C.reset = C.setSeed;
+  C.setReality = function (terrain) {
+    C.reality = terrain;
+    C.feats.clear();
+    nearbyCells.fill(undefined);
+    LV = null;
+    C.rich = false;
+    C.segs = [{ idx: 0, type: 'bowl', s0: 0, len: terrain.length, p: SEG_TYPES.bowl }];
+  };
   // Official mountains (id, seed, Chinese name, English name). Play opens on the first, 寒烟山. `released` ones are offered in 滑过的山;
   // a mountain the player has skied stays on their list too. A later mountain is another entry here.
   C.mountains = [
@@ -440,6 +448,7 @@ const Course = ((vn1, vn2, h2U) => {
   function addFeat(f) { const b0 = Math.floor((f.s - 4) / 32), b1 = Math.floor((f.s + f.len + 30) / 32); for (let b = b0; b <= b1; b++) { let a = C.feats.get(b); if (!a) C.feats.set(b, a = []); a.push(f); } }
 
   function segAt(s) {
+    if (C.reality) return C.segs[0];
     if (s < 0) return C.segs[0];
     if (s >= planned) planTo(s + 3000);
     let lo = 0, hi = C.segs.length - 1;
@@ -526,6 +535,12 @@ const Course = ((vn1, vn2, h2U) => {
   const cur = { baseY: 0, cx: 0, hw: 40, dish: 0, shoulder: 0.3, gul: 0, gw: 10, goff: 0, roll: 0, mog: 0, forest: 0, glade: 0, powder: 0, ridge: 0, wall: 1, rtail: 0, tilt: 0, bank: 0, enc: 0, gU: 0, s: 0 };
   function at(s, out) {
     out = out || cur;
+    if (C.reality) {
+      const cx = C.reality.centre(s);
+      for (const key in F) out[key] = 0;
+      out.cx = cx; out.hw = C.reality.halfWidth; out.baseY = C.reality.height(cx, -s); out.s = s;
+      return out;
+    }
     const ci = Math.floor(s / CH), c = chunk(ci), fs = s - ci * CH, i = Math.min(CH - 1, Math.floor(fs)), f = fs - i, o = i * NF, o2 = o + NF;
     out.baseY = c.base64[i] + (c.base64[i + 1] - c.base64[i]) * f;
     out.cx = c[o + 1] + (c[o2 + 1] - c[o + 1]) * f; out.hw = c[o + 2] + (c[o2 + 2] - c[o + 2]) * f; out.dish = c[o + 3] + (c[o2 + 3] - c[o + 3]) * f;
@@ -575,6 +590,7 @@ const Course = ((vn1, vn2, h2U) => {
 
   // ---- the height field.  cell = sampling spacing of the caller (m); wavelengths the caller cannot resolve are skipped.
   C.height = function (x, z, cell) {
+    if (C.reality) return C.reality.height(x, z);
     const s = -z, c = at(s), u = x - c.cx, au = Math.abs(u), hw = c.hw;
     let h = c.baseY;
     const e = LV ? edgeE(s, u, au - hw, hw) : au - hw, lg = _lg, lh = _lh;
@@ -736,6 +752,7 @@ const Course = ((vn1, vn2, h2U) => {
   // ---- trees: one candidate per jittered grid cell, fully deterministic
   const _t = { x: 0, z: 0, h: 0, r: 0, variant: 0, rot: 0, ok: false }; let _ridge = 0, _enc = 0;
   C.treeDensity = function (x, z) {
+    if (C.reality) return 0;
     const s = -z; if (s < -400) return 0; const c = at(s), u = x - c.cx, au = Math.abs(u), e = LV ? edgeE(s, u, au - c.hw, c.hw) : au - c.hw;
     let d = 0;
     if (e > 3) {

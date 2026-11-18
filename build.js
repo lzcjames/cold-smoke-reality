@@ -1,7 +1,7 @@
 // concatenates src/*.js (sorted) + template into dist/index.html (single self-contained page)
 // Blocks marked /*native{*/ … /*}native*/ are the iOS and visionOS paths. The web page leaves them out;
 // ios/build-resources.sh concatenates the sources as they are.
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = __dirname, srcDir = path.join(root, 'src');
 function stripNative(src) {
   const open = (src.match(/\/\*native\{\*\//g) || []).length;
@@ -25,6 +25,20 @@ let tpl = fs.readFileSync(path.join(root, 'template.html'), 'utf8');
     .replace(/url\(\.\/([\w.-]+\.woff2)\)/g, (_, f) => 'url(data:font/woff2;base64,' + fs.readFileSync(path.join(fd, f)).toString('base64') + ')');
   if (!tpl.includes('<style>')) throw new Error('template.html: no <style> to put the faces before');
   tpl = tpl.replace('<style>', () => '<style id="faces">' + css.trim() + '</style>\n<style>');
+}
+const realityAsset = 'reality/alpe-dhuez.json';
+const source = path.join(root, 'data', realityAsset);
+const target = path.join(root, 'dist', realityAsset);
+const hasReality = fs.existsSync(source);
+if (hasReality) {
+  const context = vm.createContext({ asset: fs.readFileSync(source, 'utf8') });
+  vm.runInContext(fs.readFileSync(path.join(srcDir, '02a_reality.js'), 'utf8') +
+    '\nReality.create(JSON.parse(asset));', context);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(source, target);
+  tpl = tpl.replace('data-reality-asset="missing"', 'data-reality-asset="available"');
+} else {
+  fs.rmSync(target, { force: true });
 }
 const out = tpl.replace('/*__JS__*/', () => js);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });

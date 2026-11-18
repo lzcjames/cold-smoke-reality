@@ -1,0 +1,71 @@
+name: Web validation and Pages
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - run: npm run check
+      - run: npm test
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gdal
+          /usr/bin/python3 -B test/reality-import.py
+      - run: npm run test:browser
+        env:
+          BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Stage website
+        run: |
+          mkdir -p site
+          cp dist/dev.html site/index.html
+          if [ -d dist/reality ]; then cp -R dist/reality site/; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cold-smoke-web
+          path: site
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Verify deployed website
+        env:
+          PAGE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL}" -o /tmp/cold-smoke-index.html
+          grep -q 'id="view"' /tmp/cold-smoke-index.html
+          if grep -q 'data-reality-asset="available"' /tmp/cold-smoke-index.html; then
+            curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/alpe-dhuez.json" -o /tmp/alpe-dhuez.json
+            node -e 'if (require("/tmp/alpe-dhuez.json").id !== "alpe-dhuez") process.exit(1)'
+          fi

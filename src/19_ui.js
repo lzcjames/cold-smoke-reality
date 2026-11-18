@@ -332,7 +332,16 @@ const UI = (() => {
   }
   // 陡坡 · 28.4 s · 132 km/h ▲ · 飞行 38 m
   // the card of a run: its number and its name (in English the name is the big line, and the number stands alone over it)
-  function segCard(sg) { const n = (sg.idx + 1 < 10 ? '0' : '') + (sg.idx + 1); el.segCn.textContent = T(SEG_NAMES[sg.type] || ''); el.segEn.textContent = EN() ? n : n + ' · ' + (SEG_EN[sg.type] || ''); }
+  function segCard(sg) {
+    if (Course.reality) {
+      el.segCn.textContent = Course.reality.piste;
+      el.segEn.textContent = 'Alpe d’Huez';
+      return;
+    }
+    const n = (sg.idx + 1 < 10 ? '0' : '') + (sg.idx + 1);
+    el.segCn.textContent = T(SEG_NAMES[sg.type] || '');
+    el.segEn.textContent = EN() ? n : n + ' · ' + (SEG_EN[sg.type] || '');
+  }
   function splitLine(r) {
     const line = document.createElement('span'), add = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt) e.textContent = txt; line.appendChild(e); return e; };
     const fig = (lab, v, u) => { add('i', 'd', '·'); if (lab) add('em', 'k', lab); line.appendChild(document.createTextNode(v)); if (u) add('u', null, u); };
@@ -512,7 +521,7 @@ const UI = (() => {
       el.vw.hidden = !vs; el.nav.querySelector('[data-sec="view"]').hidden = !vs; el.moreView.hidden = !vs;
     }
     for (const b of el.view.children) b.classList.toggle('on', b.dataset.view === Game.view);
-    const mt = typeof App.newMountain === 'function'; el.nav.querySelector('[data-sec="mt"]').hidden = !mt;
+    const mt = !Course.reality && typeof App.newMountain === 'function'; el.nav.querySelector('[data-sec="mt"]').hidden = !mt;
     if (mt && el.seed) { const n = '#' + Course.seed; if (el.seed.textContent !== n) el.seed.textContent = n; }
     paintDaily(); paintSkied();
     el.oSnd.textContent = T(Sound.on ? '声音 开' : '声音 关'); el.oSnd.classList.toggle('on', !!Sound.on); el.oSnd.setAttribute('aria-pressed', Sound.on ? 'true' : 'false');
@@ -734,7 +743,7 @@ const UI = (() => {
     return f.join(' · ');
   }
   function mtnTick() {
-    if (typeof Game === 'undefined' || Game.mode !== 'run' || !SP.run) return;
+    if (Course.reality || typeof Game === 'undefined' || Game.mode !== 'run' || !SP.run) return;
     const m = typeof Course.mountainBySeed === 'function' && Course.mountainBySeed(); if (!m) return;
     const all = mtnAll(); let b = mtnRec(all, m.id); if (!b) { b = { dist: 0, v: 0, air: 0 }; all[m.id] = b; }
     const R = SP.run; let up = !b.skied; b.skied = 1;
