@@ -71,8 +71,8 @@ const PisteMarkers = (() => {
     for (const [index, post] of posts.entries()) {
       const { faceX: x, faceZ: z } = post;
       const u0 = index / posts.length, u1 = (index + 1) / posts.length;
-      face(post, x, z, 0.72, 1.22, 2.66, u0, u1, 0.026);
-      face(post, -x, -z, 0.72, 1.22, 2.66, u0, u1, 0.026);
+      face(post, x, z, 0.72, 1.22, 2.66, u0, u1, 0.060);
+      face(post, -x, -z, 0.72, 1.22, 2.66, u0, u1, 0.060);
       for (const [dx, dz] of [[x, z], [-x, -z], [-z, x], [z, -x]]) {
         face(post, dx, dz, 0.046, -0.24, 2.02, -1, -1, 0.046);
       }
@@ -95,7 +95,7 @@ const PisteMarkers = (() => {
         var col: vec3f = ink.rgb * ink.rgb;
         if (v.uv.x < 0.0) { col = vec3f(0.32, 0.14, 0.043); }
         else { if (ink.a < 0.5) { discard; } }
-        col *= max(0.22, U.ambSky.a);
+        col *= vec3f(0.28) + 0.55 * U.ambSky.rgb + 0.45 * U.ambGnd.rgb + 0.30 * U.sunCol.rgb;
         o.color = vec4f(applyFog(col, v.wp), 0.0); return o;
       }`,
     });
