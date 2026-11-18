@@ -75,3 +75,46 @@ test('places numbered piste signs on the DEM and uses the French difficulty colo
     assert.ok((post.x - terrain.centre(-post.z)) * (index % 2 === 0 ? 1 : -1) > 0);
   }
 });
+
+test('piste sign posts share the plate difficulty tint in the rendered shader', () => {
+  const diskFills = [];
+  const ctx = {
+    beginPath() {}, arc() {}, stroke() {}, fillText() {},
+    fill() { diskFills.push(this.fillStyle); },
+    getImageData(_x, _y, w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
+  };
+  const { init } = vm.runInNewContext(run(['14c_piste_markers.js']) + '\nPisteMarkers', {
+    document: { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) },
+    SL: { common: '', fog: '' },
+    Sky: { lut: {} },
+  });
+  let shader, draw;
+  const gfx = {
+    texture: () => ({}),
+    buffer: () => ({}),
+    pipeline: desc => { shader = desc; return {}; },
+    draw: (_pipe, args) => { draw = args; },
+  };
+  assert.equal(init(gfx, { length: 0, start: 0, halfWidth: 18, centre: () => 0,
+    contains: () => true, height: () => 0, piste: 'Test' }), null);
+  for (const [difficulty, expected] of [
+    ['novice', '#087a42'], ['easy', '#1259ad'], ['intermediate', '#b7212b'],
+    ['advanced', '#171b20'], ['expert', '#171b20'], ['unknown', '#56616d'],
+  ]) {
+    diskFills.length = 0;
+    const terrain = {
+      start: 14, length: 440, halfWidth: 18,
+      centre: () => 0, height: () => 0, contains: () => true,
+      piste: 'Test', difficulty,
+    };
+    const markers = init(gfx, terrain);
+    assert.ok(markers);
+    markers.draw([0, 0, 0]);
+    assert.equal(diskFills[0], expected);
+    assert.equal(shader.uniforms.postColor, 'vec4f');
+    assert.match(shader.fs, /M\.postColor\.rgb \* M\.postColor\.rgb/);
+    const expectedChannels = expected.slice(1).match(/../g).map(h => parseInt(h, 16));
+    assert.deepEqual(Array.from(draw.u.postColor.slice(0, 3), x => Math.round(x * 255)), expectedChannels);
+    assert.equal(draw.u.postColor[3], 1);
+  }
+});
