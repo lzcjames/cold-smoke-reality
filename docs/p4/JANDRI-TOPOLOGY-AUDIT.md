@@ -47,3 +47,33 @@ There are **429 unique OSM node IDs** and **8 shared node IDs involving more tha
 5. Validate three-dimensional physics, render/collision consistency, progressive loading, and the existing Alpe d'Huez regression before publishing.
 
 Jandri 5 and possible Jandri 1 bis are **not present** in this July 2026 snapshot; no geometry has been fabricated for either. The official ski map can inform route naming and expected coverage but is not a GIS centreline or elevation source.
+
+
+## Verified upstream DEM acquisition channel (2026-11-19)
+
+IGN publishes **LiDAR HD MNT**, a ground elevation model, through
+https://cartes.gouv.fr/telechargement/IGNF_MNT-LIDAR-HD .
+The authoritative dataset description is
+https://www.data.gouv.fr/datasets/mnt-lidar-hd and the IGN delivery
+specification is https://data.geopf.fr/annexes/ressources/documentation/DL_LiDAR_HD_1-0.pdf .
+The availability of the full Jandri/glacier + return corridor **has not yet
+been confirmed**; linking the catalogue is not evidence that the required
+tiles exist or were downloaded.
+
+Acquisition checklist for each selected *real* 1 km tile:
+- Log original URL, tile identifier, product edition, date, declared CRS,
+  vertical datum, resolution, raw file SHA-256 and licence.
+- Validate raster CRS/vertical unit and compare each original tile's
+  georeferenced footprint with the proposed simulation crop.
+- Reject any nodata or seam gap along the candidate run, return path or
+  collision safety margin. Check overlapping tile elevations for anomalies.
+- Confirm the complete OSM centreline footprint is contained *with margin*;
+  the present index bounding box is **only**
+  [6.1263679, 44.9905905, 6.2048399, 45.0107322] (WGS84) and cannot
+  establish the coverage of missing Jandri 5 / 1 bis or resort return.
+- Reproject and resample only after preserving originals and validating
+  the horizontal/vertical references. Store the derived grid separately
+  from the game HTML, load it only on demand, and run actual ski tests.
+
+**No Jandri MNT tile has been acquired or certified by this PR.** Do not
+publish a playable Jandri area until the above checks are satisfied.
