@@ -111,3 +111,37 @@ test('procedural-only build works without a catalog or DEM; optional packs are s
     fs.rmSync(temp, { recursive: true, force: true });
   }
 });
+
+test('P4 missing optional Les Deux Alpes stays unpublished and fake pack fails build', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cold-smoke-p4-staging-'));
+  try {
+    for (const rel of ['src', 'xhs/fonts'])
+      fs.cpSync(path.join(root, rel), path.join(temp, rel), { recursive: true });
+    for (const file of ['build.js', 'template.html'])
+      fs.copyFileSync(path.join(root, file), path.join(temp, file));
+    fs.mkdirSync(path.join(temp, 'data/reality'), { recursive: true });
+    const assetDir = path.join(temp, 'data/reality');
+    const registry = { version: 1, resorts: [
+      { id: 'alpe-dhuez', name: 'Alpe d’Huez' },
+      { id: 'les-deux-alpes', name: 'Les Deux Alpes', optional: true },
+    ] };
+    fs.writeFileSync(path.join(assetDir, 'catalog.json'), JSON.stringify(registry));
+    fs.writeFileSync(path.join(assetDir, 'alpe-dhuez.json'), JSON.stringify(fixture()));
+    const run = () => spawnSync(process.execPath, ['build.js'], { cwd: temp, encoding: 'utf8' });
+    const valid = run();
+    assert.equal(valid.status, 0, valid.stderr);
+    const html = fs.readFileSync(path.join(temp, 'dist/index.html'), 'utf8');
+    assert.deepEqual(catalogFromHTML(html).map(x => x.id), ['alpe-dhuez']);
+    assert.equal(fs.existsSync(path.join(temp, 'dist/reality/les-deux-alpes.json')), false);
+    assert.match(html, /id="reality-select"/, 'selector is part of the reusable shell');
+    // A fake/placeholder asset must never accidentally go live.
+    const fake = fixture();
+    fake.id = 'les-deux-alpes';
+    fs.writeFileSync(path.join(assetDir, 'les-deux-alpes.json'), JSON.stringify(fake));
+    const rejected = run();
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /verified measured DEM/);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
