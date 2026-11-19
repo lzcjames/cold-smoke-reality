@@ -343,6 +343,27 @@ try {
   })`);
   assert.equal(resortPicker.hidden, false);
   assert.equal(resortPicker.selected, 'alpe-dhuez');
+  // Hit-test the *actual* homepage controls. Previously .layer inherited
+  // pointer-events:none; the JS-driven selection tests missed a dead dropdown.
+  const pointerCheck = await evaluate(`(() => {
+    const ids = ['reality-select', 'reality-enter'];
+    return ids.map(id => {
+      const el = document.getElementById(id);
+      const b = el.getBoundingClientRect();
+      const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+      const top = document.elementFromPoint(cx, cy);
+      return {id, width:b.width, height:b.height,
+        pointer: getComputedStyle(el).pointerEvents,
+        hit:top === el || el.contains(top),
+        actual:top?.id || top?.tagName};
+    });
+  })()`);
+  for (const control of pointerCheck) {
+    assert(control.width > 20 && control.height > 15, JSON.stringify(control));
+    assert.equal(control.pointer, 'auto', JSON.stringify(control));
+    assert(control.hit, 'Homepage picker must receive real clicks: ' + JSON.stringify(control));
+  }
+  console.log('Actual mouse/touch hit-testing of homepage resort controls passed');
   // Main Pages may contain the independently validated real P4 resort in
   // addition to the synthetic regression-only resort appended by this server.
   const officialIds = JSON.parse(attribute[1].replace(/&quot;/g, '"')
@@ -365,14 +386,16 @@ try {
   assert.equal(alternateRequests, requestsBeforePick,
     'selection alone must not fetch the next DEM');
   assert.match(selectedWithoutLoading.button, /进入雪场/);
-  try {
-    await evaluate(`(() => {
-      document.getElementById('reality-enter').click();
-      return true;
-    })()`);
-  } catch (error) {
-    if (!/context|navigation|closed/i.test(error.message)) throw error;
-  }
+  // Send a real Chromium pointer click, not an element.click() synthetic
+  // activation that bypasses the very overlay bug reported by the player.
+  const enterPoint = await evaluate(`(() => {
+    const b = document.getElementById('reality-enter').getBoundingClientRect();
+    return {x:b.left+b.width/2,y:b.top+b.height/2};
+  })()`);
+  await cdp('Input.dispatchMouseEvent', {type:'mousePressed',
+    x:enterPoint.x,y:enterPoint.y,button:'left',clickCount:1});
+  await cdp('Input.dispatchMouseEvent', {type:'mouseReleased',
+    x:enterPoint.x,y:enterPoint.y,button:'left',clickCount:1});
   let opened = false;
   for (let i = 0; i < 200; i++) {
     opened = await evaluate(`location.search.includes('reality=test-only-resort') &&

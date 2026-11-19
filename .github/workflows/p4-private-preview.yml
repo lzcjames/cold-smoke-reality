@@ -25,12 +25,13 @@ jobs:
           node-version: '24'
       - uses: browser-actions/setup-chrome@v1
         id: chrome
-      - name: Test unchanged public game with no second resort asset
+      - name: Test committed public assets before the browser preview
         run: |
-          test ! -e data/reality/les-deux-alpes.json
+          test -s data/reality/les-deux-alpes.json
           npm run check
           npm test
-      - name: Retrieve AUTHENTIC validated candidate (never commit or deploy this pack)
+      - name: Retrieve archived AUTHENTIC candidate if public pack is absent
+        if: hashFiles('data/reality/les-deux-alpes.json') == ''
         uses: actions/download-artifact@v4
         with:
           name: p4-unpublished-measured-les-deux-alpes
@@ -39,7 +40,9 @@ jobs:
           path: /tmp/p4-original-validated
       - name: Stage measured pack in ephemeral CI checkout and build preview only
         run: |
-          cp /tmp/p4-original-validated/unpublished-validation-only.json data/reality/les-deux-alpes.json
+          if [ ! -s data/reality/les-deux-alpes.json ]; then
+            cp /tmp/p4-original-validated/unpublished-validation-only.json data/reality/les-deux-alpes.json
+          fi
           node test/p4-measured-candidate.cjs data/reality/les-deux-alpes.json
           node build.js
           test -s dist/reality/alpe-dhuez.json
