@@ -114,7 +114,7 @@ const PisteNetwork = (() => {
               name: exit.line.name, difficulty: exit.line.difficulty,
               arrow: angle < -0.26 ? '←' : angle > 0.26 ? '→' : '↑',
               osmNode, from: id, to: exit.line.osmWay,
-              advance: isMainExit && distance > 50 });
+              advance: (isMainExit || sharpFork) && distance > 50 });
           }
         }
       }
