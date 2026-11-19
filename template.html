@@ -471,7 +471,11 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #menu nav #m-photo { color: var(--snow); }
 #reality-mode, #reality-network, #reality-resorts a, #reality-back, #reality-credits a { color: inherit; }
 #reality-resorts a { display: inline-block; margin: .15rem .55rem; }
-#reality-picker { margin: .75rem auto; }
+/* The full-screen title layer intentionally ignores gestures except enabled
+   controls. Restore events on the resort picker, not just the Start button. */
+#title.on #reality-picker { margin: .75rem auto; pointer-events: auto; position: relative; z-index: 3; touch-action: manipulation; }
+#reality-picker[hidden] { display: none; }
+#reality-picker select, #reality-picker button { pointer-events: auto; touch-action: manipulation; }
 #reality-picker label { display: inline-block; margin-right: .5rem; }
 #reality-select { padding: .45rem .65rem; max-width: 85%; color: var(--snow); background: #17232d; border: 1px solid #7c909f; border-radius: 6px; font: inherit; cursor: pointer; }
 #reality-select:focus-visible { outline: 2px solid #f5e8cc; outline-offset: 2px; }
