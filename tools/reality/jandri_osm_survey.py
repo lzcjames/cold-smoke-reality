@@ -131,7 +131,7 @@ def build_index(document, raw, endpoint):
         "snapshotTimestampUTC": document.get("osm3s", {}).get("timestamp_osm_base"),
         # A pinned archived snapshot must have deterministic output. The
         # actual Overpass retrieval time was not recorded in the source.
-        "queriedAtUTC": None if endpoint.startswith("offline") else datetime.now(timezone.utc).isoformat(),
+        "queriedAtUTC": None if endpoint.startswith(("offline", "archived")) else datetime.now(timezone.utc).isoformat(),
         "queryBBoxSWNE": list(BBOX),
         "originalResponseSHA256": hashlib.sha256(raw).hexdigest(),
         "boundsWGS84": bbox,
