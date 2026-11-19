@@ -464,13 +464,15 @@ else {
       else url.delete('network');
       location.href = '?' + url;
     };
-    enter.addEventListener('click', enterSelectedResort);
-    // Keyboard users may choose via the native select and press Enter.
-    select.addEventListener('keydown', event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        enterSelectedResort();
-      }
+    // The page also supports "tap anywhere to start" for procedural skiing.
+    // Do not let native select clicks bubble into that global shortcut.
+    picker.addEventListener('click', event => event.stopPropagation());
+    // Enter on a native <select> commits the choice / closes its popup;
+    // it must NEVER launch a resort. Keyboard users can Tab to this real
+    // button and press Enter/Space to load their selected pack.
+    enter.addEventListener('click', event => {
+      event.stopPropagation();
+      enterSelectedResort();
     });
   }
   boot(UI.stage).then(() => { UI.ready(); lastT = performance.now(); requestAnimationFrame(loop); if (QS.has('autostart')) UI.go(); }).catch(e => { if (!retryOnWebGL2(e)) reportError(e); });

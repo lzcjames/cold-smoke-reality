@@ -364,6 +364,47 @@ try {
     assert(control.hit, 'Homepage picker must receive real clicks: ' + JSON.stringify(control));
   }
   console.log('Actual mouse/touch hit-testing of homepage resort controls passed');
+  // Reproduce the player complaint: an actual mouse click on the native
+  // dropdown must NOT bubble to the full-screen title's tap-to-start action.
+  const selectPoint = await evaluate(`(() => {
+    const b = document.getElementById('reality-select').getBoundingClientRect();
+    return {x:b.left + b.width/2,y:b.top + b.height/2};
+  })()`);
+  const beforeNativeOpen = await evaluate(`({
+    url: location.href, title:document.getElementById('title').classList.contains('on'),
+    startText:document.getElementById('go').textContent
+  })`);
+  assert(beforeNativeOpen.title, 'The home screen must still be visible');
+  await cdp('Input.dispatchMouseEvent', {type:'mousePressed',
+    x:selectPoint.x,y:selectPoint.y,button:'left',clickCount:1});
+  await cdp('Input.dispatchMouseEvent', {type:'mouseReleased',
+    x:selectPoint.x,y:selectPoint.y,button:'left',clickCount:1});
+  await delay(250);
+  const afterNativeOpen = await evaluate(`({
+    url:location.href,title:document.getElementById('title').classList.contains('on')
+  })`);
+  assert.equal(afterNativeOpen.url,beforeNativeOpen.url,
+    'Simply opening the resort dropdown must not navigate');
+  assert.equal(afterNativeOpen.title,true,
+    'Simply opening the resort dropdown must not start skiing');
+  // Dismiss OS-native menu, then simulate an Enter commit on the focused
+  // select. Enter is a selection key, never a launch shortcut.
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',
+    windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+  await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',
+    windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+  const committed = await evaluate(`(() => {
+    const picker=document.getElementById('reality-select');
+    picker.focus();
+    picker.dispatchEvent(new KeyboardEvent('keydown',{
+      key:'Enter',code:'Enter',bubbles:true,cancelable:true
+    }));
+    return {url:location.href,title:document.getElementById('title').classList.contains('on')};
+  })()`);
+  assert.equal(committed.url,beforeNativeOpen.url);
+  assert.equal(committed.title,true,'Enter inside select must never auto-start');
+  console.log('Native dropdown click and Enter selection do not launch a resort');
+
   // Main Pages may contain the independently validated real P4 resort in
   // addition to the synthetic regression-only resort appended by this server.
   const officialIds = JSON.parse(attribute[1].replace(/&quot;/g, '"')
