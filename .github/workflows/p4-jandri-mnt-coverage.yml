@@ -1,11 +1,6 @@
 name: P4 Jandri IGN ground coverage preflight (non-publishing)
 
 on:
-  push:
-    branches:
-      - audit/jandri-live-mnt-index-probe
-    paths:
-      - '.github/workflows/p4-jandri-mnt-coverage.yml'
   pull_request:
     paths:
       - 'tools/reality/jandri_mnt_coverage.py'
@@ -28,7 +23,7 @@ jobs:
 
   live-official-index:
     # Explicit manual action only: no repeated WFS traffic on every PR.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/audit/jandri-live-mnt-index-probe')
+    if: github.event_name == 'workflow_dispatch'
     needs: unit
     runs-on: ubuntu-24.04
     timeout-minutes: 12
