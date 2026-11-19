@@ -21,11 +21,14 @@ Campanules content and ski physics remain unchanged.
   `?reality=alpe-dhuez` loads only `alpe-dhuez.json`, while
   `?reality=alpe-dhuez&network=1` enables the verified multi-piste graph.
 - URLs include an asset-content SHA-256 revision,
-  `/reality/<id>.json?v=<16-hex>`. The browser fetches with
-  `cache: 'force-cache'`: a browser *may* reuse its HTTP disk cache on return
-  visits, subject to ordinary browser/cache eviction policies. When a pack
-  changes, its revision changes. Neither a persistent JS reference to all raw
-  DEM JSON nor a Service Worker is introduced.
+  `/reality/<id>.json?v=<16-hex>`. Successful packs are saved in browser
+  **CacheStorage**, with a hard cap of **three** versioned resort responses.
+  A cached response is reused on return visits without a second network
+  request. Updating a resort's revision evicts its older cached revision.
+  HTTP caching (`cache: 'force-cache'`) provides a fallback if CacheStorage
+  is unavailable, denied by private-browsing policies or out of quota.
+  A temporarily cached 404 is retried over the network. No persistent JS
+  reference to every raw DEM, or Service Worker, is introduced.
 - Resort links are generated from the catalog at runtime. The original
   single-piste route, network opt-in, credit label and native mode remain
   compatible with existing gameplay.
