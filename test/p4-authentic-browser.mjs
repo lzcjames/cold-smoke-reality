@@ -169,6 +169,30 @@ try {
       console.log('Authentic P4 browser rendered and skied:',JSON.stringify(report.at(-1)));
     }
   }
+  // Genuine green piste must be independently playable. Without an
+  // explicit start on 643745486, players spawn on Diable 1 (black) and
+  // naturally report that the supposedly green run feels impossibly steep.
+  await open('/?manual&w=320&h=180&lang=en&backend=webgl2&reality=les-deux-alpes&network=1&piste=643745486');
+  const green=await evaluate(`(async()=>{
+    const k=window.__ski,boot=await k.boot(),t=k.m.Course.reality;
+    const p=t.selectedSpawn,s=k.game().s;
+    const nearest={};t.network.lookup(s.p[0],s.p[2],nearest);
+    const source=t.height(s.p[0],s.p[2]);
+    const prepared=k.m.Course.height(s.p[0],s.p[2]);
+    return {boot,way:nearest.piste?.osmWay,start:p,
+      signed:document.getElementById('reality-piste').href,
+      source,prepared,physics:s.p[1],name:t.selectedPiste?.name,
+      difficulty:t.selectedPiste?.difficulty,
+      error:k.err()};
+  })()`);
+  assert.equal(green.boot,'ok webgl2');
+  assert.equal(green.way,643745486,'green start must be on green OSM line, not black Diable 1');
+  assert.equal(green.name,'Petites Crêtes');
+  assert.equal(green.difficulty,'novice');
+  assert(green.signed.endsWith('/way/643745486'));
+  assert(Math.abs(green.physics-green.prepared)<0.1);
+  assert(!green.error);
+  console.log('Petites Crêtes independent novice start verified:',JSON.stringify(green));
   await open('/?manual&w=320&h=180&lang=en&backend=webgl2&ui');
   const picker=await evaluate(`({
     hidden:document.getElementById('reality-picker').hidden,
