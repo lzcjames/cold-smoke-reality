@@ -1,0 +1,44 @@
+name: P4 Les Deux Alpes source survey
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/les-deux-alpes.overpass'
+      - 'tools/reality/p4_audit.py'
+      - 'test/p4_audit_test.py'
+      - '.github/workflows/p4-survey.yml'
+  workflow_dispatch:
+jobs:
+  osm-snapshot:
+    name: Survey true OSM piste way geometry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch dated OSM downhill survey (Overpass)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for server in https://overpass.kumi.systems/api/interpreter https://overpass-api.de/api/interpreter; do
+            echo "Trying ${server}"
+            if curl --fail --location --silent --show-error --max-time 135 --retry 1 \
+              --data-urlencode data@tools/reality/les-deux-alpes.overpass \
+              "${server}" --output p4-les-deux-alpes-osm.json; then
+              python3 -m json.tool p4-les-deux-alpes-osm.json >/dev/null
+              echo "OSM snapshot downloaded"
+              break
+            fi
+          done
+          test -s p4-les-deux-alpes-osm.json
+      - name: Audit real names, exact shared OSM nodes, and candidate components
+        run: |
+          python3 tools/reality/p4_audit.py --osm p4-les-deux-alpes-osm.json --report p4-source-audit.json
+          python3 -m unittest discover -s test -p 'p4_audit_test.py'
+      - name: Archive original source with reproducible topology report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          path: |
+            p4-les-deux-alpes-osm.json
+            p4-source-audit.json
+          if-no-files-found: warn
