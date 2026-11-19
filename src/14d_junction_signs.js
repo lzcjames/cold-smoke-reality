@@ -19,7 +19,9 @@ const JunctionSigns = (() => {
     ctx.textBaseline = 'middle';
     for (const [i, sign] of signs.entries()) {
       const x = (i % columns) * tileWidth, y = Math.floor(i / columns) * tileHeight;
-      ctx.fillStyle = PisteMarkers.colour(sign.difficulty);
+      // Preserve plate colour in the per-vertex tint. The texture only needs
+      // glyph/border coverage, not duplicate per-pixel red/black backgrounds.
+      ctx.fillStyle = '#000';
       ctx.fillRect(x, y, tileWidth, tileHeight);
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 3;
@@ -30,9 +32,16 @@ const JunctionSigns = (() => {
       ctx.font = 'bold 25px sans-serif';
       ctx.fillText(sign.name, x + 67, y + 41, 175);
     }
+    // r8unorm is supported by WebGL2 and WebGPU. Text/border are white over
+    // black, so one channel reconstructs the original tinted sign at full
+    // resolution, reducing 100-piste GPU atlas storage from ~10 MiB to ~2.5 MiB.
+    const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const glyphMask = new Uint8Array(canvas.width * canvas.height);
+    for (let i = 0, j = 0; j < glyphMask.length; i += 4, j++) {
+      glyphMask[j] = rgba[i];
+    }
     const texture = gfx.texture({
-      w: canvas.width, h: canvas.height, format: 'rgba8',
-      data: new Uint8Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer),
+      w: canvas.width, h: canvas.height, format: 'r8', data: glyphMask,
     });
 
     const cell = z => Math.floor(z / 192);
@@ -107,8 +116,9 @@ const JunctionSigns = (() => {
       }`,
       fs: `fn frag(v: VOut) -> FOut {
         var o: FOut;
-        let texel: vec3f = tex(tSign, v.uv).rgb;
-        let ink: vec3f = select(texel, v.tint, v.uv.x < 0.0);
+        let glyph: f32 = tex(tSign, v.uv).r;
+        let ink: vec3f = select(mix(v.tint, vec3f(1.0), glyph),
+          v.tint, v.uv.x < 0.0);
         let light: vec3f = vec3f(0.28) + 0.55 * U.ambSky.rgb + 0.45 * U.ambGnd.rgb + 0.30 * U.sunCol.rgb;
         o.color = vec4f(applyFog(ink * ink * light, v.wp), 0.0); return o;
       }`,
@@ -116,6 +126,7 @@ const JunctionSigns = (() => {
     return {
       pipe,
       stats: { atlasWidth: canvas.width, atlasHeight: canvas.height,
+        atlasFormat: 'r8', atlasBytes: glyphMask.byteLength,
         signs: signs.length, stakes: stakes.length, vertexCount: vertices.length / 8 },
       draw(render) {
         const [x, , z] = render.cam.pos;
