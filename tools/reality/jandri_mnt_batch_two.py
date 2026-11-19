@@ -10,8 +10,12 @@ import hashlib
 import json
 from pathlib import Path
 
-from jandri_mnt_coverage import evaluate, plan
-from p4_full_ground_gate import download, sha256, validate_raster, verify_source_url
+try:
+    from .jandri_mnt_coverage import evaluate, plan
+    from .p4_full_ground_gate import download, sha256, validate_raster, verify_source_url
+except ImportError:  # command-line script
+    from jandri_mnt_coverage import evaluate, plan
+    from p4_full_ground_gate import download, sha256, validate_raster, verify_source_url
 
 
 # Exact IDs already confirmed in two-tile pilot 44636013026.
