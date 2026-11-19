@@ -111,7 +111,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dem", type=Path, required=True, help="Real IGN or Copernicus GeoTIFF")
     parser.add_argument("--osm", type=Path, required=True, help="Timestamped Overpass JSON, out geom")
-    parser.add_argument("--source", required=True, choices=("ign", "copernicus"))
+    parser.add_argument("--source", required=True, choices=("ign", "ign-lidar-hd", "copernicus"))
     parser.add_argument("--primary-way", type=int, required=True)
     parser.add_argument("--neighbour-way", type=int, action="append", required=True,
                         help="Repeat 2–4 times; must share exact OSM node IDs with the graph")

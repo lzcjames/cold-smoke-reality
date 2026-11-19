@@ -16,6 +16,7 @@ CROP_BOUNDS = (6.025, 45.050, 6.150, 45.145)
 STEP = 15
 SOURCES = {
     "ign": "IGN RGE ALTI® · Licence Ouverte 2.0",
+    "ign-lidar-hd": "IGN LiDAR HD MNT 0.5 m · Licence Ouverte 2.0",
     "copernicus": "Copernicus DEM GLO-30 · European Union / Airbus",
 }
 

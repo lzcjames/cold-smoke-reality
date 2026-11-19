@@ -13,7 +13,9 @@ import math
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
@@ -121,23 +123,45 @@ def validate_raster(path, tile):
 
 
 def download(url, dest):
-    request = Request(url, headers={"User-Agent": "ColdSmokeReality/1.0 (real MNT audit)"})
-    size = 0
-    with urlopen(request, timeout=180) as response, dest.open("wb") as out:
-        mime = response.headers.get("Content-Type", "").lower()
-        if "image" not in mime and "octet-stream" not in mime:
-            raise ValueError("Unexpected response media type: " + mime)
-        while True:
-            part = response.read(1024 * 1024)
-            if not part:
-                break
-            size += len(part)
-            if size > 80 * 1024 * 1024:
-                raise ValueError("Unexpectedly large raw DEM")
-            out.write(part)
-    if size < 4096:
-        raise ValueError("Tiny or empty DEM response")
-    return size
+    # The same source tiles succeeded in archived run 44546686678, but the
+    # public IGN WMS may intermittently return HTTP 400 or 503 under load.
+    # Bound attempts; NEVER substitute missing data or ignore invalid images.
+    for attempt in range(4):
+        size = 0
+        try:
+            request = Request(url, headers={
+                "User-Agent": "ColdSmokeReality/1.0 (real MNT audit)",
+                "Accept": "image/geotiff",
+            })
+            with urlopen(request, timeout=180) as response, dest.open("wb") as out:
+                mime = response.headers.get("Content-Type", "").lower()
+                if "image" not in mime and "octet-stream" not in mime:
+                    raise ValueError("Unexpected response media type: " + mime)
+                while True:
+                    part = response.read(1024 * 1024)
+                    if not part:
+                        break
+                    size += len(part)
+                    if size > 80 * 1024 * 1024:
+                        raise ValueError("Unexpectedly large raw DEM")
+                    out.write(part)
+            if size < 4096:
+                raise ValueError("Tiny or empty DEM response")
+            return size
+        except HTTPError as exc:
+            body = exc.read(2048).decode("utf-8", errors="replace")
+            print("IGN tile download HTTP", exc.code, "attempt", attempt + 1,
+                  "response", repr(body[:500]), flush=True)
+            if exc.code not in (400, 408, 429, 500, 502, 503, 504) or attempt == 3:
+                raise
+        except (URLError, TimeoutError) as exc:
+            print("IGN tile download network error", type(exc).__name__,
+                  "attempt", attempt + 1, flush=True)
+            if attempt == 3:
+                raise
+        dest.unlink(missing_ok=True)
+        time.sleep(6 * (attempt + 1))
+    raise RuntimeError("Real MNT source exhausted retry budget")
 
 
 def main():
@@ -166,6 +190,7 @@ def main():
         if missing:
             raise ValueError("Official WFS has no metadata for required tiles: " + ",".join(missing))
         wrappers, sources = [], []
+        report["sourceTiles"] = sources
         for tile in wanted:
             meta = features[tile]
             url = verify_source_url(meta.get("url_mnt"), tile)
@@ -190,7 +215,7 @@ def main():
         out = args.work / "unpublished-validation-only.json"
         cmd = ["/usr/bin/python3", "tools/reality/p4_import.py",
                "--dem", str(mosaic), "--osm", str(args.osm),
-               "--source", "ign", "--resort-id", "les-deux-alpes",
+               "--source", "ign-lidar-hd", "--resort-id", "les-deux-alpes",
                "--primary-way", str(PRIMARY),
                "--neighbour-way", str(NEIGHBOURS[0]),
                "--neighbour-way", str(NEIGHBOURS[1]),
