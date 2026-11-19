@@ -1,0 +1,123 @@
+name: P4 measured IGN ground junction probe (non-publishing)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/p4_ground_node_probe.py'
+      - '.github/workflows/p4-ign-ground-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe-two-real-nodes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve archived authentic official WFS index (source, not terrain)
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-ign-lidar-tile-index
+          run-id: 44542395891
+          github-token: ${{ github.token }}
+          path: /tmp/p4-ign-index
+      - name: Retrieve archived authentic OSM way geometry
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          run-id: 44531317057
+          github-token: ${{ github.token }}
+          path: /tmp/p4-osm
+      - name: Download exactly two approved 0.5m IGN MNT tiles; keep them off web distribution
+        timeout-minutes: 9
+        run: |
+          mkdir -p /tmp/p4-ground p4-ground-evidence
+          python3 - <<'PY'
+          import json, hashlib, os, urllib.parse, urllib.request
+          from pathlib import Path
+          src = json.loads(Path('/tmp/p4-ign-index/ign-index-original.geojson').read_text())
+          features = {f['properties'].get('coordonnees_nw'):f['properties']
+                      for f in src.get('features', [])}
+          records = []
+          for tile in ('0946-6439', '0947-6439'):
+              if tile not in features:
+                  raise SystemExit('Missing authentic source tile in official WFS index: '+tile)
+              p = features[tile]
+              url = p.get('url_mnt')
+              u = urllib.parse.urlparse(url or '')
+              q = urllib.parse.parse_qs(u.query)
+              first = lambda name: q.get(name, [''])[0]
+              if not (u.scheme == 'https' and u.hostname == 'data.geopf.fr'
+                      and u.path == '/wms-r' and
+                      first('LAYERS') == 'IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93'
+                      and first('FORMAT') == 'image/geotiff'
+                      and '_MNT_' in first('FILENAME')
+                      and first('CRS') == 'EPSG:2154'
+                      and first('WIDTH') == '2000' and first('HEIGHT') == '2000'):
+                  raise SystemExit('IGN source is not an approved 0.5m ground model URL')
+              file = Path('/tmp/p4-ground') / (tile + '.tif')
+              request = urllib.request.Request(url, headers={'User-Agent':'ColdSmokeReality/1.0 (real ground data audit)'})
+              digest, count = hashlib.sha256(), 0
+              with urllib.request.urlopen(request, timeout=180) as response, file.open('wb') as out:
+                  if 'image' not in response.headers.get('Content-Type', '').lower() and 'octet-stream' not in response.headers.get('Content-Type','').lower():
+                      raise SystemExit('Unexpected MIME type (not GeoTIFF)')
+                  while chunk := response.read(1024 * 1024):
+                      count += len(chunk)
+                      if count > 80 * 1024 * 1024:
+                          raise SystemExit('Unexpectedly large terrain tile')
+                      digest.update(chunk); out.write(chunk)
+              if count < 4096:
+                  raise SystemExit('Missing/non-raster tile')
+              records.append({'tile':tile, 'sha256':digest.hexdigest(), 'sizeBytes':count,
+                              'edition':p.get('date_edition'),'mission':p.get('code_mission'),
+                              'url':url})
+              print('Fetched original MNT',tile,count,'bytes / sha256',digest.hexdigest())
+          Path('p4-ground-evidence/ign-source-tile-manifest.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - name: Install GDAL reader with bounded mirror retries
+        timeout-minutes: 7
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if sudo apt-get update -o Acquire::Retries=3 &&
+              sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin; then break; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 6
+          done
+      - name: Inspect downloaded GeoTIFF CRS and geotransform (diagnostic)
+        run: |
+          for tile in 0946-6439 0947-6439; do
+            echo "=== official IGN MNT $tile ==="
+            gdalinfo "/tmp/p4-ground/$tile.tif" | head -85
+          done
+          /usr/bin/python3 - <<'PY'
+          from osgeo import gdal, osr
+          for tile in ("0946-6439", "0947-6439"):
+              ds = gdal.Open("/tmp/p4-ground/"+tile+".tif")
+              srs = ds.GetSpatialRef()
+              expected = osr.SpatialReference()
+              expected.ImportFromEPSG(2154)
+              print(tile, "projection-string", repr(ds.GetProjection()[:280]),
+                    "authority", srs.GetAuthorityCode(None) if srs else None,
+                    "same-as-2154", bool(srs and srs.IsSame(expected)),
+                    "geotransform", ds.GetGeoTransform(),
+                    "size", ds.RasterXSize, ds.RasterYSize)
+          PY
+      - name: Read actual EPSG:2154, 0.5m ground heights at OSM shared nodes
+        run: |
+          /usr/bin/python3 tools/reality/p4_ground_node_probe.py \
+            --osm /tmp/p4-osm/p4-les-deux-alpes-osm.json \
+            --dem /tmp/p4-ground/0946-6439.tif \
+            --dem /tmp/p4-ground/0947-6439.tif \
+            --out p4-ground-evidence/ground-node-deltas.json
+      - name: Archive hashes and numeric probe only; never raw large source tiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-ign-ground-junction-evidence
+          path: p4-ground-evidence/
+          if-no-files-found: warn
+          retention-days: 30
