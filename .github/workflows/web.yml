@@ -36,9 +36,23 @@ jobs:
         id: chrome
       - run: npm run check
       - run: npm test
-      - run: npm run test:browser -- --release
+      - name: Browser regression with optional PR #10 visual captures
         env:
           BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          if [ "$PR_NUMBER" = "10" ]; then
+            npm run test:browser -- --release --screenshots
+          else
+            npm run test:browser -- --release
+          fi
+      - name: Archive PR #10 real headless Chromium screenshots
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.number == 10
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr10-headless-rendered-frames
+          path: screenshots/pr10/
+          if-no-files-found: warn
       - name: Benchmark La Balme junction signs (PR #9 ABBA)
         if: github.event_name == 'pull_request' && github.event.pull_request.number == 9
         env:
