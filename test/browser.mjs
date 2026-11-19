@@ -2,10 +2,13 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import fixture from './reality-fixture.cjs';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
+const captureImages = process.argv.includes('--screenshots');
+const captures = new URL('../screenshots/pr10/', import.meta.url);
+if (captureImages) await mkdir(captures, { recursive: true });
 const html = await readFile(new URL('dist/dev.html', root));
 const pages = new Map([
   ['/', [html, 'text/html']],
@@ -16,13 +19,43 @@ const pages = new Map([
 const realityAsset = process.argv.includes('--release')
   ? JSON.parse(await readFile(new URL('dist/reality/alpe-dhuez.json', root), 'utf8'))
   : fixture();
-let serveReality = false;
+// Inject a SECOND SYNTHETIC resort only into this test server's HTML. Never
+// touch dist/ or ship these coordinates to production.
+const alternateAsset = fixture();
+alternateAsset.id = 'test-only-resort';
+alternateAsset.piste.name = 'Synthetic Test Ridge';
+alternateAsset.elevationSource = 'Synthetic browser test only';
+alternateAsset.grid.heights = alternateAsset.grid.heights.map((value, i) =>
+  value + 0.6 * Math.floor(i / alternateAsset.grid.cols));
+const releasedHtml = html.toString('utf8');
+assert(!releasedHtml.includes('test-only-resort'), 'synthetic resort must not be published');
+const attribute = /data-reality-catalog="([^"]+)"/.exec(releasedHtml);
+assert(attribute && attribute[1].endsWith(']'), 'built resort catalog missing');
+const testEntry = JSON.stringify({
+  id: alternateAsset.id, name: 'Synthetic Test Resort',
+  network: false, revision: 'synthetic-browser-1',
+}).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const extra = attribute[1].length > 2 ? ',' : '';
+const testCatalog = attribute[1].slice(0, -1) + extra + testEntry + ']';
+pages.set('/', [releasedHtml.replace(attribute[0],
+  'data-reality-catalog="' + testCatalog + '"'), 'text/html']);
+let serveReality = false, realityRequests = 0, successfulRealityRequests = 0;
+let alternateRequests = 0, successfulAlternateRequests = 0;
 const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
-  const page = path === '/reality/alpe-dhuez.json' && serveReality ?
-    [JSON.stringify(realityAsset), 'application/json'] : pages.get(path);
-  if (!page) return res.writeHead(404).end();
-  res.writeHead(200, { 'Content-Type': page[1] }).end(page[0]);
+  const isPrimary = path === '/reality/alpe-dhuez.json';
+  const isSecondary = path === '/reality/test-only-resort.json';
+  const isReality = isPrimary || isSecondary;
+  if (isPrimary) realityRequests++;
+  if (isSecondary) alternateRequests++;
+  if (isPrimary && serveReality) successfulRealityRequests++;
+  if (isSecondary && serveReality) successfulAlternateRequests++;
+  const page = isReality && serveReality
+    ? [JSON.stringify(isPrimary ? realityAsset : alternateAsset), 'application/json']
+    : pages.get(path);
+  if (!page) return res.writeHead(404, { 'Cache-Control': 'no-store' }).end();
+  res.writeHead(200, { 'Content-Type': page[1],
+    'Cache-Control': isReality ? 'public, max-age=600' : 'no-store' }).end(page[0]);
 }).listen(0, '127.0.0.1');
 await once(server, 'listening');
 const profile = await mkdtemp('/tmp/cold-smoke-chromium-');
@@ -69,6 +102,45 @@ try {
     }
     return r.result.value;
   }
+  async function capture(name, offscreenGPU = false) {
+    if (!captureImages) return;
+    let data;
+    if (offscreenGPU) {
+      // Headless WebGPU canvas swapchain frames may not be composited into the
+      // browser's Page.captureScreenshot output. Use the actual GPU texture
+      // readback path already provided by createGPU({ offscreen: true }).
+      const sampled = await evaluate(`(async () => {
+        const raw = await window.__ski.app().gfx.capture();
+        if (!raw?.data || raw.w < 64 || raw.h < 64) throw Error('No WebGPU readback');
+        let min = 255, max = 0, different = 0;
+        const first = raw.data[0];
+        for (let i = 0; i < raw.data.length; i += 4) {
+          min = Math.min(min, raw.data[i], raw.data[i+1], raw.data[i+2]);
+          max = Math.max(max, raw.data[i], raw.data[i+1], raw.data[i+2]);
+          if (Math.abs(raw.data[i] - first) > 20) different++;
+        }
+        if (max - min < 50 || different < 500) throw Error('GPU readback has no visible scene');
+        const canvas = document.createElement('canvas');
+        canvas.width = raw.w; canvas.height = raw.h;
+        canvas.getContext('2d').putImageData(new ImageData(raw.data, raw.w, raw.h), 0, 0);
+        return { png: canvas.toDataURL('image/png').split(',')[1], width: raw.w,
+          height: raw.h, min, max, different };
+      })()`);
+      assert(sampled?.png?.length > 1200, 'WebGPU texture image missing');
+      console.log('WebGPU readback:', name, sampled.width, sampled.height,
+        'channel range', sampled.min, sampled.max, 'different pixels', sampled.different);
+      data = Buffer.from(sampled.png, 'base64');
+    } else {
+      await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+      const result = await cdp('Page.captureScreenshot', {
+        format: 'png', captureBeyondViewport: false, fromSurface: true
+      });
+      assert(result.data?.length > 1200, 'headless screenshot is unexpectedly empty');
+      data = Buffer.from(result.data, 'base64');
+    }
+    await writeFile(new URL(name + '.png', captures), data);
+    console.log('saved screenshot:', name + '.png', data.length, 'bytes');
+  }
   await cdp('Network.enable');
   await cdp('Network.setBlockedURLs',{urls:['https://fonts.googleapis.com/*','https://fonts.gstatic.com/*']});
   const base = 'http://127.0.0.1:' + server.address().port;
@@ -94,14 +166,19 @@ try {
   console.log('Missing Reality data stops startup');
   serveReality = true;
 
+  let firstRealityRequests = null;
   for (const [mode, lang, backend] of [
     ['procedural', 'en', 'webgpu'], ['reality', 'zh', 'webgl2'], ['reality', 'en', 'webgpu'],
     ...(realityAsset.junctions ? [['network', 'zh', 'webgl2'], ['network', 'en', 'webgpu']] : []),
+    ['secondary', 'en', 'webgl2'], ['reality-return', 'en', 'webgpu'],
   ]) {
     const reality = mode !== 'procedural', network = mode === 'network';
+    const secondary = mode === 'secondary';
+    const requestsBefore = realityRequests, alternateBefore = alternateRequests;
     const query = [options, 'lang=' + lang, 'backend=' + backend];
-    if (reality) query.push('reality=alpe-dhuez');
+    if (reality) query.push('reality=' + (secondary ? alternateAsset.id : 'alpe-dhuez'));
     if (network) query.push('network=1');
+    if (captureImages && backend === 'webgpu') query.push('offscreen');
     await navigate('/?' + query.join('&'), 'Boolean(window.__ski)');
     const result = await evaluate(`(async () => {
       try {
@@ -140,7 +217,9 @@ try {
       }
       return { boot, start, end, error: k.err(), surface, graphicsAlive: !k.app().gfx.lost,
         lang: k.i18n().lang, reality: Boolean(terrain), restarted, continued, junctionDraws, lowerJunctionDraws,
-        piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length) };
+        piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length),
+        resortId: terrain?.id, resortName: terrain?.resortName, source: terrain?.elevationSource,
+        credits: document.getElementById('reality-resort-name')?.textContent };
       } catch (error) {
         return { failure: error.message || String(error), stack: error.stack,
           graphicsError: window.__ski.err() };
@@ -152,9 +231,35 @@ try {
     assert.equal(result.reality, reality);
     assert(!result.error && result.graphicsAlive && result.end.speed > 0 && result.end.p[2] < result.start.p[2], JSON.stringify(result));
     assert(Math.abs(result.end.p[1] - result.surface) < 0.5, JSON.stringify(result));
+    if (!reality) {
+      assert.equal(realityRequests, requestsBefore,
+        'procedural mode must not request the original DEM');
+      assert.equal(alternateRequests, alternateBefore,
+        'procedural mode must not request a second DEM');
+    }
     if (reality) {
-      assert.equal(result.piste, realityAsset.piste.name);
-      assert.equal(result.osmWay, realityAsset.piste.osmWay);
+      const expected = secondary ? alternateAsset : realityAsset;
+      if (secondary) {
+        assert.equal(successfulAlternateRequests, 1,
+          'new resort must load its own DEM once');
+        assert.equal(successfulRealityRequests, firstRealityRequests,
+          'entering another resort must not reload the original');
+      } else if (firstRealityRequests == null) {
+        firstRealityRequests = successfulRealityRequests;
+        assert.equal(firstRealityRequests, 1, 'first selected resort should fetch DEM once');
+      } else {
+        assert.equal(successfulRealityRequests, firstRealityRequests,
+          'switching back must reuse the original DEM cache');
+        if (mode === 'reality-return')
+          assert.equal(successfulAlternateRequests, 1,
+            'switching back must not download the other DEM');
+      }
+      assert.equal(result.resortId, expected.id);
+      assert.equal(result.resortName, secondary ? 'Synthetic Test Resort' : 'Alpe d’Huez');
+      assert.equal(result.credits, result.resortName);
+      assert.equal(result.piste, expected.piste.name);
+      assert.equal(result.osmWay, expected.piste.osmWay);
+      assert.equal(result.source, expected.elevationSource);
       assert(result.descent > 25);
       assert.equal(result.restarted, true);
       if (network) assert(result.continued && result.junctionDraws > 0 &&
@@ -162,7 +267,63 @@ try {
       else assert.equal(result.junctionDraws, 0);
     }
     console.log(mode, result.piste || 'seeded mountain', lang, backend, 'skiing, rendered frame and ground contact passed');
+    if (captureImages && (mode === 'procedural' || mode === 'secondary' ||
+      mode === 'reality-return' || (network && backend === 'webgl2'))) {
+      // Use a reproducible downhill camera in both resorts, and a sign-facing
+      // camera at the verified Campanules junction for network mode.
+      const visible = await evaluate(`(() => {
+        const k = window.__ski, t = k.m.Course.reality;
+        if (t?.network) {
+          const sign = t.network.signs.find(x => x.to === 23257916 && !x.advance);
+          k.view([sign.x, sign.y + 4, sign.z + 16],
+            [sign.x, sign.y + 1.6, sign.z - 12], 0.95, 0);
+        } else if (t) {
+          const z = -Math.min(100, t.length / 3), x = t.centre(-z);
+          k.view([x, t.height(x, z) + 8, z + 23],
+            [x, t.height(x, z - 35) + 2, z - 35], 0.95, 0);
+        } else {
+          const p = k.game().root.pos;
+          k.view([p[0], p[1] + 8, p[2] + 28],
+            [p[0], p[1] + 2, p[2] - 24], 0.95, 0);
+        }
+        return {width: k.app().gfx.width, height: k.app().gfx.height};
+      })()`);
+      console.log('headless camera rendered:', mode, JSON.stringify(visible));
+      await capture(mode + '-' + backend + (backend === 'webgpu' ? '-texture' : ''),
+        backend === 'webgpu');
+    }
   }
+
+  // Also exercise the generated menu link, not only direct ?reality= URLs.
+  await navigate('/?' + options + '&ui&lang=en&backend=webgl2',
+    'Boolean(document.querySelector("#reality-resorts a"))');
+  const alternateLink = await evaluate(`({
+    label: document.querySelector('#reality-resorts a').textContent,
+    url: document.querySelector('#reality-resorts a').getAttribute('href'),
+    hidden: document.getElementById('reality-resorts').hidden
+  })`);
+  assert.equal(alternateLink.hidden, false);
+  assert.match(alternateLink.label, /Synthetic Test Resort/);
+  assert.match(alternateLink.url, /reality=test-only-resort/);
+  assert.doesNotMatch(alternateLink.url, /network=1/);
+  try {
+    await evaluate('document.querySelector("#reality-resorts a").click(); true');
+  } catch (error) {
+    if (!/context|navigation|closed/i.test(error.message)) throw error;
+  }
+  let opened = false;
+  for (let i = 0; i < 200; i++) {
+    opened = await evaluate(`location.search.includes('reality=test-only-resort') &&
+      Boolean(window.__ski?.app()?.ready) && window.__ski.m.Course.reality?.id === 'test-only-resort' &&
+      document.getElementById('reality-resort-name')?.textContent === 'Synthetic Test Resort'`)
+      .catch(() => false);
+    if (opened) break;
+    await delay(200);
+  }
+  assert.equal(opened, true, 'menu selection must boot the synthetic resort with correct credits');
+  assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
+  console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
+  await capture('secondary-menu-reentry-webgl2');
 } finally {
   clearTimeout(timer);
   socket?.close();

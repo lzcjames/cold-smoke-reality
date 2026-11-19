@@ -8,7 +8,7 @@
   "repository": { "type": "git", "url": "https://github.com/huiskylabs/cold-smoke.git" },
   "scripts": {
     "build": "node build.js",
-    "test": "node --test test/reality.test.cjs",
+    "test": "node --test test/*.test.cjs",
     "test:browser": "node test/browser.mjs",
     "check": "node tools/check-native.js",
     "motion": "node tools/motion/run.js",

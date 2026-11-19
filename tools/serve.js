@@ -8,7 +8,7 @@ http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   // / and /index.html are the game. A path ending in /dev is the same page (the game then opens developer mode from the path).
   if (p === '/' || p === '/index.html' || /(?:^|\/)dev\/?$/.test(p)) p = '/dist/dev.html';
-  if (p === '/reality/alpe-dhuez.json') p = '/dist' + p;
+  if (/^\/reality\/[a-z0-9]+(?:-[a-z0-9]+)*\.json$/.test(p)) p = '/dist' + p;
   const f = path.join(root, path.normalize(p));
   if (!f.startsWith(root)) { res.writeHead(403); return res.end(); }
   fs.readFile(f, (err, data) => {

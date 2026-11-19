@@ -1,11 +1,28 @@
 // A measured DEM and a downhill OSM piste in a shared projected metre grid.
 const Reality = (() => {
+  // The catalog is embedded in the small HTML shell at build time; no resort DEM is
+  // fetched or parsed when opening the default procedural mountain.
   const id = 'alpe-dhuez', filename = 'reality/alpe-dhuez.json';
+  let catalogCache;
+  function catalog() {
+    if (catalogCache) return catalogCache;
+    const raw = typeof document === 'undefined' ? null :
+      document.getElementById('app')?.dataset.realityCatalog;
+    if (!raw || raw === 'missing') return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw Error('Invalid resort catalog.');
+    catalogCache = parsed;
+    return parsed;
+  }
+  const get = resortId => catalog().find(resort => resort.id === resortId) || null;
+  const has = resortId => !!get(resortId);
+  const defaultId = () => catalog()[0]?.id || id;
   const clampTo = (n, max) => Math.max(0, Math.min(max, n));
   const mix = (a, b, t) => a + (b - a) * t;
   function create(data) {
     const { grid, piste, elevationSource } = data || {};
-    const valid = (grid && piste && data.version === 1 && data.id === id &&
+    const valid = (grid && piste && data.version === 1 &&
+      typeof data.id === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.id) &&
       Number.isInteger(grid.cols) && grid.cols >= 2 && grid.cols <= 1200 &&
       Number.isInteger(grid.rows) && grid.rows >= 2 && grid.rows <= 1200 &&
       Number.isFinite(grid.step) && grid.step > 0 &&
@@ -65,7 +82,7 @@ const Reality = (() => {
     }
     const withinDEM = (x, z) => inside(e0 - x * dn - z * de, n0 + x * de - z * dn);
     return {
-      id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
+      id: data.id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
       difficulty: typeof piste.difficulty === 'string' ? piste.difficulty : null,
       height, centre,
       project(e, n) {
@@ -78,16 +95,64 @@ const Reality = (() => {
     };
   }
 
-  async function load(network = false) {
+  async function load(resortId = defaultId(), network = false) {
+    const resort = get(resortId);
+    if (!resort || (network && !resort.network)) {
+      throw new Error('Unknown resort or piste network: ' + resortId);
+    }
     try {
-      const response = await fetch(filename);
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const data = await response.json(), terrain = create(data);
+      // URL hash invalidates changed packs. CacheStorage makes navigation back
+      // to an already downloaded resort deterministic even if HTTP cache policies
+      // differ by browser. Keep at most three packs, with LRU eviction.
+      const url = 'reality/' + resort.id + '.json?v=' + resort.revision;
+      let store = null, data = null, responseForStore = null, reusedResponse = null;
+      try {
+        if (typeof caches !== 'undefined') {
+          store = await caches.open('cold-smoke-resorts-v1');
+          const hit = await store.match(url);
+          if (hit?.ok) {
+            // Clone before consuming JSON, so a successfully used entry can
+            // be moved to the back of the cache's insertion-ordered keys.
+            const clone = hit.clone();
+            const candidate = await hit.json();
+            if (candidate?.id === resort.id) {
+              data = candidate;
+              reusedResponse = clone;
+            } else await store.delete(url);
+          }
+        }
+      } catch (_) { data = null; store = null; } // cache access may be disabled
+      if (!data) {
+        let response = await fetch(url, { cache: 'force-cache' });
+        // A cached 404 must not poison the pack when an outage recovers.
+        if (!response.ok) response = await fetch(url, { cache: 'reload' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        responseForStore = store ? response.clone() : null;
+        data = await response.json();
+      }
+      if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
+      const terrain = create(data);
+      terrain.resortName = resort.name;
       if (network) terrain.network = PisteNetwork.create(terrain, data);
+      if (store && (responseForStore || reusedResponse)) {
+        try {
+          if (reusedResponse) await store.delete(url);
+          await store.put(url, responseForStore || reusedResponse);
+          const current = new URL(url, location.href), keys = await store.keys();
+          for (const key of keys) {
+            const candidate = new URL(key.url);
+            if (candidate.pathname === current.pathname && candidate.search !== current.search) {
+              await store.delete(key); // old revision of this resort
+            }
+          }
+          const remaining = await store.keys();
+          while (remaining.length > 3) await store.delete(remaining.shift());
+        } catch (_) { /* Quota/private mode: HTTP cache still works as fallback. */ }
+      }
       return terrain;
     } catch (error) {
-      throw new Error('Alpe d’Huez terrain unavailable: ' + error.message);
+      throw new Error(resort.name + ' terrain unavailable: ' + error.message);
     }
   }
-  return { id, filename, create, load };
+  return { id, filename, catalog, get, has, defaultId, create, load };
 })();

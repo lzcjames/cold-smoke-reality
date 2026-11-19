@@ -1,7 +1,7 @@
 // concatenates src/*.js (sorted) + template into dist/index.html (single self-contained page)
 // Blocks marked /*native{*/ … /*}native*/ are the iOS and visionOS paths. The web page leaves them out;
 // ios/build-resources.sh concatenates the sources as they are.
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = require('crypto');
 const root = __dirname, srcDir = path.join(root, 'src');
 function stripNative(src) {
   const open = (src.match(/\/\*native\{\*\//g) || []).length;
@@ -26,25 +26,54 @@ let tpl = fs.readFileSync(path.join(root, 'template.html'), 'utf8');
   if (!tpl.includes('<style>')) throw new Error('template.html: no <style> to put the faces before');
   tpl = tpl.replace('<style>', () => '<style id="faces">' + css.trim() + '</style>\n<style>');
 }
-const realityAsset = 'reality/alpe-dhuez.json';
-const source = path.join(root, 'data', realityAsset);
-const target = path.join(root, 'dist', realityAsset);
-const hasReality = fs.existsSync(source);
-if (hasReality) {
-  const context = vm.createContext({ asset: fs.readFileSync(source, 'utf8') });
-  const runtime = ['02a_reality.js', '02b_piste_network.js'].map(file => fs.readFileSync(path.join(srcDir, file), 'utf8')).join('\n');
-  const hasNetwork = vm.runInContext(runtime + `
-    const data = JSON.parse(asset), terrain = Reality.create(data);
-    if (data.pistes || data.junctions) PisteNetwork.create(terrain, data);
-    Boolean(data.pistes);
+// Resource catalog is tiny and lives in the HTML shell. DEMs remain separate,
+// version-addressed JSON packs. The default procedural run never fetches them.
+const catalogFile = path.join(root, 'data/reality/catalog.json');
+const registry = fs.existsSync(catalogFile)
+  ? JSON.parse(fs.readFileSync(catalogFile, 'utf8'))
+  : { version: 1, resorts: [] }; // a standalone procedural build needs no DEM
+if (registry.version !== 1 || !Array.isArray(registry.resorts) ||
+    registry.resorts.length > 100) throw Error('Invalid resort catalog.');
+const outDir = path.join(root, 'dist/reality');
+fs.rmSync(outDir, { recursive: true, force: true });
+fs.mkdirSync(outDir, { recursive: true });
+const list = [], seen = new Set();
+const jsReality = ['02a_reality.js', '02b_piste_network.js']
+  .map(file => fs.readFileSync(path.join(srcDir, file), 'utf8')).join('\n');
+for (const entry of registry.resorts) {
+  if (!entry || typeof entry.id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.id) ||
+      typeof entry.name !== 'string' || !entry.name.trim() || entry.name.length > 90 ||
+      seen.has(entry.id) || (entry.optional !== undefined && typeof entry.optional !== 'boolean'))
+    throw Error('Invalid or duplicate resort catalog entry.');
+  seen.add(entry.id);
+  const source = path.join(root, 'data/reality', entry.id + '.json');
+  if (!fs.existsSync(source) && entry.optional === true) {
+    console.warn('Skipping optional resort pack without data: ' + entry.id);
+    continue;
+  }
+  const content = fs.readFileSync(source); // missing required packs remain a build error
+  const asset = JSON.parse(content.toString('utf8'));
+  if (asset.id !== entry.id) throw Error('Resort identity mismatch: ' + entry.id);
+  const context = vm.createContext({ asset });
+  const network = vm.runInContext(jsReality + `
+    const terrain = Reality.create(asset);
+    if (asset.pistes || asset.junctions) PisteNetwork.create(terrain, asset);
+    Boolean(asset.pistes && asset.junctions);
   `, context);
-  if (hasNetwork) tpl = tpl.replace('data-network-asset="missing"', 'data-network-asset="available"');
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.copyFileSync(source, target);
-  tpl = tpl.replace('data-reality-asset="missing"', 'data-reality-asset="available"');
-} else {
-  fs.rmSync(target, { force: true });
+  const revision = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+  list.push({ id: entry.id, name: entry.name, network, revision });
+  fs.copyFileSync(source, path.join(outDir, entry.id + '.json'));
 }
+const escapeAttribute = value => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+if (!tpl.includes('data-reality-catalog="missing"')) {
+  throw Error('template.html missing resort catalog placeholder.');
+}
+tpl = tpl.replace('data-reality-catalog="missing"',
+  'data-reality-catalog="' + escapeAttribute(JSON.stringify(list)) + '"');
+if (list.length) tpl = tpl.replace('data-reality-asset="missing"', 'data-reality-asset="available"');
+if (list[0]?.network) tpl = tpl.replace('data-network-asset="missing"', 'data-network-asset="available"');
+console.log('resort packs:', list.map(r => r.id + ' @' + r.revision).join(', '));
 const out = tpl.replace('/*__JS__*/', () => js);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'index.html'), out);
