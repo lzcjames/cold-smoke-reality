@@ -123,7 +123,13 @@ const PisteNetwork = (() => {
       for (let s = 25; s < length - 10; s += 52) {
         const [x, z] = at(line, s);
         if (signs.some(sign => Math.hypot(sign.x - x, sign.z - z) < 23)) continue;
-        const a = at(line, s - 3), b = at(line, s + 3);
+        // An OSM centreline is a polyline, not a surveyed piste boundary.
+        // Sample a longer symmetric chord when orienting visual edge stakes:
+        // the old 6 m chord snapped noticeably at sharp OSM vertices.
+        // Keep the ±12 m *estimated* lateral offset and the measured OSM
+        // centreline/DEM untouched. No new raster or per-frame allocations.
+        const a = at(line, Math.max(0, s - 12));
+        const b = at(line, Math.min(length, s + 12));
         const right = unit(a[1] - b[1], b[0] - a[0]);
         for (const side of [-1, 1]) {
           const px = x + side * right[0] * 12, pz = z + side * right[1] * 12;
