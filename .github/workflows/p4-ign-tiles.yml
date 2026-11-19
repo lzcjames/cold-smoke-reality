@@ -1,0 +1,44 @@
+name: P4 IGN LiDAR HD tile index (non-publishing)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/p4_ign_tiles.py'
+      - 'test/p4_ign_tiles_test.py'
+      - '.github/workflows/p4-ign-tiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  index-unit-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify WFS query bounds and strict MNT-only metadata parser
+        run: python3 -m unittest discover -s test -p 'p4_ign_tiles_test.py'
+
+  live-tile-index:
+    if: github.event_name == 'workflow_dispatch'
+    needs: index-unit-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query official WFS (read-only, no original DEM downloaded)
+        run: |
+          mkdir -p p4-evidence
+          python3 tools/reality/p4_ign_tiles.py \
+            --bbox 6.115 44.982 6.165 45.020 \
+            --raw-out p4-evidence/ign-index-original.geojson \
+            --out p4-evidence/ign-tile-index.json
+      - name: Archive original response and explicit non-publishing tile manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-ign-lidar-tile-index
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
