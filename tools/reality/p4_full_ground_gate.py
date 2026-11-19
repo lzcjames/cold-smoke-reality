@@ -215,7 +215,7 @@ def main():
         out = args.work / "unpublished-validation-only.json"
         cmd = ["/usr/bin/python3", "tools/reality/p4_import.py",
                "--dem", str(mosaic), "--osm", str(args.osm),
-               "--source", "ign", "--resort-id", "les-deux-alpes",
+               "--source", "ign-lidar-hd", "--resort-id", "les-deux-alpes",
                "--primary-way", str(PRIMARY),
                "--neighbour-way", str(NEIGHBOURS[0]),
                "--neighbour-way", str(NEIGHBOURS[1]),
