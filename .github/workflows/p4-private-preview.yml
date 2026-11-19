@@ -1,0 +1,75 @@
+name: P4 authentic two-resort private browser preview (no deployment)
+
+on:
+  pull_request:
+    paths:
+      - 'test/p4-authentic-browser.mjs'
+      - '.github/workflows/p4-private-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  private-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Test unchanged public game with no second resort asset
+        run: |
+          test ! -e data/reality/les-deux-alpes.json
+          npm run check
+          npm test
+      - name: Retrieve AUTHENTIC validated candidate (never commit or deploy this pack)
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-unpublished-measured-les-deux-alpes
+          run-id: 44548668423
+          github-token: ${{ github.token }}
+          path: /tmp/p4-original-validated
+      - name: Stage measured pack in ephemeral CI checkout and build preview only
+        run: |
+          cp /tmp/p4-original-validated/unpublished-validation-only.json data/reality/les-deux-alpes.json
+          node test/p4-measured-candidate.cjs data/reality/les-deux-alpes.json
+          node build.js
+          test -s dist/reality/alpe-dhuez.json
+          test -s dist/reality/les-deux-alpes.json
+          node - <<'JS'
+          const fs = require('fs'), assert = require('assert/strict');
+          const d = JSON.parse(fs.readFileSync('dist/reality/les-deux-alpes.json','utf8'));
+          const a = JSON.parse(fs.readFileSync('dist/reality/alpe-dhuez.json','utf8'));
+          assert.equal(d.id,'les-deux-alpes');
+          assert.equal(a.id,'alpe-dhuez');
+          assert.equal(d.pistes.length,3);
+          assert.equal(d.junctions.length,2);
+          assert.equal(a.pistes.length,3);
+          const html = fs.readFileSync('dist/dev.html','utf8');
+          assert(html.includes('les-deux-alpes') && html.includes('alpe-dhuez'));
+          assert(!html.includes('LHD_FXX_'), 'original raster URLs must not be embedded');
+          console.log('P4 staged separately:',fs.statSync('dist/reality/les-deux-alpes.json').size,'bytes');
+          JS
+      - name: Play both authentic resorts in Chromium WebGL2 and WebGPU
+        timeout-minutes: 11
+        env:
+          BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+        run: node test/p4-authentic-browser.mjs
+      - name: Upload screenshots, timing record and PRIVATE preview files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-private-authentic-resort-browser-preview
+          path: |
+            screenshots/p4-real/
+            p4-authentic-browser-report.json
+            dist/dev.html
+            dist/reality/alpe-dhuez.json
+            dist/reality/les-deux-alpes.json
+          if-no-files-found: warn
+          retention-days: 14
