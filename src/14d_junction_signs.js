@@ -4,23 +4,31 @@ const JunctionSigns = (() => {
     if (!network?.signs.length) return null;
     const { signs, stakes } = network;
     const tileWidth = 256, tileHeight = 80;
+    // The old one-row atlas exceeded maxTextureDimension2D above ~16-64
+    // junction boards, depending on the GPU. Pack into a capped 2D grid.
+    const textureLimit = Math.min(4096, gfx.caps?.maxTex || 4096);
+    const columns = Math.min(signs.length, Math.floor(textureLimit / tileWidth));
+    const rows = Math.ceil(signs.length / columns);
+    if (!columns || rows * tileHeight > textureLimit) {
+      throw Error('Junction sign atlas exceeds GPU texture limit.');
+    }
     const canvas = document.createElement('canvas');
-    canvas.width = tileWidth * signs.length;
-    canvas.height = tileHeight;
+    canvas.width = tileWidth * columns;
+    canvas.height = tileHeight * rows;
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'middle';
     for (const [i, sign] of signs.entries()) {
-      const x = i * tileWidth;
+      const x = (i % columns) * tileWidth, y = Math.floor(i / columns) * tileHeight;
       ctx.fillStyle = PisteMarkers.colour(sign.difficulty);
-      ctx.fillRect(x, 0, tileWidth, tileHeight);
+      ctx.fillRect(x, y, tileWidth, tileHeight);
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 3;
-      ctx.strokeRect(x + 4, 4, tileWidth - 8, tileHeight - 8);
+      ctx.strokeRect(x + 4, y + 4, tileWidth - 8, tileHeight - 8);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(sign.arrow, x + 16, 41);
+      ctx.fillText(sign.arrow, x + 16, y + 41);
       ctx.font = 'bold 25px sans-serif';
-      ctx.fillText(sign.name, x + 67, 41, 175);
+      ctx.fillText(sign.name, x + 67, y + 41, 175);
     }
     const texture = gfx.texture({
       w: canvas.width, h: canvas.height, format: 'rgba8',
@@ -37,13 +45,16 @@ const JunctionSigns = (() => {
       const group = groups.get(id), { verts } = group;
       group.left = Math.min(group.left, x - 2);
       group.right = Math.max(group.right, x + 2);
-      function face(rx, rz, width, lo, hi, offset, u0 = -1, u1 = -1) {
+      function face(rx, rz, width, lo, hi, offset, u0 = -1, u1 = -1,
+                    vTop = 0, vBottom = 1) {
         const px = x - rz * offset, pz = z + rx * offset;
         function vertex(side, h, u, v) {
           verts.push(px + rx * side * width, y + h, pz + rz * side * width, u, v, ...tint);
         }
-        vertex(-1, lo, u0, 1); vertex(1, lo, u1, 1); vertex(-1, hi, u0, 0);
-        vertex(1, lo, u1, 1); vertex(1, hi, u1, 0); vertex(-1, hi, u0, 0);
+        vertex(-1, lo, u0, vBottom); vertex(1, lo, u1, vBottom);
+        vertex(-1, hi, u0, vTop);
+        vertex(1, lo, u1, vBottom); vertex(1, hi, u1, vTop);
+        vertex(-1, hi, u0, vTop);
       }
       const sign = i != null, poleWidth = sign ? 0.055 : 0.043;
       for (const [rx, rz] of [[dx, dz], [-dx, -dz], [-dz, dx], [dz, -dx]]) {
@@ -51,8 +62,11 @@ const JunctionSigns = (() => {
       }
       if (sign) {
         // Arrow appears only on the uphill-facing side. The reverse uses the matching solid colour.
+        const tileX = (i % columns) * tileWidth;
+        const tileY = Math.floor(i / columns) * tileHeight;
         face(dx, dz, 1.48, 1.66, 2.585, 0.077,
-          (i * tileWidth + 0.5) / canvas.width, ((i + 1) * tileWidth - 0.5) / canvas.width);
+          (tileX + 0.5) / canvas.width, (tileX + tileWidth - 0.5) / canvas.width,
+          (tileY + 0.5) / canvas.height, (tileY + tileHeight - 0.5) / canvas.height);
         face(-dx, -dz, 1.48, 1.66, 2.585, 0.077);
       } else {
         face(dx, dz, 0.14, 1.00, 1.46, 0.055);
@@ -101,6 +115,8 @@ const JunctionSigns = (() => {
     });
     return {
       pipe,
+      stats: { atlasWidth: canvas.width, atlasHeight: canvas.height,
+        signs: signs.length, stakes: stakes.length, vertexCount: vertices.length / 8 },
       draw(render) {
         const [x, , z] = render.cam.pos;
         const batch = visible.get(cell(z));
