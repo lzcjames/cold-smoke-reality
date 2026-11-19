@@ -54,6 +54,25 @@ rebuilt = graph.build(actual, selected, primary_id=real_primary,
 assert rebuilt["pistes"] == actual["pistes"]
 assert rebuilt["junctions"] == actual["junctions"]
 
+# Topology-only fixture (not production resort data): a branch that joins a
+# different branch must yield a candidate even when absent from the primary.
+# The real DEM still decides whether such a candidate is skiable.
+chain = [
+    {"osmWay": 1, "nodes": [10, 20]},
+    {"osmWay": 2, "nodes": [20, 30]},
+    {"osmWay": 3, "nodes": [30, 40]},
+]
+assert graph.junction_node_ids(chain) == [20, 30]
+assert graph.junction_node_ids([
+    {"osmWay": 1, "nodes": [10, 20, 30]},
+    {"osmWay": 2, "nodes": [20, 30]},
+    {"osmWay": 3, "nodes": [30, 40]},
+]) == [20, 30]
+assert graph.junction_node_ids([
+    {"osmWay": 1, "nodes": [10, 20]},
+    {"osmWay": 2, "nodes": [30, 40]},
+]) == []
+
 for bad in [
     (real_primary, [23257916, 23257916]),
     (real_primary, [23257916, 999999999]),
