@@ -11,6 +11,39 @@ permissions:
   contents: read
 
 jobs:
+  p4_survey:
+    name: P4 OSM survey (advisory, real data only)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 12
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch timestamped Les Deux Alpes OSM ways from public Overpass
+        timeout-minutes: 5
+        run: |
+          mkdir -p research
+          python3 tools/reality/p4_osm.py \
+            --bbox 44.98 6.10 45.06 6.22 \
+            --out research/p4-osm-snapshot.json \
+            --review research/p4-way-review.json
+          python3 - <<'PY'
+          import json
+          r = json.load(open('research/p4-way-review.json'))
+          print('OSM source timestamp:', r['timestampUTC'])
+          print('Named downhill OSM ways:', r['surveyWays'])
+          print('Shared OSM nodes:', len(r['sharedNodeWayIds']))
+          for node, ids in list(r['sharedNodeWayIds'].items())[:18]:
+              print('node', node, 'shared by actual OSM ways', ids)
+          PY
+      - name: Archive non-production OSM evidence for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          path: research/
+          if-no-files-found: warn
+
   gis:
     name: GIS importer checks
     runs-on: ubuntu-24.04
