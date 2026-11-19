@@ -4,27 +4,48 @@ const JunctionSigns = (() => {
     if (!network?.signs.length) return null;
     const { signs, stakes } = network;
     const tileWidth = 256, tileHeight = 80;
+    // The old one-row atlas exceeded maxTextureDimension2D above ~16-64
+    // junction boards, depending on the GPU. Pack into a capped 2D grid.
+    const textureLimit = Math.min(4096, gfx.caps?.maxTex || 4096);
+    const columns = Math.min(signs.length, Math.floor(textureLimit / tileWidth));
+    const rows = Math.ceil(signs.length / columns);
+    if (!columns || rows * tileHeight > textureLimit) {
+      throw Error('Junction sign atlas exceeds GPU texture limit.');
+    }
+    const atlasWidth = tileWidth * columns, atlasHeight = tileHeight * rows;
+    // Render one 256x80 label at a time. A full-size Canvas2D would itself
+    // allocate a 4-byte-per-pixel backing store (~10 MiB at 100 pistes)
+    // even though the uploaded mask is one byte per pixel.
     const canvas = document.createElement('canvas');
-    canvas.width = tileWidth * signs.length;
+    canvas.width = tileWidth;
     canvas.height = tileHeight;
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'middle';
+    const glyphMask = new Uint8Array(atlasWidth * atlasHeight);
     for (const [i, sign] of signs.entries()) {
-      const x = i * tileWidth;
-      ctx.fillStyle = PisteMarkers.colour(sign.difficulty);
-      ctx.fillRect(x, 0, tileWidth, tileHeight);
+      const x = (i % columns) * tileWidth, y = Math.floor(i / columns) * tileHeight;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, tileWidth, tileHeight);
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 3;
-      ctx.strokeRect(x + 4, 4, tileWidth - 8, tileHeight - 8);
+      ctx.strokeRect(4, 4, tileWidth - 8, tileHeight - 8);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(sign.arrow, x + 16, 41);
+      ctx.fillText(sign.arrow, 16, 41);
       ctx.font = 'bold 25px sans-serif';
-      ctx.fillText(sign.name, x + 67, 41, 175);
+      ctx.fillText(sign.name, 67, 41, 175);
+      const rgba = ctx.getImageData(0, 0, tileWidth, tileHeight).data;
+      for (let row = 0; row < tileHeight; row++) {
+        const dest = (y + row) * atlasWidth + x;
+        const src = row * tileWidth * 4;
+        for (let col = 0; col < tileWidth; col++)
+          glyphMask[dest + col] = rgba[src + col * 4];
+      }
     }
+    // Same 256x80 glyph resolution; R8 only stores coverage. Plate colours
+    // stay in vertex tint and are reconstructed by the fragment shader.
     const texture = gfx.texture({
-      w: canvas.width, h: canvas.height, format: 'rgba8',
-      data: new Uint8Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer),
+      w: atlasWidth, h: atlasHeight, format: 'r8', data: glyphMask,
     });
 
     const cell = z => Math.floor(z / 192);
@@ -37,13 +58,16 @@ const JunctionSigns = (() => {
       const group = groups.get(id), { verts } = group;
       group.left = Math.min(group.left, x - 2);
       group.right = Math.max(group.right, x + 2);
-      function face(rx, rz, width, lo, hi, offset, u0 = -1, u1 = -1) {
+      function face(rx, rz, width, lo, hi, offset, u0 = -1, u1 = -1,
+                    vTop = 0, vBottom = 1) {
         const px = x - rz * offset, pz = z + rx * offset;
         function vertex(side, h, u, v) {
           verts.push(px + rx * side * width, y + h, pz + rz * side * width, u, v, ...tint);
         }
-        vertex(-1, lo, u0, 1); vertex(1, lo, u1, 1); vertex(-1, hi, u0, 0);
-        vertex(1, lo, u1, 1); vertex(1, hi, u1, 0); vertex(-1, hi, u0, 0);
+        vertex(-1, lo, u0, vBottom); vertex(1, lo, u1, vBottom);
+        vertex(-1, hi, u0, vTop);
+        vertex(1, lo, u1, vBottom); vertex(1, hi, u1, vTop);
+        vertex(-1, hi, u0, vTop);
       }
       const sign = i != null, poleWidth = sign ? 0.055 : 0.043;
       for (const [rx, rz] of [[dx, dz], [-dx, -dz], [-dz, dx], [dz, -dx]]) {
@@ -51,8 +75,11 @@ const JunctionSigns = (() => {
       }
       if (sign) {
         // Arrow appears only on the uphill-facing side. The reverse uses the matching solid colour.
+        const tileX = (i % columns) * tileWidth;
+        const tileY = Math.floor(i / columns) * tileHeight;
         face(dx, dz, 1.48, 1.66, 2.585, 0.077,
-          (i * tileWidth + 0.5) / canvas.width, ((i + 1) * tileWidth - 0.5) / canvas.width);
+          (tileX + 0.5) / atlasWidth, (tileX + tileWidth - 0.5) / atlasWidth,
+          (tileY + 0.5) / atlasHeight, (tileY + tileHeight - 0.5) / atlasHeight);
         face(-dx, -dz, 1.48, 1.66, 2.585, 0.077);
       } else {
         face(dx, dz, 0.14, 1.00, 1.46, 0.055);
@@ -93,14 +120,18 @@ const JunctionSigns = (() => {
       }`,
       fs: `fn frag(v: VOut) -> FOut {
         var o: FOut;
-        let texel: vec3f = tex(tSign, v.uv).rgb;
-        let ink: vec3f = select(texel, v.tint, v.uv.x < 0.0);
+        let glyph: f32 = tex(tSign, v.uv).r;
+        let ink: vec3f = select(mix(v.tint, vec3f(1.0), glyph),
+          v.tint, v.uv.x < 0.0);
         let light: vec3f = vec3f(0.28) + 0.55 * U.ambSky.rgb + 0.45 * U.ambGnd.rgb + 0.30 * U.sunCol.rgb;
         o.color = vec4f(applyFog(ink * ink * light, v.wp), 0.0); return o;
       }`,
     });
     return {
       pipe,
+      stats: { atlasWidth, atlasHeight,
+        atlasFormat: 'r8', atlasBytes: glyphMask.byteLength,
+        signs: signs.length, stakes: stakes.length, vertexCount: vertices.length / 8 },
       draw(render) {
         const [x, , z] = render.cam.pos;
         const batch = visible.get(cell(z));
