@@ -1,0 +1,5 @@
+[out:json][timeout:120];
+(
+  way["piste:type"="downhill"](44.975,6.095,45.050,6.205);
+);
+out body geom;

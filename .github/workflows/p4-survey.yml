@@ -1,0 +1,133 @@
+name: P4 Les Deux Alpes source survey
+permissions:
+  actions: read
+  contents: read
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/les-deux-alpes.overpass'
+      - 'tools/reality/p4_audit.py'
+      - 'test/p4_audit_test.py'
+      - '.github/workflows/p4-survey.yml'
+  workflow_dispatch:
+jobs:
+  osm-snapshot:
+    name: Survey true OSM piste way geometry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test exact-node audit safeguards without network
+        run: python3 -m unittest discover -s test -p 'p4_audit_test.py'
+      - name: Retrieve previously archived authentic OSM survey
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          run-id: 44529346578
+          github-token: ${{ github.token }}
+          path: /tmp/p4-source
+      - name: Validate archived source identity and date
+        run: |
+          cp /tmp/p4-source/p4-les-deux-alpes-osm.json .
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("p4-les-deux-alpes-osm.json").read_text())
+          stamp=data.get("osm3s",{}).get("timestamp_osm_base")
+          if stamp != "2026-07-24T11:04:51Z":
+              raise SystemExit(f"Unrecognized pinned source timestamp: {stamp}")
+          if len(data.get("elements",[])) < 200:
+              raise SystemExit("Archived source unexpectedly incomplete")
+          print("PINNED OSM SOURCE",stamp,"items",len(data["elements"]))
+          PY
+      - name: Audit real names, exact shared OSM nodes, and candidate components
+        run: |
+          python3 tools/reality/p4_audit.py --osm p4-les-deux-alpes-osm.json --report p4-source-audit.json
+      - name: Archive original source with reproducible topology report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          path: |
+            p4-les-deux-alpes-osm.json
+            p4-source-audit.json
+          if-no-files-found: warn
+
+  real-dem-probe:
+    name: Verify real Copernicus DEM against surveyed Diable 1
+    needs: osm-snapshot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+      - name: Obtain 30m Copernicus DSM tiles and GDAL
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if sudo apt-get update -o Acquire::Retries=5 &&
+              sudo apt-get install -y -o Acquire::Retries=5 --no-install-recommends python3-gdal python3-numpy gdal-bin; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 8
+          done
+          for cell in N44 N45; do
+            key="Copernicus_DSM_COG_10_${cell}_00_E006_00_DEM"
+            url="https://copernicus-dem-30m.s3.amazonaws.com/${key}/${key}.tif"
+            curl --fail --location --silent --show-error --retry 2 --max-time 240 \
+              "$url" -o "/tmp/${cell}.tif"
+            gdalinfo "/tmp/${cell}.tif" | grep -E 'Size is|Coordinate System is'
+            sha256sum "/tmp/${cell}.tif"
+          done
+          gdalbuildvrt /tmp/les-deux-alpes-cop30.vrt /tmp/N44.tif /tmp/N45.tif
+      - name: Verify real elevation coverage and OSM primary
+        run: |
+          /usr/bin/python3 tools/reality/import.py \
+            --source copernicus --dem /tmp/les-deux-alpes-cop30.vrt \
+            --osm p4-les-deux-alpes-osm.json --way 219409078 \
+            --resort-id les-deux-alpes \
+            --crop-bounds 6.115 44.982 6.165 45.020 \
+            --piste-bounds 44.990 6.125 45.012 6.154 \
+            --out p4-draft-les-deux-alpes.json
+          /usr/bin/python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          a = json.loads(Path("p4-draft-les-deux-alpes.json").read_text())
+          source = json.loads(Path("p4-les-deux-alpes-osm.json").read_text())
+          assert a["piste"]["osmWay"] == 219409078
+          assert a["grid"]["rows"] * a["grid"]["cols"] == len(a["grid"]["heights"])
+          selected = [w for w in source["elements"] if w["id"] in
+                      (219409078, 643786947, 643745486)]
+          assert len(selected) == 3
+          shared = set(selected[0]["nodes"]) & set(selected[1]["nodes"])
+          shared2 = set(selected[0]["nodes"]) & set(selected[2]["nodes"])
+          assert shared and shared2
+          info = {
+            "status": "DEM and primary geometry validated; no 3-way network published",
+            "osmTimestamp": source.get("osm3s", {}).get("timestamp_osm_base"),
+            "osmWayIds": [w["id"] for w in selected],
+            "sharedNodeIDs": sorted(shared | shared2),
+            "demProduct": "Copernicus DEM GLO-30 (DSM, not IGN RGE ALTI)",
+            "demTileSHA256": {
+              tile: hashlib.sha256(Path("/tmp/" + tile + ".tif").read_bytes()).hexdigest()
+              for tile in ("N44", "N45")
+            },
+            "gridSize": [a["grid"]["cols"], a["grid"]["rows"]],
+            "primaryWay": a["piste"]["osmWay"],
+            "primaryName": a["piste"]["name"],
+          }
+          Path("p4-dem-probe-report.json").write_text(json.dumps(info, indent=2)+"\n")
+          print(json.dumps(info, indent=2))
+          PY
+      - name: Archive unpublished measured DEM candidate and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-real-dem-probe
+          path: |
+            p4-draft-les-deux-alpes.json
+            p4-dem-probe-report.json
+          if-no-files-found: warn
