@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "resorts": [
+    {
+      "id": "alpe-dhuez",
+      "name": "Alpe d’Huez"
+    }
+  ]
+}
