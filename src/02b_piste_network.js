@@ -88,7 +88,15 @@ const PisteNetwork = (() => {
         // When the selected primary route ends at a join, one board can be
         // missed at speed. Provide both an early warning and approach sign.
         // This also applies to verified joins at future measured resorts.
-        const distances = isMainExit ? [105, 32] : [22];
+        // Les Deux Alpes has near-right-angle forks. At a typical skiing
+        // speed, a sole panel 22 m before the turn is too late to choose
+        // safely. Add an upstream preview, but preserve all established P1
+        // Alpe d'Huez sign locations and avoid clamping previews to s=0.
+        // This is navigation guidance based on true directed OSM geometry,
+        // not a claim that physical resort signs stand at these locations.
+        const sharpFork = terrain.id === 'les-deux-alpes' && outgoing.length > 1 &&
+          options.some(choice => Math.abs(choice.angle) > Math.PI / 3) && approach.s >= 82;
+        const distances = isMainExit ? [105, 32] : sharpFork ? [68, 24] : [22];
         for (const distance of distances) {
           const before = at(approach.line, approach.s - distance);
           const prev = at(approach.line, approach.s - distance - 8);
@@ -106,7 +114,7 @@ const PisteNetwork = (() => {
               name: exit.line.name, difficulty: exit.line.difficulty,
               arrow: angle < -0.26 ? '←' : angle > 0.26 ? '→' : '↑',
               osmNode, from: id, to: exit.line.osmWay,
-              advance: isMainExit && distance > 50 });
+              advance: (isMainExit || sharpFork) && distance > 50 });
           }
         }
       }

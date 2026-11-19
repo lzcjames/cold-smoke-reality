@@ -177,6 +177,34 @@ test('turn-aware boundary stakes keep original OSM lines and terrain unchanged f
   }
 });
 
+test('Les Deux Alpes sharp OSM fork gives early and near correctly directed signs', () => {
+  const { create: createNetwork } = vm.runInNewContext(
+    run(['02b_piste_network.js']) + '\nPisteNetwork');
+  const asset = require('../data/reality/les-deux-alpes.json');
+  const terrain = create(asset), network = createNetwork(terrain, asset);
+  assert.equal(network.signs.length, 10);
+  const node = asset.junctions.find(j => j.osmNode === 6057592057);
+  const [jx, jz] = terrain.project(...node.point);
+  const gap = sign => Math.hypot(sign.x - jx, sign.z - jz);
+  for (const from of [219409078, 643745486]) {
+    for (const to of [219409078, 643745486]) {
+      const signs = network.signs.filter(sign => sign.osmNode === node.osmNode &&
+        sign.from === from && sign.to === to);
+      assert.equal(signs.length, 2, 'each real approach gets an early + near board');
+      const early = signs.find(sign => sign.advance), near = signs.find(sign => !sign.advance);
+      assert(early && near);
+      assert(gap(early) > gap(near) + 25, 'early board must be well upstream');
+      assert(terrain.withinDEM(early.x, early.z) && terrain.withinDEM(near.x, near.z));
+      assert.equal(early.arrow, near.arrow, 'advance and confirmation arrows must match');
+    }
+  }
+  assert.deepEqual(Array.from(network.signs.filter(s => s.from === 219409078 &&
+    s.osmNode === node.osmNode), s => [s.to, s.arrow]).slice(0, 2),
+    [[643745486, '←'], [219409078, '↑']],
+    'from Diable 1, Petites Crêtes turns left and Diable 1 continues ahead');
+  assert.equal(network.signs.filter(s => s.osmNode === 6057592113).length, 2);
+});
+
 test('P4 off-piste mask follows all authentic pistes without changing measured terrain', () => {
   const { create: createNetwork } = vm.runInNewContext(
     run(['02b_piste_network.js']) + '\nPisteNetwork');
