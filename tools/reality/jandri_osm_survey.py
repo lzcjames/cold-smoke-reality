@@ -129,7 +129,9 @@ def build_index(document, raw, endpoint):
         "copyright": "© OpenStreetMap contributors · ODbL 1.0",
         "sourceUrl": endpoint,
         "snapshotTimestampUTC": document.get("osm3s", {}).get("timestamp_osm_base"),
-        "queriedAtUTC": datetime.now(timezone.utc).isoformat(),
+        # A pinned archived snapshot must have deterministic output. The
+        # actual Overpass retrieval time was not recorded in the source.
+        "queriedAtUTC": None if endpoint.startswith("offline") else datetime.now(timezone.utc).isoformat(),
         "queryBBoxSWNE": list(BBOX),
         "originalResponseSHA256": hashlib.sha256(raw).hexdigest(),
         "boundsWGS84": bbox,
@@ -150,7 +152,7 @@ def main():
     if args.fixture:
         raw = Path(args.fixture).read_bytes()
         doc = json.loads(raw)
-        endpoint = "offline original fixture"
+        endpoint = "archived original Overpass response (immutable SHA256)"
     else:
         raw, doc, endpoint = fetch()
     report = build_index(doc, raw, endpoint)
