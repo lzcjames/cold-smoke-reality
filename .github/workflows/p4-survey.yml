@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 23
     steps:
       - uses: actions/checkout@v4
+      - name: Test exact-node audit safeguards without network
+        run: python3 -m unittest discover -s test -p 'p4_audit_test.py'
       - name: Fetch original OSM geometry using Overpass or Geofabrik PBF
         shell: bash
         run: |
@@ -44,7 +46,6 @@ jobs:
       - name: Audit real names, exact shared OSM nodes, and candidate components
         run: |
           python3 tools/reality/p4_audit.py --osm p4-les-deux-alpes-osm.json --report p4-source-audit.json
-          python3 -m unittest discover -s test -p 'p4_audit_test.py'
       - name: Archive original source with reproducible topology report
         if: always()
         uses: actions/upload-artifact@v4
