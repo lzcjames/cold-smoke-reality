@@ -247,9 +247,9 @@ test('Petites Crêtes green piste has gentle simulated crossfall on raw steep IG
   const dx=b[0]-a[0], dn=b[1]-a[1], len=Math.hypot(dx,dn);
   const left=[point[0]-dn/len*8,point[1]+dx/len*8];
   const right=[point[0]+dn/len*8,point[1]-dx/len*8];
-  const rawCross = Math.abs(terrain.altitude(...left)-terrain.altitude(...right))/16;
-  assert(rawCross > 0.25, 'reproduce user-reported unrealistic green piste crossfall');
   const worldLeft=terrain.project(...left), worldRight=terrain.project(...right);
+  const rawCross = Math.abs(terrain.height(...worldLeft)-terrain.height(...worldRight))/16;
+  assert(rawCross > 0.25, 'reproduce user-reported unrealistic green piste crossfall');
   const preparedCross=Math.abs(network.preparedHeight(...worldLeft)-
     network.preparedHeight(...worldRight))/16;
   assert(preparedCross < 0.13, 'simulated grooming should keep local crossfall gentle');
@@ -263,13 +263,10 @@ test('Petites Crêtes green piste has gentle simulated crossfall on raw steep IG
   assert.deepEqual(network.spawnFor(643745486).length,2);
   assert.equal(network.spawnFor(0),null);
   // The game's physics, render normal and clipmap must read the same surface.
-  const context=vm.createContext({ fixture });
-  vm.runInContext('const Variants={ val:{}, def(){}, on(){} };\n' +
-    run(['00_util.js','02a_reality.js','02b_piste_network.js','03_course.js']) + `
-    const data=JSON.parse("${JSON.stringify(JSON.stringify(asset)).replaceAll('\\','\\\\').replaceAll('"','\\"')}");
-    Course.setReality(Reality.create(data));
-    Course.reality.network=PisteNetwork.create(Course.reality,data);
-    `, context);
+  const context=vm.createContext({ fixture, asset });
+  vm.runInContext('const Variants={ val:{}, def(){}, on(){} };\\n' +
+    run(['00_util.js','02a_reality.js','02b_piste_network.js','03_course.js']) +
+    '\\nCourse.setReality(Reality.create(asset)); Course.reality.network=PisteNetwork.create(Course.reality,asset);', context);
   const physicsHeight=vm.runInContext('Course.height('+worldLeft[0]+','+worldLeft[1]+',0.5)',context);
   assert(Math.abs(physicsHeight-network.preparedHeight(...worldLeft))<0.02);
   const p1 = require('../data/reality/alpe-dhuez.json'), p1terrain=create(p1);
