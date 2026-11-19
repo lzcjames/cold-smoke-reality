@@ -12,36 +12,40 @@ const JunctionSigns = (() => {
     if (!columns || rows * tileHeight > textureLimit) {
       throw Error('Junction sign atlas exceeds GPU texture limit.');
     }
+    const atlasWidth = tileWidth * columns, atlasHeight = tileHeight * rows;
+    // Render one 256x80 label at a time. A full-size Canvas2D would itself
+    // allocate a 4-byte-per-pixel backing store (~10 MiB at 100 pistes)
+    // even though the uploaded mask is one byte per pixel.
     const canvas = document.createElement('canvas');
-    canvas.width = tileWidth * columns;
-    canvas.height = tileHeight * rows;
+    canvas.width = tileWidth;
+    canvas.height = tileHeight;
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'middle';
+    const glyphMask = new Uint8Array(atlasWidth * atlasHeight);
     for (const [i, sign] of signs.entries()) {
       const x = (i % columns) * tileWidth, y = Math.floor(i / columns) * tileHeight;
-      // Preserve plate colour in the per-vertex tint. The texture only needs
-      // glyph/border coverage, not duplicate per-pixel red/black backgrounds.
       ctx.fillStyle = '#000';
-      ctx.fillRect(x, y, tileWidth, tileHeight);
+      ctx.fillRect(0, 0, tileWidth, tileHeight);
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 3;
-      ctx.strokeRect(x + 4, y + 4, tileWidth - 8, tileHeight - 8);
+      ctx.strokeRect(4, 4, tileWidth - 8, tileHeight - 8);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(sign.arrow, x + 16, y + 41);
+      ctx.fillText(sign.arrow, 16, 41);
       ctx.font = 'bold 25px sans-serif';
-      ctx.fillText(sign.name, x + 67, y + 41, 175);
+      ctx.fillText(sign.name, 67, 41, 175);
+      const rgba = ctx.getImageData(0, 0, tileWidth, tileHeight).data;
+      for (let row = 0; row < tileHeight; row++) {
+        const dest = (y + row) * atlasWidth + x;
+        const src = row * tileWidth * 4;
+        for (let col = 0; col < tileWidth; col++)
+          glyphMask[dest + col] = rgba[src + col * 4];
+      }
     }
-    // r8unorm is supported by WebGL2 and WebGPU. Text/border are white over
-    // black, so one channel reconstructs the original tinted sign at full
-    // resolution, reducing 100-piste GPU atlas storage from ~10 MiB to ~2.5 MiB.
-    const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    const glyphMask = new Uint8Array(canvas.width * canvas.height);
-    for (let i = 0, j = 0; j < glyphMask.length; i += 4, j++) {
-      glyphMask[j] = rgba[i];
-    }
+    // Same 256x80 glyph resolution; R8 only stores coverage. Plate colours
+    // stay in vertex tint and are reconstructed by the fragment shader.
     const texture = gfx.texture({
-      w: canvas.width, h: canvas.height, format: 'r8', data: glyphMask,
+      w: atlasWidth, h: atlasHeight, format: 'r8', data: glyphMask,
     });
 
     const cell = z => Math.floor(z / 192);
@@ -74,8 +78,8 @@ const JunctionSigns = (() => {
         const tileX = (i % columns) * tileWidth;
         const tileY = Math.floor(i / columns) * tileHeight;
         face(dx, dz, 1.48, 1.66, 2.585, 0.077,
-          (tileX + 0.5) / canvas.width, (tileX + tileWidth - 0.5) / canvas.width,
-          (tileY + 0.5) / canvas.height, (tileY + tileHeight - 0.5) / canvas.height);
+          (tileX + 0.5) / atlasWidth, (tileX + tileWidth - 0.5) / atlasWidth,
+          (tileY + 0.5) / atlasHeight, (tileY + tileHeight - 0.5) / atlasHeight);
         face(-dx, -dz, 1.48, 1.66, 2.585, 0.077);
       } else {
         face(dx, dz, 0.14, 1.00, 1.46, 0.055);
@@ -125,7 +129,7 @@ const JunctionSigns = (() => {
     });
     return {
       pipe,
-      stats: { atlasWidth: canvas.width, atlasHeight: canvas.height,
+      stats: { atlasWidth, atlasHeight,
         atlasFormat: 'r8', atlasBytes: glyphMask.byteLength,
         signs: signs.length, stakes: stakes.length, vertexCount: vertices.length / 8 },
       draw(render) {
