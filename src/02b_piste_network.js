@@ -217,14 +217,14 @@ const PisteNetwork = (() => {
       if (terrain.id !== 'les-deux-alpes' ||
           !lookup(x, z, greenSample) ||
           greenSample.piste.osmWay !== 643745486 ||
-          greenSample.distance >= 24) return raw;
+          greenSample.distance >= 34) return raw;
       const d = greenSample.distance;
       const centreHeight = terrain.height(greenSample.closestX, greenSample.closestZ);
-      // Limit lateral drop to 7% inside the 11 m half-corridor, blending
-      // gradually back to measured natural ground over 11–24 m.
+      // Limit lateral drop to 7% inside the estimated 18 m piste half-width, blending
+      // gradually back to measured natural ground over 18–34 m.
       const maxDrop = 0.07 * d;
       const cross = Math.max(-maxDrop, Math.min(maxDrop, raw - centreHeight));
-      const u = Math.max(0, Math.min(1, (d - 11) / 13));
+      const u = Math.max(0, Math.min(1, (d - 18) / 16));
       const blend = 1 - u * u * (3 - 2 * u);
       return raw + blend * (centreHeight + cross - raw);
     }
