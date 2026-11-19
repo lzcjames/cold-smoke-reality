@@ -228,6 +228,14 @@ const PisteNetwork = (() => {
       const blend = 1 - u * u * (3 - 2 * u);
       return raw + blend * (centreHeight + cross - raw);
     }
+    // Put posts on the same prepared snow surface as the skier/renderer.
+    // Otherwise the older raw-MNT heights could bury posts or leave them
+    // floating above the newly groomed green corridor.
+    if (terrain.id === 'les-deux-alpes') {
+      for (const marker of [...signs, ...stakes]) {
+        marker.y = preparedHeight(marker.x, marker.z);
+      }
+    }
     function spawnFor(wayId) {
       const line = lines.get(wayId);
       if (!line || line.lengths.at(-1) < 80) return null;
