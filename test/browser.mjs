@@ -332,8 +332,23 @@ try {
   assert.match(alternateLink.label, /Synthetic Test Resort/);
   assert.match(alternateLink.url, /reality=test-only-resort/);
   assert.doesNotMatch(alternateLink.url, /network=1/);
+  // P4: the accessible selector is only generated when >=2 validated packs
+  // are in the runtime catalog. The injected second pack must be selectable.
+  const resortPicker = await evaluate(`({
+    hidden: document.getElementById('reality-picker').hidden,
+    selected: document.getElementById('reality-select').value,
+    options: [...document.getElementById('reality-select').options].map(x => x.value)
+  })`);
+  assert.equal(resortPicker.hidden, false);
+  assert.equal(resortPicker.selected, 'alpe-dhuez');
+  assert.deepEqual(resortPicker.options, ['alpe-dhuez', 'test-only-resort']);
   try {
-    await evaluate('document.querySelector("#reality-resorts a").click(); true');
+    await evaluate(`(() => {
+      const picker = document.getElementById('reality-select');
+      picker.value = 'test-only-resort';
+      picker.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
   } catch (error) {
     if (!/context|navigation|closed/i.test(error.message)) throw error;
   }
@@ -346,7 +361,7 @@ try {
     if (opened) break;
     await delay(200);
   }
-  assert.equal(opened, true, 'menu selection must boot the synthetic resort with correct credits');
+  assert.equal(opened, true, 'resort selector must boot the synthetic resort with correct credits');
   assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
   console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
   await capture('secondary-menu-reentry-webgl2');
