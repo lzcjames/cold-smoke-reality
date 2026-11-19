@@ -323,11 +323,13 @@ try {
   // Also exercise the generated menu link, not only direct ?reality= URLs.
   await navigate('/?' + options + '&ui&lang=en&backend=webgl2',
     'Boolean(document.querySelector("#reality-resorts a"))');
-  const alternateLink = await evaluate(`({
-    label: document.querySelector('#reality-resorts a').textContent,
-    url: document.querySelector('#reality-resorts a').getAttribute('href'),
-    hidden: document.getElementById('reality-resorts').hidden
-  })`);
+  const alternateLink = await evaluate(`(() => {
+    // A genuine second resort may now precede the synthetic test entry.
+    const link = [...document.querySelectorAll('#reality-resorts a')]
+      .find(a => a.getAttribute('href')?.includes('reality=test-only-resort'));
+    return { label: link?.textContent, url: link?.getAttribute('href'),
+      hidden: document.getElementById('reality-resorts').hidden };
+  })()`);
   assert.equal(alternateLink.hidden, false);
   assert.match(alternateLink.label, /Synthetic Test Resort/);
   assert.match(alternateLink.url, /reality=test-only-resort/);
@@ -341,7 +343,12 @@ try {
   })`);
   assert.equal(resortPicker.hidden, false);
   assert.equal(resortPicker.selected, 'alpe-dhuez');
-  assert.deepEqual(resortPicker.options, ['alpe-dhuez', 'test-only-resort']);
+  // Main Pages may contain the independently validated real P4 resort in
+  // addition to the synthetic regression-only resort appended by this server.
+  const officialIds = JSON.parse(attribute[1].replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&amp;/g, '&')).map(x => x.id);
+  assert.deepEqual(resortPicker.options, [...officialIds, 'test-only-resort']);
   // Selecting an item must not fetch a second terrain pack. Only the
   // separate homepage Enter button may navigate to that resort.
   const requestsBeforePick = alternateRequests;
