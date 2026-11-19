@@ -10,7 +10,13 @@ PRIMARY = 23257919
 NEIGHBOURS = {23257916, 256295592}
 
 
-def build(asset, ways):
+def build(asset, ways, primary_id=PRIMARY, neighbour_ids=NEIGHBOURS):
+    # Fail closed. Never infer a junction from proximity, name or an unrelated
+    # downhill OSM way; every staged route must be explicitly selected.
+    selected = {primary_id, *neighbour_ids}
+    ids = [way["id"] for way in ways]
+    if len(ids) != len(selected) or set(ids) != selected:
+        raise ValueError("Selected OSM ways are missing, duplicated or unexpected")
     grid = asset["grid"]
     w, h, step = grid["cols"], grid["rows"], grid["step"]
     samples = grid["heights"]
@@ -31,7 +37,7 @@ def build(asset, ways):
             (1 - u) * samples[k + w] + u * samples[k + w + 1])
 
     pistes, node_coords = [], {}
-    for way in sorted(ways, key=lambda way: (way["id"] != PRIMARY, way["id"])):
+    for way in sorted(ways, key=lambda way: (way["id"] != primary_id, way["id"])):
         tags = way["tags"]
         name = tags.get("piste:name") or tags.get("name")
         nodes, coords = way["nodes"], way["geometry"]
@@ -55,9 +61,9 @@ def build(asset, ways):
                        "nodes": nodes, "points": points})
 
     primary = pistes[0]
-    if primary["osmWay"] != PRIMARY or primary["points"] != asset["piste"]["points"]:
+    if primary["osmWay"] != primary_id or primary["points"] != asset["piste"]["points"]:
         raise ValueError("Primary piste differs from the previously shipped centreline")
-    if {p["osmWay"] for p in pistes[1:]} != NEIGHBOURS:
+    if {p["osmWay"] for p in pistes[1:]} != set(neighbour_ids):
         raise ValueError("Missing surveyed neighbouring piste")
 
     junctions = []

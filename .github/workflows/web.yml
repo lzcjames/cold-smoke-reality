@@ -11,16 +11,62 @@ permissions:
   contents: read
 
 jobs:
+  p4_survey:
+    name: P4 OSM survey (advisory, real data only)
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 12
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch timestamped Les Deux Alpes OSM ways from public Overpass
+        timeout-minutes: 5
+        run: |
+          mkdir -p research
+          python3 tools/reality/p4_osm.py \
+            --bbox 44.98 6.10 45.06 6.22 \
+            --out research/p4-osm-snapshot.json \
+            --review research/p4-way-review.json
+          python3 - <<'PY'
+          import json
+          r = json.load(open('research/p4-way-review.json'))
+          print('OSM source timestamp:', r['timestampUTC'])
+          print('Named downhill OSM ways:', r['surveyWays'])
+          print('Shared OSM nodes:', len(r['sharedNodeWayIds']))
+          for node, ids in list(r['sharedNodeWayIds'].items())[:18]:
+              print('node', node, 'shared by actual OSM ways', ids)
+          PY
+      - name: Archive non-production OSM evidence for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          path: research/
+          if-no-files-found: warn
+
   gis:
     name: GIS importer checks
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-gdal python3-numpy
+      - name: Install GIS dependencies with retries (Ubuntu mirror may return 503)
+        run: |
+          for attempt in 1 2 3; do
+            if sudo apt-get update -o Acquire::Retries=5 &&
+               sudo apt-get install -y -o Acquire::Retries=5 --no-install-recommends python3-gdal python3-numpy; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Ubuntu package mirrors failed after three attempts"
+              exit 1
+            fi
+            sleep $((attempt * 12))
+          done
+      - name: Verify real-data importer and exact-node network geometry
+        run: |
           /usr/bin/python3 -B test/reality-import.py
+          /usr/bin/python3 -B test/p4-geodata.py
 
   validate:
     runs-on: ubuntu-24.04

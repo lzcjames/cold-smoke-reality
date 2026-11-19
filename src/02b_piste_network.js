@@ -58,7 +58,8 @@ const PisteNetwork = (() => {
     let spawn;
     for (const junction of data.junctions) {
       const { osmNode, point, incoming, outgoing } = junction;
-      if (seen.has(osmNode) || !main.nodes.includes(osmNode) || !Array.isArray(incoming) || !incoming.length ||
+      if (seen.has(osmNode) || !Array.isArray(point) || point.length !== 2 ||
+          !point.every(Number.isFinite) || !Array.isArray(incoming) || !incoming.length ||
           !Array.isArray(outgoing) || !outgoing.length || new Set(incoming).size !== incoming.length ||
           new Set(outgoing).size !== outgoing.length) throw Error('Invalid piste junction.');
       seen.add(osmNode);
@@ -84,9 +85,9 @@ const PisteNetwork = (() => {
         }).sort((a, b) => a.angle - b.angle);
         const isMainExit = id === main.osmWay && outgoing.length === 1 &&
           outgoing[0] !== main.osmWay;
-        // The La Balme -> Campanules junction is at La Balme's very end.
-        // A single board 22 m beforehand, 18 m off-centre, can be missed at speed.
-        // Give downhill skiers both an advance warning and an approach-facing board.
+        // When the selected primary route ends at a join, one board can be
+        // missed at speed. Provide both an early warning and approach sign.
+        // This also applies to verified joins at future measured resorts.
         const distances = isMainExit ? [105, 32] : [22];
         for (const distance of distances) {
           const before = at(approach.line, approach.s - distance);
@@ -110,7 +111,10 @@ const PisteNetwork = (() => {
         }
       }
     }
-    if (!spawn) throw Error('No downhill access to the primary piste.');
+    // Some connected real networks begin on the primary way and only branch
+    // farther downhill; they have no incoming secondary route at the start.
+    // Spawn safely along its surveyed line rather than inventing an inbound edge.
+    if (!spawn) spawn = at(main, Math.min(65, main.lengths.at(-1) * 0.2));
 
     const stakes = [];
     for (const line of lines.values()) {

@@ -5,6 +5,11 @@
       "id": "alpe-dhuez",
       "name": "Alpe d’Huez",
       "optional": true
+    },
+    {
+      "id": "les-deux-alpes",
+      "name": "Les Deux Alpes",
+      "optional": true
     }
   ]
 }
