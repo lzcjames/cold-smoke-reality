@@ -279,3 +279,57 @@ test('persistent resort cache reuses packs, expires revisions and caps its disk 
   await Reality.load('second-resort');
   assert.equal(requests.length, 6, 'evicted resort must fetch again');
 });
+
+
+test('resort cache rejects wrong-id and damaged same-id assets without mixing resorts', async () => {
+  const records = new Map(), requests = [];
+  const origin = 'https://example.test/game/';
+  const first = fixture(), second = fixture();
+  first.piste.name = 'Alpe fixture';
+  second.id = 'les-deux-alpes';
+  second.piste.name = 'Deux Alpes fixture';
+  second.piste.osmWay = 987654321; // test-only ID, never released as real OSM data
+  const catalog = [
+    { id: 'alpe-dhuez', name: 'Alpe d’Huez', network: false, revision: 'alpe1' },
+    { id: 'les-deux-alpes', name: 'Les Deux Alpes', network: false, revision: 'deux1' },
+  ];
+  const key = path => new URL(path, origin).href;
+  const response = asset => ({
+    ok: true,
+    clone() { return response(asset); },
+    async json() { return JSON.parse(JSON.stringify(asset)); },
+  });
+  // Cache contains an asset with the *right* ID but invalid DEM content.
+  records.set(key('reality/les-deux-alpes.json?v=deux1'), response({
+    ...second, grid: { ...second.grid, heights: [1] },
+  }));
+  const cache = {
+    match: async path => records.get(key(path)) || null,
+    put: async (path, value) => records.set(key(path), value),
+    delete: async path => records.delete(key(path.url || path)),
+    keys: async () => [...records.keys()].map(url => ({ url })),
+  };
+  const Reality = vm.runInNewContext(run(['02a_reality.js']) + '\\nReality', {
+    URL, location: { href: origin },
+    document: { getElementById: () => ({ dataset: { realityCatalog: JSON.stringify(catalog) } }) },
+    caches: { open: async () => cache },
+    fetch: async url => {
+      requests.push(url);
+      return response(url.includes('les-deux-alpes') ? second : first);
+    },
+  });
+  const other = await Reality.load('les-deux-alpes');
+  assert.equal(other.id, 'les-deux-alpes');
+  assert.equal(other.piste, 'Deux Alpes fixture');
+  assert.deepEqual(requests, ['reality/les-deux-alpes.json?v=deux1']);
+  const alpe = await Reality.load('alpe-dhuez');
+  assert.equal(alpe.id, 'alpe-dhuez');
+  assert.equal(alpe.piste, 'Alpe fixture');
+  assert.equal(requests.length, 2);
+  assert.equal((await Reality.load('les-deux-alpes')).piste, 'Deux Alpes fixture');
+  assert.equal(requests.length, 2, 'valid cache must be reused after recovery');
+  // Now poison the first resort's cache with the second resort's pack.
+  records.set(key('reality/alpe-dhuez.json?v=alpe1'), response(second));
+  assert.equal((await Reality.load('alpe-dhuez')).piste, 'Alpe fixture');
+  assert.equal(requests.length, 3, 'cross-resort cache content must be refetched');
+});
