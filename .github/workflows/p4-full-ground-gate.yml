@@ -1,0 +1,64 @@
+name: P4 full real IGN ground DEM import gate (never publish)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/p4_full_ground_gate.py'
+      - '.github/workflows/p4-full-ground-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate-measured-three-way:
+    name: Verify Diable 1 and two real neighbours against full ground terrain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GDAL_CACHEMAX: '256'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Acquire pinned authentic IGN WFS index and OSM source
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-ign-lidar-tile-index
+          run-id: 44542395891
+          github-token: ${{ github.token }}
+          path: /tmp/p4-source-index
+      - uses: actions/download-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          run-id: 44531317057
+          github-token: ${{ github.token }}
+          path: /tmp/p4-source-osm
+      - name: Install GDAL, reprojection and NumPy with bounded mirror retries
+        timeout-minutes: 9
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if sudo apt-get update -o Acquire::Retries=4 &&
+              sudo apt-get install -y -o Acquire::Retries=4 --no-install-recommends python3-gdal python3-numpy gdal-bin; then
+              exit 0
+            fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 7
+          done
+      - name: Download only required official MNT tiles and run strict real 3-way importer
+        timeout-minutes: 25
+        run: |
+          mkdir -p p4-evidence
+          /usr/bin/python3 tools/reality/p4_full_ground_gate.py \
+            --osm /tmp/p4-source-osm/p4-les-deux-alpes-osm.json \
+            --wfs /tmp/p4-source-index/ign-index-original.geojson \
+            --work /tmp/p4-full-ground \
+            --report p4-evidence/p4-full-ground-gate.json
+      - name: Archive source hashes, coverage and validation reason only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-full-ground-import-gate
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
