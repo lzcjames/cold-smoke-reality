@@ -103,8 +103,11 @@ const Reality = (() => {
     try {
       // Revisioned URL + browser HTTP cache retain downloaded resort packs across
       // visits without pinning the large raw JSON in JS memory indefinitely.
-      const response = await fetch('reality/' + resort.id + '.json?v=' + resort.revision,
-        { cache: 'force-cache' });
+      const url = 'reality/' + resort.id + '.json?v=' + resort.revision;
+      let response = await fetch(url, { cache: 'force-cache' });
+      // A temporary 404 can be cached. Revalidate on failure so a later
+      // retry can recover when the pack becomes available again.
+      if (!response.ok) response = await fetch(url, { cache: 'reload' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
