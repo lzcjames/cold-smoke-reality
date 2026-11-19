@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Build the Alpe d'Huez runtime asset from a DEM and an Overpass export."""
+"""Build a named resort runtime asset from a DEM and an Overpass export."""
 
 import argparse
 import json
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +27,7 @@ def spatial_reference(epsg):
     return srs
 
 
-def centreline(document, elevation, way_id):
+def centreline(document, elevation, way_id, piste_bounds=PISTE_BOUNDS):
     transform = osr.CoordinateTransformation(spatial_reference(4326), spatial_reference(2154))
     options = []
     for way in document["elements"]:
@@ -39,7 +40,7 @@ def centreline(document, elevation, way_id):
         points = []
         for item in way.get("geometry", []):
             lat, lon = item["lat"], item["lon"]
-            south, west, north, east = PISTE_BOUNDS
+            south, west, north, east = piste_bounds
             if not (south <= lat <= north and west <= lon <= east):
                 break
             e, n, _ = transform.TransformPoint(lon, lat)
@@ -80,10 +81,11 @@ def centreline(document, elevation, way_id):
     return max(options, key=lambda option: option[:2])[2]
 
 
-def build(dem, osm, source, way_id):
+def build(dem, osm, source, way_id, resort_id='alpe-dhuez',
+          crop_bounds=CROP_BOUNDS, piste_bounds=PISTE_BOUNDS):
     gdal.UseExceptions()
     raster = gdal.Warp(
-        "", str(dem), format="MEM", dstSRS="EPSG:2154", outputBounds=CROP_BOUNDS,
+        "", str(dem), format="MEM", dstSRS="EPSG:2154", outputBounds=crop_bounds,
         outputBoundsSRS="EPSG:4326", xRes=STEP, yRes=STEP, resampleAlg="bilinear",
         outputType=gdal.GDT_Float32, dstNodata=-9999,
     )
@@ -103,9 +105,9 @@ def build(dem, osm, source, way_id):
         return float((1 - w) * ((1 - t) * heights[j, i] + t * heights[j, i + 1])
                      + w * ((1 - t) * heights[j + 1, i] + t * heights[j + 1, i + 1]))
 
-    piste = centreline(json.loads(osm.read_text()), elevation, way_id)
+    piste = centreline(json.loads(osm.read_text()), elevation, way_id, piste_bounds)
     return {
-        "version": 1, "id": "alpe-dhuez", "elevationSource": SOURCES[source], "piste": piste,
+        "version": 1, "id": resort_id, "elevationSource": SOURCES[source], "piste": piste,
         "grid": {"cols": cols, "rows": rows, "step": STEP, "east": east, "north": north,
                  "heights": np.round(heights.astype(float), 2).ravel().tolist()},
     }
@@ -117,12 +119,27 @@ def main():
     parser.add_argument("--osm", type=Path, required=True, help="Overpass JSON with way geometry")
     parser.add_argument("--source", choices=SOURCES, required=True)
     parser.add_argument("--way", type=int, help="Select a specific named OSM downhill way")
-    parser.add_argument("--out", type=Path, default=Path("data/reality/alpe-dhuez.json"))
+    parser.add_argument("--resort-id", default="alpe-dhuez", help="Catalog slug for the resort")
+    parser.add_argument("--crop-bounds", nargs=4, type=float, metavar=("W", "S", "E", "N"),
+                        default=CROP_BOUNDS, help="WGS84 raster crop bounds")
+    parser.add_argument("--piste-bounds", nargs=4, type=float, metavar=("S", "W", "N", "E"),
+                        default=PISTE_BOUNDS, help="WGS84 valid piste region")
+    parser.add_argument("--out", type=Path, help="Output JSON; defaults to data/reality/<resort-id>.json")
     args = parser.parse_args()
-    asset = build(args.dem, args.osm, args.source, args.way)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(asset, ensure_ascii=False, separators=(",", ":")) + "\n")
-    print(f'{args.out} · {asset["piste"]["name"]} · OSM way {asset["piste"]["osmWay"]}')
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.resort_id):
+        parser.error("--resort-id must be a safe lowercase slug")
+    w, south, e, north = args.crop_bounds
+    if not (-180 <= w < e <= 180 and -90 <= south < north <= 90):
+        parser.error("Invalid --crop-bounds")
+    south, w, north, e = args.piste_bounds
+    if not (-90 <= south < north <= 90 and -180 <= w < e <= 180):
+        parser.error("Invalid --piste-bounds")
+    asset = build(args.dem, args.osm, args.source, args.way,
+                  args.resort_id, args.crop_bounds, args.piste_bounds)
+    out = args.out or Path("data/reality") / (args.resort_id + ".json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(asset, ensure_ascii=False, separators=(",", ":")) + "\n")
+    print(f'{out} · {asset["piste"]["name"]} · OSM way {asset["piste"]["osmWay"]}')
 
 
 if __name__ == "__main__":
