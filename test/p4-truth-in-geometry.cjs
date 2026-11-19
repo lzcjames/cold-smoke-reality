@@ -65,7 +65,8 @@ const report={resort:p4.id,measuredSources:{
   publishedTerrainGridResolutionM:p4.grid.step,
   publishedGridCells:p4.grid.cols*p4.grid.rows
 },inferredPresentation:{
-  primaryPlayableWidthM:36,secondaryStakeSeparationM:24,networkLookupRadiusM:70,\n  widthEvidence:'Reality.create uses halfWidth=18; PisteNetwork.create places secondary stakes at ±12m and searches 70m',
+  primaryPlayableWidthM:36,secondaryStakeSeparationM:24,networkLookupRadiusM:70,
+  widthEvidence:'Reality.create uses halfWidth=18; PisteNetwork.create places secondary stakes at ±12m and searches 70m',
   pisteBoundarySurveyed:false,decorativeVegetationSurveyed:false,
   rendererSurface:'Procedural snow / shading, not survey-grade photogrammetry',
   fullOfficialRouteCoverageVerified:false
