@@ -5,6 +5,7 @@ on:
     paths:
       - 'tools/reality/jandri_osm_survey.py'
       - 'test/jandri_osm_survey_test.py'
+      - 'tools/reality/jandri_svg.py'
       - '.github/workflows/p4-jandri-osm-survey.yml'
   workflow_dispatch:
 
@@ -30,6 +31,11 @@ jobs:
           python3 tools/reality/jandri_osm_survey.py \
             --raw-out p4-evidence/jandri-overpass-original.json \
             --out p4-evidence/jandri-osm-index.json
+      - name: Draw only actual OSM ways as an auditable 2D piste atlas
+        run: |
+          python3 tools/reality/jandri_svg.py \
+            --index p4-evidence/jandri-osm-index.json \
+            --out p4-evidence/jandri-osm-atlas.svg
       - name: Archive OSM unmodified response and provenance
         if: always()
         uses: actions/upload-artifact@v4
