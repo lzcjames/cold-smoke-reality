@@ -235,6 +235,50 @@ test('P4 off-piste mask follows all authentic pistes without changing measured t
   assert(samples.every(Number.isFinite),'finite and deterministic distance field');
 });
 
+test('Petites Crêtes green piste has gentle simulated crossfall on raw steep IGN hillside', () => {
+  const { create: createNetwork } = vm.runInNewContext(
+    run(['02b_piste_network.js']) + '\nPisteNetwork');
+  const asset = require('../data/reality/les-deux-alpes.json');
+  const terrain = create(asset), network = createNetwork(terrain, asset);
+  terrain.network = network;
+  const green = asset.pistes.find(p=>p.osmWay===643745486);
+  assert.equal(green.difficulty, 'novice');
+  const k=19, point=green.points[k], a=green.points[k-1], b=green.points[k+1];
+  const dx=b[0]-a[0], dn=b[1]-a[1], len=Math.hypot(dx,dn);
+  const left=[point[0]-dn/len*8,point[1]+dx/len*8];
+  const right=[point[0]+dn/len*8,point[1]-dx/len*8];
+  const rawCross = Math.abs(terrain.altitude(...left)-terrain.altitude(...right))/16;
+  assert(rawCross > 0.25, 'reproduce user-reported unrealistic green piste crossfall');
+  const worldLeft=terrain.project(...left), worldRight=terrain.project(...right);
+  const preparedCross=Math.abs(network.preparedHeight(...worldLeft)-
+    network.preparedHeight(...worldRight))/16;
+  assert(preparedCross < 0.13, 'simulated grooming should keep local crossfall gentle');
+  assert(preparedCross < rawCross*0.45, 'P4 green grooming must have a meaningful physical effect');
+  const centre=terrain.project(...point);
+  assert(Math.abs(network.preparedHeight(...centre)-terrain.height(...centre))<0.1,
+    'groomed surface must preserve real piste centreline elevations');
+  const farther=terrain.project(point[0]-dn/len*25,point[1]+dx/len*25);
+  assert.equal(network.preparedHeight(...farther),terrain.height(...farther),
+    'outside the groomed corridor preserve original mountain');
+  assert.deepEqual(network.spawnFor(643745486).length,2);
+  assert.equal(network.spawnFor(0),null);
+  // The game's physics, render normal and clipmap must read the same surface.
+  const context=vm.createContext({ fixture });
+  vm.runInContext('const Variants={ val:{}, def(){}, on(){} };\n' +
+    run(['00_util.js','02a_reality.js','02b_piste_network.js','03_course.js']) + `
+    const data=JSON.parse("${JSON.stringify(JSON.stringify(asset)).replaceAll('\\','\\\\').replaceAll('"','\\"')}");
+    Course.setReality(Reality.create(data));
+    Course.reality.network=PisteNetwork.create(Course.reality,data);
+    `, context);
+  const physicsHeight=vm.runInContext('Course.height('+worldLeft[0]+','+worldLeft[1]+',0.5)',context);
+  assert(Math.abs(physicsHeight-network.preparedHeight(...worldLeft))<0.02);
+  const p1 = require('../data/reality/alpe-dhuez.json'), p1terrain=create(p1);
+  const p1net=createNetwork(p1terrain,p1);
+  const p1point=p1terrain.project(...p1.pistes[0].points[2]);
+  assert.equal(p1net.preparedHeight(...p1point),p1terrain.height(...p1point),
+    'P1 must preserve original measured heights and ski physics');
+});
+
 test('supports a second resort geometry without an engine change', () => {
   const alternate = fixture();
   alternate.id = 'test-alternate-resort';
