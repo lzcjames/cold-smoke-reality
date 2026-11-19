@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   p4_survey:
@@ -73,6 +74,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       asset_sha: ${{ steps.stage.outputs.asset_sha }}
+      p4_sha: ${{ steps.stage.outputs.p4_sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -80,6 +82,22 @@ jobs:
           node-version: '24'
       - uses: browser-actions/setup-chrome@v1
         id: chrome
+      - name: Restore validated separate Les Deux Alpes resort data
+        if: hashFiles('data/reality/les-deux-alpes.json') == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-unpublished-measured-les-deux-alpes
+          run-id: 44548668423
+          github-token: ${{ github.token }}
+          path: /tmp/p4-verified-release
+      - name: Verify source hash and stage real independently loaded resort
+        run: |
+          set -eu
+          if [ ! -s data/reality/les-deux-alpes.json ]; then
+            cp /tmp/p4-verified-release/unpublished-validation-only.json data/reality/les-deux-alpes.json
+          fi
+          echo '2915a1b89873a636255b4ccee14a7371e628638e8c37ced0b940213a25d990c3  data/reality/les-deux-alpes.json' | sha256sum --check
+          node test/p4-measured-candidate.cjs data/reality/les-deux-alpes.json
       - run: npm run check
       - run: npm test
       - name: Browser regression with optional PR #10 visual captures
@@ -137,10 +155,12 @@ jobs:
           test -s dist/dev.html
           grep -qi '<!doctype html>' dist/dev.html
           test -s dist/reality/alpe-dhuez.json
+          test -s dist/reality/les-deux-alpes.json
           mkdir -p site
           cp dist/dev.html site/index.html
           cp -R dist/reality site/
           echo "asset_sha=$(sha256sum site/reality/alpe-dhuez.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "p4_sha=$(sha256sum site/reality/les-deux-alpes.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: cold-smoke-web
@@ -149,6 +169,41 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: site
+
+  persist_measured_pack:
+    name: Persist verified licensed pack for future Pages rebuilds
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Retrieve only the validated game asset from this same CI run
+        if: hashFiles('data/reality/les-deux-alpes.json') == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: cold-smoke-web
+          path: /tmp/p4-pages-release
+      - name: Keep 129 KB licensed JSON in the repository permanently
+        run: |
+          set -eu
+          if [ ! -s data/reality/les-deux-alpes.json ]; then
+            cp /tmp/p4-pages-release/reality/les-deux-alpes.json data/reality/les-deux-alpes.json
+          fi
+          echo '2915a1b89873a636255b4ccee14a7371e628638e8c37ced0b940213a25d990c3  data/reality/les-deux-alpes.json' | sha256sum --check
+          git add data/reality/les-deux-alpes.json
+          if git diff --cached --quiet; then
+            echo 'Verified asset already persisted; no additional commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'data(P4): persist validated Les Deux Alpes LiDAR/OSM pack'
+          git push origin HEAD:main
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -171,6 +226,7 @@ jobs:
         env:
           PAGE_URL: ${{ steps.deploy.outputs.page_url }}
           ASSET_SHA: ${{ needs.validate.outputs.asset_sha }}
+          P4_SHA: ${{ needs.validate.outputs.p4_sha }}
         run: |
           curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL}?v=${ASSET_SHA}" -o /tmp/cold-smoke-index.html
           grep -q 'id="view"' /tmp/cold-smoke-index.html
@@ -178,3 +234,5 @@ jobs:
           curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/alpe-dhuez.json?v=${ASSET_SHA}" -o /tmp/alpe-dhuez.json
           test -n "$ASSET_SHA"
           printf '%s  %s\n' "$ASSET_SHA" /tmp/alpe-dhuez.json | sha256sum --check
+          curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/les-deux-alpes.json?v=${P4_SHA}" -o /tmp/les-deux-alpes.json
+          printf '%s  %s\n' "$P4_SHA" /tmp/les-deux-alpes.json | sha256sum --check
