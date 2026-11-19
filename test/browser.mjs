@@ -16,14 +16,40 @@ const pages = new Map([
 const realityAsset = process.argv.includes('--release')
   ? JSON.parse(await readFile(new URL('dist/reality/alpe-dhuez.json', root), 'utf8'))
   : fixture();
+// Inject a SECOND SYNTHETIC resort only into this test server's HTML. Never
+// touch dist/ or ship these coordinates to production.
+const alternateAsset = fixture();
+alternateAsset.id = 'test-only-resort';
+alternateAsset.piste.name = 'Synthetic Test Ridge';
+alternateAsset.elevationSource = 'Synthetic browser test only';
+alternateAsset.grid.heights = alternateAsset.grid.heights.map((value, i) =>
+  value + 0.6 * Math.floor(i / alternateAsset.grid.cols));
+const releasedHtml = html.toString('utf8');
+assert(!releasedHtml.includes('test-only-resort'), 'synthetic resort must not be published');
+const attribute = /data-reality-catalog="([^"]+)"/.exec(releasedHtml);
+assert(attribute && attribute[1].endsWith(']'), 'built resort catalog missing');
+const testEntry = JSON.stringify({
+  id: alternateAsset.id, name: 'Synthetic Test Resort',
+  network: false, revision: 'synthetic-browser-1',
+}).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const extra = attribute[1].length > 2 ? ',' : '';
+const testCatalog = attribute[1].slice(0, -1) + extra + testEntry + ']';
+pages.set('/', [releasedHtml.replace(attribute[0],
+  'data-reality-catalog="' + testCatalog + '"'), 'text/html']);
 let serveReality = false, realityRequests = 0, successfulRealityRequests = 0;
+let alternateRequests = 0, successfulAlternateRequests = 0;
 const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
-  const isReality = path === '/reality/alpe-dhuez.json';
-  if (isReality) realityRequests++;
-  if (isReality && serveReality) successfulRealityRequests++;
-  const page = isReality && serveReality ?
-    [JSON.stringify(realityAsset), 'application/json'] : pages.get(path);
+  const isPrimary = path === '/reality/alpe-dhuez.json';
+  const isSecondary = path === '/reality/test-only-resort.json';
+  const isReality = isPrimary || isSecondary;
+  if (isPrimary) realityRequests++;
+  if (isSecondary) alternateRequests++;
+  if (isPrimary && serveReality) successfulRealityRequests++;
+  if (isSecondary && serveReality) successfulAlternateRequests++;
+  const page = isReality && serveReality
+    ? [JSON.stringify(isPrimary ? realityAsset : alternateAsset), 'application/json']
+    : pages.get(path);
   if (!page) return res.writeHead(404, { 'Cache-Control': 'no-store' }).end();
   res.writeHead(200, { 'Content-Type': page[1],
     'Cache-Control': isReality ? 'public, max-age=600' : 'no-store' }).end(page[0]);
@@ -102,11 +128,13 @@ try {
   for (const [mode, lang, backend] of [
     ['procedural', 'en', 'webgpu'], ['reality', 'zh', 'webgl2'], ['reality', 'en', 'webgpu'],
     ...(realityAsset.junctions ? [['network', 'zh', 'webgl2'], ['network', 'en', 'webgpu']] : []),
+    ['secondary', 'en', 'webgl2'], ['reality-return', 'en', 'webgpu'],
   ]) {
     const reality = mode !== 'procedural', network = mode === 'network';
-    const requestsBefore = realityRequests;
+    const secondary = mode === 'secondary';
+    const requestsBefore = realityRequests, alternateBefore = alternateRequests;
     const query = [options, 'lang=' + lang, 'backend=' + backend];
-    if (reality) query.push('reality=alpe-dhuez');
+    if (reality) query.push('reality=' + (secondary ? alternateAsset.id : 'alpe-dhuez'));
     if (network) query.push('network=1');
     await navigate('/?' + query.join('&'), 'Boolean(window.__ski)');
     const result = await evaluate(`(async () => {
@@ -146,7 +174,9 @@ try {
       }
       return { boot, start, end, error: k.err(), surface, graphicsAlive: !k.app().gfx.lost,
         lang: k.i18n().lang, reality: Boolean(terrain), restarted, continued, junctionDraws, lowerJunctionDraws,
-        piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length) };
+        piste: terrain?.piste, osmWay: terrain?.osmWay, descent: terrain && -terrain.height(0, -terrain.length),
+        resortId: terrain?.id, resortName: terrain?.resortName, source: terrain?.elevationSource,
+        credits: document.getElementById('reality-resort-name')?.textContent };
       } catch (error) {
         return { failure: error.message || String(error), stack: error.stack,
           graphicsError: window.__ski.err() };
@@ -158,18 +188,35 @@ try {
     assert.equal(result.reality, reality);
     assert(!result.error && result.graphicsAlive && result.end.speed > 0 && result.end.p[2] < result.start.p[2], JSON.stringify(result));
     assert(Math.abs(result.end.p[1] - result.surface) < 0.5, JSON.stringify(result));
-    if (!reality) assert.equal(realityRequests, requestsBefore,
-      'the procedural mountain must not request any resort DEM');
+    if (!reality) {
+      assert.equal(realityRequests, requestsBefore,
+        'procedural mode must not request the original DEM');
+      assert.equal(alternateRequests, alternateBefore,
+        'procedural mode must not request a second DEM');
+    }
     if (reality) {
-      if (firstRealityRequests == null) {
+      const expected = secondary ? alternateAsset : realityAsset;
+      if (secondary) {
+        assert.equal(successfulAlternateRequests, 1,
+          'new resort must load its own DEM once');
+        assert.equal(successfulRealityRequests, firstRealityRequests,
+          'entering another resort must not reload the original');
+      } else if (firstRealityRequests == null) {
         firstRealityRequests = successfulRealityRequests;
-        assert.ok(firstRealityRequests >= 1, 'first resort launch should fetch DEM once');
+        assert.equal(firstRealityRequests, 1, 'first selected resort should fetch DEM once');
       } else {
         assert.equal(successfulRealityRequests, firstRealityRequests,
-          'returning to this unchanged resort should reuse the browser HTTP cache');
+          'switching back must reuse the original DEM cache');
+        if (mode === 'reality-return')
+          assert.equal(successfulAlternateRequests, 1,
+            'switching back must not download the other DEM');
       }
-      assert.equal(result.piste, realityAsset.piste.name);
-      assert.equal(result.osmWay, realityAsset.piste.osmWay);
+      assert.equal(result.resortId, expected.id);
+      assert.equal(result.resortName, secondary ? 'Synthetic Test Resort' : 'Alpe d’Huez');
+      assert.equal(result.credits, result.resortName);
+      assert.equal(result.piste, expected.piste.name);
+      assert.equal(result.osmWay, expected.piste.osmWay);
+      assert.equal(result.source, expected.elevationSource);
       assert(result.descent > 25);
       assert.equal(result.restarted, true);
       if (network) assert(result.continued && result.junctionDraws > 0 &&
