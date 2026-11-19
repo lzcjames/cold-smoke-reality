@@ -147,19 +147,26 @@ const PisteNetwork = (() => {
     }
 
     function lookup(x, z, output) {
-      let best = searchRadius * searchRadius, found;
+      let best = searchRadius * searchRadius, found, closestX, closestZ;
       const segments = cells.get(key(cell(x), cell(z)));
       if (segments) for (const segment of segments) {
         const { a, dx, dz, d2 } = segment;
         const px = x - a[0], pz = z - a[1];
         const t = Math.min(1, Math.max(0, (px * dx + pz * dz) / d2));
         const distance2 = (px - t * dx) ** 2 + (pz - t * dz) ** 2;
-        if (distance2 < best) { best = distance2; found = segment; }
+        if (distance2 < best) {
+          best = distance2;
+          found = segment;
+          closestX = a[0] + t * dx;
+          closestZ = a[1] + t * dz;
+        }
       }
       if (!found) return false;
       output.distance = Math.sqrt(best);
       output.yaw = found.yaw;
       output.piste = found.piste;
+      output.closestX = closestX;
+      output.closestZ = closestZ;
       return true;
     }
     // P4 only: a tiny 15 m distance field from the *actual* three OSM
@@ -197,7 +204,47 @@ const PisteNetwork = (() => {
           (cells[k + cols] * (1 - tx) + cells[k + cols + 1] * tx) * tz;
       };
     }
-    return { signs, stakes, spawn, lookup, junctions: data.junctions, distanceAt };
+    // OSM provides a *centreline*, IGN measures the original mountain
+    // ground. Petites Crêtes is an officially green groomed run yet the raw
+    // LiDAR terrain has up to ~50% transverse grade along its selected way.
+    // A centreline alone cannot represent snowcat earthworks. Preserve the
+    // raw DEM untouched and apply an explicitly SIMULATED groomed crossfall
+    // only on this P4 green segment. Both physics and clipmap rendering call
+    // this same prepared surface through Course.height.
+    const greenSample = {};
+    function preparedHeight(x, z) {
+      const raw = terrain.height(x, z);
+      if (terrain.id !== 'les-deux-alpes' ||
+          !lookup(x, z, greenSample) ||
+          greenSample.piste.osmWay !== 643745486 ||
+          greenSample.distance >= 34) return raw;
+      const d = greenSample.distance;
+      const centreHeight = terrain.height(greenSample.closestX, greenSample.closestZ);
+      // Limit lateral drop to 7% inside the estimated 18 m piste half-width, blending
+      // gradually back to measured natural ground over 18–34 m.
+      const maxDrop = 0.07 * d;
+      const cross = Math.max(-maxDrop, Math.min(maxDrop, raw - centreHeight));
+      const u = Math.max(0, Math.min(1, (d - 18) / 16));
+      const blend = 1 - u * u * (3 - 2 * u);
+      return raw + blend * (centreHeight + cross - raw);
+    }
+    // Put posts on the same prepared snow surface as the skier/renderer.
+    // Otherwise the older raw-MNT heights could bury posts or leave them
+    // floating above the newly groomed green corridor.
+    if (terrain.id === 'les-deux-alpes') {
+      for (const marker of [...signs, ...stakes]) {
+        marker.y = preparedHeight(marker.x, marker.z);
+      }
+    }
+    function spawnFor(wayId) {
+      const line = lines.get(wayId);
+      if (!line || line.lengths.at(-1) < 80) return null;
+      // Use a centreline position well inside the verified DEM, not a
+      // fabricated piste waypoint or a location outside the route.
+      return at(line, 35);
+    }
+    return { signs, stakes, spawn, lookup, junctions: data.junctions,
+      distanceAt, preparedHeight, spawnFor };
   }
   return { create };
 })();

@@ -17,10 +17,27 @@ async function boot(stage) {
   if (REALITY_MODE) {
     Course.setReality(await Reality.load(QS.get('reality'), QS.get('network') === '1'));
     document.getElementById('reality-resort-name').textContent = Course.reality.resortName;
+    // Allow a direct, honest test of an individual real piste without
+    // making the skier start on Diable 1 (black) and misattributing that
+    // difficult descent to Petites Crêtes (green). Only the P4 measured
+    // network and exact OSM way ids are eligible; no generated routes.
+    const chosenPiste = REALITY_MODE && Course.reality.id === 'les-deux-alpes' &&
+      Course.reality.network && /^\d+$/.test(QS.get('piste') || '') ?
+      Number(QS.get('piste')) : 0;
+    if (chosenPiste) {
+      const point = Course.reality.network.spawnFor(chosenPiste);
+      if (point) {
+        Course.reality.selectedSpawn = point;
+        const active = {};
+        Course.reality.network.lookup(point[0], point[1], active);
+        Course.reality.selectedPiste = active.piste;
+      }
+    }
     const credits = document.getElementById('reality-credits');
     const piste = document.getElementById('reality-piste');
-    piste.textContent = Course.reality.piste;
-    piste.href = 'https://www.openstreetmap.org/way/' + Course.reality.osmWay;
+    piste.textContent = Course.reality.selectedPiste?.name || Course.reality.piste;
+    piste.href = 'https://www.openstreetmap.org/way/' +
+      (Course.reality.selectedPiste?.osmWay || Course.reality.osmWay);
     document.getElementById('reality-dem').textContent = Course.reality.elevationSource;
     credits.hidden = false;
     Game.onRealityRestart = () => { Tracks.reset(); Spray.clear(); };

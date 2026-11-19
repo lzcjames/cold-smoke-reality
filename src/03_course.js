@@ -597,7 +597,11 @@ const Course = ((vn1, vn2, h2U) => {
 
   // ---- the height field.  cell = sampling spacing of the caller (m); wavelengths the caller cannot resolve are skipped.
   C.height = function (x, z, cell) {
-    if (C.reality) return C.reality.height(x, z);
+    // For P4 the unaltered IGN MNT remains in reality.height; the green
+    // piste's clearly labeled simulated grooming is shared by rendered snow,
+    // ski collision, camera normals and terrain texture samples.
+    if (C.reality) return C.reality.network?.preparedHeight ?
+      C.reality.network.preparedHeight(x, z) : C.reality.height(x, z);
     const s = -z, c = at(s), u = x - c.cx, au = Math.abs(u), hw = c.hw;
     let h = c.baseY;
     const e = LV ? edgeE(s, u, au - hw, hw) : au - hw, lg = _lg, lh = _lh;
