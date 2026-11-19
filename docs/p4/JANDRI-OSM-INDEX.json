@@ -1398,7 +1398,7 @@
         "piste:difficulty": "easy",
         "piste:type": "downhill"
       },
-      "approxPlanarLengthM": 8,
+      "approxPlanarLengthM": 8.0,
       "drawable": true
     },
     {
