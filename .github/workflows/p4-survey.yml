@@ -1,4 +1,7 @@
 name: P4 Les Deux Alpes source survey
+permissions:
+  actions: read
+  contents: read
 on:
   pull_request:
     paths:
@@ -16,33 +19,27 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test exact-node audit safeguards without network
         run: python3 -m unittest discover -s test -p 'p4_audit_test.py'
-      - name: Fetch original OSM geometry using Overpass or Geofabrik PBF
-        shell: bash
+      - name: Retrieve previously archived authentic OSM survey
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-les-deux-alpes-osm-survey
+          run-id: 44529346578
+          github-token: ${{ github.token }}
+          path: /tmp/p4-source
+      - name: Validate archived source identity and date
         run: |
-          set -euo pipefail
-          obtained=0
-          for server in https://overpass.private.coffee/api/interpreter https://overpass-api.de/api/interpreter; do
-            echo "Trying public Overpass endpoint: ${server}"
-            if curl --fail --location --silent --show-error --max-time 70 --retry 0 \
-              --data-urlencode data@tools/reality/les-deux-alpes.overpass \
-              "${server}" --output p4-les-deux-alpes-osm.json &&
-              python3 -m json.tool p4-les-deux-alpes-osm.json >/dev/null; then
-              obtained=1
-              echo "Downloaded a timestamped Overpass extract"
-              break
-            fi
-          done
-          if [ "$obtained" = 0 ]; then
-            echo "::warning::Overpass endpoints unavailable. Falling back to public Geofabrik OSM PBF with exact node IDs."
-            python3 -m pip install --quiet --target /tmp/p4-pyosmium osmium
-            url=https://download.geofabrik.de/europe/france/rhone-alpes-latest.osm.pbf
-            curl --fail --location --show-error --silent --max-time 440 --retry 1 \
-              "$url" --output /tmp/p4-rhone-alpes.osm.pbf
-            PYTHONPATH=/tmp/p4-pyosmium python3 tools/reality/p4_pbf_extract.py \
-              --pbf /tmp/p4-rhone-alpes.osm.pbf \
-              --source-url "$url" --out p4-les-deux-alpes-osm.json
-            rm -f /tmp/p4-rhone-alpes.osm.pbf
-          fi
+          cp /tmp/p4-source/p4-les-deux-alpes-osm.json .
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("p4-les-deux-alpes-osm.json").read_text())
+          stamp=data.get("osm3s",{}).get("timestamp_osm_base")
+          if stamp != "2026-07-24T11:04:51Z":
+              raise SystemExit(f"Unrecognized pinned source timestamp: {stamp}")
+          if len(data.get("elements",[])) < 200:
+              raise SystemExit("Archived source unexpectedly incomplete")
+          print("PINNED OSM SOURCE",stamp,"items",len(data["elements"]))
+          PY
       - name: Audit real names, exact shared OSM nodes, and candidate components
         run: |
           python3 tools/reality/p4_audit.py --osm p4-les-deux-alpes-osm.json --report p4-source-audit.json
