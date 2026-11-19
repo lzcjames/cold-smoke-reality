@@ -206,6 +206,18 @@ test('lazy resort loader only fetches allowlisted revisioned assets and uses bro
     fetch: async () => ({ ok: true, json: async () => another }),
   });
   await assert.rejects(wrong.load('alpe-dhuez'), /identity mismatch/);
+  const retryCalls = [];
+  const recovering = vm.runInNewContext(run(['02a_reality.js']) + '\nReality', {
+    document: context.document,
+    fetch: async (url, options) => {
+      retryCalls.push(options.cache);
+      return options.cache === 'force-cache'
+        ? { ok: false, status: 404 }
+        : { ok: true, json: async () => data };
+    },
+  });
+  assert.equal((await recovering.load('alpe-dhuez')).id, 'alpe-dhuez');
+  assert.deepEqual(retryCalls, ['force-cache', 'reload']);
 });
 
 test('resort catalog is a small, separately packaged list, not DEM data', () => {
