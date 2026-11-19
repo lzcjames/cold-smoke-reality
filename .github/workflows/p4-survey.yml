@@ -11,24 +11,36 @@ jobs:
   osm-snapshot:
     name: Survey true OSM piste way geometry
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 23
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch dated OSM downhill survey (Overpass)
+      - name: Fetch original OSM geometry using Overpass or Geofabrik PBF
         shell: bash
         run: |
           set -euo pipefail
-          for server in https://overpass.kumi.systems/api/interpreter https://overpass-api.de/api/interpreter; do
-            echo "Trying ${server}"
-            if curl --fail --location --silent --show-error --max-time 135 --retry 1 \
+          obtained=0
+          for server in https://overpass.private.coffee/api/interpreter https://overpass-api.de/api/interpreter; do
+            echo "Trying public Overpass endpoint: ${server}"
+            if curl --fail --location --silent --show-error --max-time 70 --retry 0 \
               --data-urlencode data@tools/reality/les-deux-alpes.overpass \
-              "${server}" --output p4-les-deux-alpes-osm.json; then
-              python3 -m json.tool p4-les-deux-alpes-osm.json >/dev/null
-              echo "OSM snapshot downloaded"
+              "${server}" --output p4-les-deux-alpes-osm.json &&
+              python3 -m json.tool p4-les-deux-alpes-osm.json >/dev/null; then
+              obtained=1
+              echo "Downloaded a timestamped Overpass extract"
               break
             fi
           done
-          test -s p4-les-deux-alpes-osm.json
+          if [ "$obtained" = 0 ]; then
+            echo "::warning::Overpass endpoints unavailable. Falling back to public Geofabrik OSM PBF with exact node IDs."
+            python3 -m pip install --quiet --target /tmp/p4-pyosmium osmium
+            url=https://download.geofabrik.de/europe/france/rhone-alpes-latest.osm.pbf
+            curl --fail --location --show-error --silent --max-time 440 --retry 1 \
+              "$url" --output /tmp/p4-rhone-alpes.osm.pbf
+            PYTHONPATH=/tmp/p4-pyosmium python3 tools/reality/p4_pbf_extract.py \
+              --pbf /tmp/p4-rhone-alpes.osm.pbf \
+              --source-url "$url" --out p4-les-deux-alpes-osm.json
+            rm -f /tmp/p4-rhone-alpes.osm.pbf
+          fi
       - name: Audit real names, exact shared OSM nodes, and candidate components
         run: |
           python3 tools/reality/p4_audit.py --osm p4-les-deux-alpes-osm.json --report p4-source-audit.json
