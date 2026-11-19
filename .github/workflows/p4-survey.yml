@@ -78,12 +78,12 @@ jobs:
             sleep 8
           done
           for cell in N44 N45; do
-            key="Copernicus_DSM_COG_10_\${cell}_00_E006_00_DEM"
-            url="https://copernicus-dem-30m.s3.amazonaws.com/\${key}/\${key}.tif"
+            key="Copernicus_DSM_COG_10_${cell}_00_E006_00_DEM"
+            url="https://copernicus-dem-30m.s3.amazonaws.com/${key}/${key}.tif"
             curl --fail --location --silent --show-error --retry 2 --max-time 240 \
-              "$url" -o "/tmp/\${cell}.tif"
-            gdalinfo "/tmp/\${cell}.tif" | grep -E 'Size is|Coordinate System is'
-            sha256sum "/tmp/\${cell}.tif"
+              "$url" -o "/tmp/${cell}.tif"
+            gdalinfo "/tmp/${cell}.tif" | grep -E 'Size is|Coordinate System is'
+            sha256sum "/tmp/${cell}.tif"
           done
           gdalbuildvrt /tmp/les-deux-alpes-cop30.vrt /tmp/N44.tif /tmp/N45.tif
       - name: Verify real elevation coverage and OSM primary
