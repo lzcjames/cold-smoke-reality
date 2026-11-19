@@ -157,7 +157,7 @@ test('uses exact OSM nodes, downhill exits, and one DEM for the piste network', 
 
 test('turn-aware boundary stakes keep original OSM lines and terrain unchanged for both resorts', () => {
   const { create: createNetwork } = vm.runInNewContext(
-    run(['02b_piste_network.js']) + '\\nPisteNetwork');
+    run(['02b_piste_network.js']) + '\nPisteNetwork');
   for (const id of ['alpe-dhuez', 'les-deux-alpes']) {
     const asset = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/reality', id + '.json'), 'utf8'));
     const original = asset.pistes.map(p => JSON.stringify(p.points));
