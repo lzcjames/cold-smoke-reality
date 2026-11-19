@@ -16,13 +16,16 @@ const pages = new Map([
 const realityAsset = process.argv.includes('--release')
   ? JSON.parse(await readFile(new URL('dist/reality/alpe-dhuez.json', root), 'utf8'))
   : fixture();
-let serveReality = false;
+let serveReality = false, realityRequests = 0;
 const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
-  const page = path === '/reality/alpe-dhuez.json' && serveReality ?
+  const isReality = path === '/reality/alpe-dhuez.json';
+  if (isReality) realityRequests++;
+  const page = isReality && serveReality ?
     [JSON.stringify(realityAsset), 'application/json'] : pages.get(path);
   if (!page) return res.writeHead(404).end();
-  res.writeHead(200, { 'Content-Type': page[1] }).end(page[0]);
+  res.writeHead(200, { 'Content-Type': page[1],
+    'Cache-Control': isReality ? 'public, max-age=600' : 'no-store' }).end(page[0]);
 }).listen(0, '127.0.0.1');
 await once(server, 'listening');
 const profile = await mkdtemp('/tmp/cold-smoke-chromium-');
@@ -99,6 +102,7 @@ try {
     ...(realityAsset.junctions ? [['network', 'zh', 'webgl2'], ['network', 'en', 'webgpu']] : []),
   ]) {
     const reality = mode !== 'procedural', network = mode === 'network';
+    const requestsBefore = realityRequests;
     const query = [options, 'lang=' + lang, 'backend=' + backend];
     if (reality) query.push('reality=alpe-dhuez');
     if (network) query.push('network=1');
@@ -152,6 +156,8 @@ try {
     assert.equal(result.reality, reality);
     assert(!result.error && result.graphicsAlive && result.end.speed > 0 && result.end.p[2] < result.start.p[2], JSON.stringify(result));
     assert(Math.abs(result.end.p[1] - result.surface) < 0.5, JSON.stringify(result));
+    if (!reality) assert.equal(realityRequests, requestsBefore,
+      'the procedural mountain must not request any resort DEM');
     if (reality) {
       assert.equal(result.piste, realityAsset.piste.name);
       assert.equal(result.osmWay, realityAsset.piste.osmWay);
