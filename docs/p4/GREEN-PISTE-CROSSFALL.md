@@ -10,7 +10,7 @@ An additional gameplay confusion: opening Les Deux Alpes normally spawns on **Di
 
 ## Scoped fix
 - Preserve the source DEM JSON, datum, OSM vertex geometry, directional junctions, ski labels and difficulty classification exactly.
-- On **Petites Crêtes only**, derive a gameplay **simulated groomed snow surface** by limiting the lateral elevation difference to 7% of the distance from the nearest true OSM centreline point within 11 m. Blend back to the unmodified natural MNT over the 11–24 m shoulder. Do *not* claim that this profile represents actually surveyed snowcat earthworks or legal piste widths.
+- On **Petites Crêtes only**, derive a gameplay **simulated groomed snow surface** by limiting the lateral elevation difference to 7% of the distance from the nearest true OSM centreline point within the existing estimated 18 m half-width. Blend back to the unmodified natural MNT over the 18–34 m shoulder. Do *not* claim that this profile represents actually surveyed snowcat earthworks or legal piste widths.
 - The renderer, terrain normal and ski collision sample **the same** simulated surface through `Course.height`; road signs and boundary markers are anchored to it as well. The raw `Reality.height` still returns unchanged source data.
 - Add an explicit direct testing URL for the independently validated real piste, **`?reality=les-deux-alpes&network=1&piste=643745486`**. Without this opt-in the original route spawn is unchanged.
 - Restrict the correction to resort ID `les-deux-alpes` and OSM way `643745486`. **Alpe d'Huez and the Diable/Vallons natural ground source are not reshaped.**
