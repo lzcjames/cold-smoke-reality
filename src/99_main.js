@@ -438,6 +438,28 @@ else {
       chooser.appendChild(a);
     }
     chooser.hidden = !chooser.children.length;
+    // Only show the dropdown when two *validated and published* DEM packs
+    // exist in the build catalog. Missing optional packs cannot be selected.
+    const picker = document.getElementById('reality-picker');
+    const select = document.getElementById('reality-select');
+    if (resorts.length > 1) {
+      for (const resort of resorts) {
+        const option = document.createElement('option');
+        option.value = resort.id;
+        option.textContent = resort.name;
+        select.appendChild(option);
+      }
+      select.value = chosen.id;
+      picker.hidden = false;
+      select.addEventListener('change', () => {
+        const selected = Reality.get(select.value);
+        if (!selected) return;
+        const url = new URLSearchParams(location.search);
+        url.set('reality', selected.id);
+        url.delete('network'); // never enable another resort's graph by accident
+        location.href = '?' + url;
+      });
+    }
   }
   boot(UI.stage).then(() => { UI.ready(); lastT = performance.now(); requestAnimationFrame(loop); if (QS.has('autostart')) UI.go(); }).catch(e => { if (!retryOnWebGL2(e)) reportError(e); });
 }
