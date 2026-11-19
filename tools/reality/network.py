@@ -10,6 +10,25 @@ PRIMARY = 23257919
 NEIGHBOURS = {23257916, 256295592}
 
 
+
+def junction_node_ids(pistes):
+    """All exact shared-node junctions, keeping primary ordering stable.
+
+    Secondary-to-secondary crossings must not disappear simply because their
+    shared node is absent from the primary piste. This is a topology-only
+    candidate list; build() still checks physically downhill transitions.
+    """
+    counts = {}
+    for piste in pistes:
+        for node in set(piste["nodes"]):
+            counts[node] = counts.get(node, 0) + 1
+    shared = {node for node, count in counts.items() if count >= 2}
+    primary_nodes = [n for n in pistes[0]["nodes"] if n in shared]
+    primary_set = set(primary_nodes)
+    secondary_nodes = sorted(shared - primary_set)
+    return primary_nodes + secondary_nodes
+
+
 def build(asset, ways, primary_id=PRIMARY, neighbour_ids=NEIGHBOURS):
     # Fail closed. Never infer a junction from proximity, name or an unrelated
     # downhill OSM way; every staged route must be explicitly selected.
@@ -67,11 +86,10 @@ def build(asset, ways, primary_id=PRIMARY, neighbour_ids=NEIGHBOURS):
         raise ValueError("Missing surveyed neighbouring piste")
 
     junctions = []
-    for index, node in enumerate(primary["nodes"]):
+    for node in junction_node_ids(pistes):
         linked = [p for p in pistes if node in p["nodes"]]
-        if len(linked) < 2:
-            continue
-        point = primary["points"][index]
+        anchor = linked[0]
+        point = anchor["points"][anchor["nodes"].index(node)]
         directions = {"incoming": [], "outgoing": []}
         for piste in linked:
             i = piste["nodes"].index(node)
