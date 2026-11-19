@@ -62,8 +62,10 @@ for (const count of [3, 10, 50, 100]) {
     if (i === repeat - 1) {
       probe = { matches, samples: sampleCount };
       atlasInfo = { ...signs.stats, textureBytes: allocation.textures.reduce((s, t) =>
-        s + t.w * t.h * 4, 0), vertexBytes: allocation.buffers.reduce((a, b) => a + b, 0),
-        totalTrackedBytes: allocation.textures.reduce((s, t) => s + t.w * t.h * 4, 0)
+        s + t.w * t.h * (t.format === 'r8' ? 1 : 4), 0),
+        vertexBytes: allocation.buffers.reduce((a, b) => a + b, 0),
+        totalTrackedBytes: allocation.textures.reduce((s, t) =>
+          s + t.w * t.h * (t.format === 'r8' ? 1 : 4), 0)
           + allocation.buffers.reduce((a, b) => a + b, 0),
       };
       networkInfo = { pistes: asset.pistes.length, junctions: asset.junctions.length,
@@ -97,7 +99,7 @@ for (const item of results) {
 const output = { kind: 'P3-synthetic-CPU-and-graphics-estimate',
   timestamp: new Date().toISOString(), platform: process.platform, node: process.version,
   method: { repeat, discardedWarmup: 2, sampleCount, textureLimit: 2048,
-    graphicsBytes: 'texture width*height*4 plus vertex buffer bytes (no driver overhead)',
+    graphicsBytes: 'texture pixel bytes based on format plus vertex bytes (no driver overhead)',
     warning: 'Synthetic paths only; timings are Node CPU, not FPS or physical GPU' },
   cases: results };
 const outputPath = process.argv[2] || path.join(root, 'p3-scale-metrics.json');
