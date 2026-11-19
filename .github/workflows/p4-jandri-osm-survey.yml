@@ -1,0 +1,40 @@
+name: P4 Jandri authentic OSM downhill survey (non-publishing)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/jandri_osm_survey.py'
+      - 'test/jandri_osm_survey_test.py'
+      - '.github/workflows/p4-jandri-osm-survey.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source traceability and no fake lines
+        run: python3 -m unittest discover -s test -p 'jandri_osm_survey_test.py' -v
+  live-jandri:
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query REAL Jandri OSM downhill way and relation geometry
+        run: |
+          python3 tools/reality/jandri_osm_survey.py \
+            --raw-out p4-evidence/jandri-overpass-original.json \
+            --out p4-evidence/jandri-osm-index.json
+      - name: Archive OSM unmodified response and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-real-osm-network-survey
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
