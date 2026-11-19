@@ -102,17 +102,44 @@ try {
     }
     return r.result.value;
   }
-  async function capture(name) {
+  async function capture(name, offscreenGPU = false) {
     if (!captureImages) return;
-    // The actual 3D canvas is rendered by the running headless Chromium page.
-    // Capture the presented frame, not a synthetic illustration or test fixture.
-    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
-    const result = await cdp('Page.captureScreenshot', {
-      format: 'png', captureBeyondViewport: false, fromSurface: true
-    });
-    assert(result.data?.length > 1200, 'headless screenshot is unexpectedly empty');
-    await writeFile(new URL(name + '.png', captures), Buffer.from(result.data, 'base64'));
-    console.log('saved screenshot:', name + '.png', Buffer.from(result.data, 'base64').length, 'bytes');
+    let data;
+    if (offscreenGPU) {
+      // Headless WebGPU canvas swapchain frames may not be composited into the
+      // browser's Page.captureScreenshot output. Use the actual GPU texture
+      // readback path already provided by createGPU({ offscreen: true }).
+      const sampled = await evaluate(`(async () => {
+        const raw = await window.__ski.app().gfx.capture();
+        if (!raw?.data || raw.w < 64 || raw.h < 64) throw Error('No WebGPU readback');
+        let min = 255, max = 0, different = 0;
+        const first = raw.data[0];
+        for (let i = 0; i < raw.data.length; i += 4) {
+          min = Math.min(min, raw.data[i], raw.data[i+1], raw.data[i+2]);
+          max = Math.max(max, raw.data[i], raw.data[i+1], raw.data[i+2]);
+          if (Math.abs(raw.data[i] - first) > 20) different++;
+        }
+        if (max - min < 50 || different < 500) throw Error('GPU readback has no visible scene');
+        const canvas = document.createElement('canvas');
+        canvas.width = raw.w; canvas.height = raw.h;
+        canvas.getContext('2d').putImageData(new ImageData(raw.data, raw.w, raw.h), 0, 0);
+        return { png: canvas.toDataURL('image/png').split(',')[1], width: raw.w,
+          height: raw.h, min, max, different };
+      })()`);
+      assert(sampled?.png?.length > 1200, 'WebGPU texture image missing');
+      console.log('WebGPU readback:', name, sampled.width, sampled.height,
+        'channel range', sampled.min, sampled.max, 'different pixels', sampled.different);
+      data = Buffer.from(sampled.png, 'base64');
+    } else {
+      await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+      const result = await cdp('Page.captureScreenshot', {
+        format: 'png', captureBeyondViewport: false, fromSurface: true
+      });
+      assert(result.data?.length > 1200, 'headless screenshot is unexpectedly empty');
+      data = Buffer.from(result.data, 'base64');
+    }
+    await writeFile(new URL(name + '.png', captures), data);
+    console.log('saved screenshot:', name + '.png', data.length, 'bytes');
   }
   await cdp('Network.enable');
   await cdp('Network.setBlockedURLs',{urls:['https://fonts.googleapis.com/*','https://fonts.gstatic.com/*']});
@@ -151,6 +178,7 @@ try {
     const query = [options, 'lang=' + lang, 'backend=' + backend];
     if (reality) query.push('reality=' + (secondary ? alternateAsset.id : 'alpe-dhuez'));
     if (network) query.push('network=1');
+    if (captureImages && backend === 'webgpu') query.push('offscreen');
     await navigate('/?' + query.join('&'), 'Boolean(window.__ski)');
     const result = await evaluate(`(async () => {
       try {
@@ -261,7 +289,8 @@ try {
         return {width: k.app().gfx.width, height: k.app().gfx.height};
       })()`);
       console.log('headless camera rendered:', mode, JSON.stringify(visible));
-      await capture(mode + '-' + backend);
+      await capture(mode + '-' + backend + (backend === 'webgpu' ? '-texture' : ''),
+        backend === 'webgpu');
     }
   }
 
