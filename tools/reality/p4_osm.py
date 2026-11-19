@@ -14,7 +14,10 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-OVERPASS = "https://overpass.kumi.systems/api/interpreter"
+# The historical overpass.kumi.systems host moved to private.coffee.
+# Both endpoints are public, rate-limited OSM infrastructure.
+OVERPASS = ("https://overpass.private.coffee/api/interpreter",
+            "https://overpass-api.de/api/interpreter")
 
 
 def query_for_bbox(bbox):
@@ -72,7 +75,7 @@ def fetch(query, attempts=3):
     payload = urlencode({"data": query}).encode()
     for attempt in range(attempts):
         try:
-            request = Request(OVERPASS, data=payload, headers={
+            request = Request(OVERPASS[attempt % len(OVERPASS)], data=payload, headers={
                 "User-Agent": "ColdSmokeReality/1.0 (real piste GIS research)",
                 "Content-Type": "application/x-www-form-urlencoded",
             })
