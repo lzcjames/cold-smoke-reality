@@ -44,7 +44,7 @@ jobs:
           if [ "$PR_NUMBER" = "10" ]; then
             npm run test:browser -- --release --screenshots
           elif [ "$PR_NUMBER" = "11" ]; then
-            npm run test:browser -- --release --p3
+            npm run test:browser -- --release --p3 --screenshots
           else
             npm run test:browser -- --release
           fi
@@ -67,6 +67,7 @@ jobs:
             p3-scale-metrics.json
             p3-browser-metrics.json
             screenshots/p3/
+            screenshots/pr10/
           if-no-files-found: warn
       - name: Benchmark La Balme junction signs (PR #9 ABBA)
         if: github.event_name == 'pull_request' && github.event.pull_request.number == 9
