@@ -475,6 +475,10 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-picker label { display: inline-block; margin-right: .5rem; }
 #reality-select { padding: .45rem .65rem; max-width: 85%; color: var(--snow); background: #17232d; border: 1px solid #7c909f; border-radius: 6px; font: inherit; cursor: pointer; }
 #reality-select:focus-visible { outline: 2px solid #f5e8cc; outline-offset: 2px; }
+#reality-enter { margin-left: .55rem; padding: .52rem .9rem; border-radius: 6px; color: #13202d; background: var(--sun); font: inherit; font-size: .85em; font-weight: 600; }
+#reality-enter:focus-visible { outline: 2px solid var(--snow); outline-offset: 3px; }
+#reality-enter[hidden] { display: none; }
+#reality-picker .resort-note { display: block; margin-top: .35rem; font-size: .72em; color: var(--dim); }
 #reality-back { position: absolute; z-index: 100; top: 1rem; left: 1rem; }
 #reality-credits { position: absolute; z-index: 2; bottom: .5rem; right: .75rem; padding: .25rem .5rem; background: #101820cc; font-size: 11px; pointer-events: auto; }
 </style>
@@ -497,7 +501,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <p class="how" id="how">倾斜手机转弯，或按住屏幕左右拖动</p>
       <p><a id="reality-mode" data-reality-asset="missing" href="?reality=alpe-dhuez" hidden>Reality Mode · Alpe d’Huez</a></p>
       <p><a id="reality-network" data-network-asset="missing" href="?reality=alpe-dhuez&amp;network=1" hidden></a></p>
-      <p id="reality-picker" hidden><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select></p>
+      <p id="reality-picker" hidden><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select><button id="reality-enter" type="button">进入雪场</button><small class="resort-note">选择后点击进入，才会加载所选雪场的真实地形</small></p>
       <p id="reality-resorts" hidden></p>
       <p class="fine">画面和声音全部由代码实时生成，没有一张贴图、一段录音。戴上耳机更好。</p>
       <p class="keys"><b>回车</b>出发<b>H</b>操作<b>M</b>静音<b>F</b>全屏</p>

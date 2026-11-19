@@ -178,6 +178,44 @@ try {
   assert.equal(picker.hidden,false,'Both actual published-preview packs should appear in the picker');
   assert.deepEqual(picker.options,['alpe-dhuez','les-deux-alpes']);
   assert.equal(picker.selected,'alpe-dhuez');
+  const splash = await call('Page.captureScreenshot',{
+    format:'png',captureBeyondViewport:false,fromSurface:true
+  });
+  assert(splash.data?.length>1200);
+  await writeFile(new URL('homepage-resort-selector.png',screenshots),
+    Buffer.from(splash.data,'base64'));
+  const selected = await evaluate(`(() => {
+    const picker=document.getElementById('reality-select');
+    picker.value='les-deux-alpes';
+    picker.dispatchEvent(new Event('change',{bubbles:true}));
+    return {id:picker.value,href:location.search,button:
+      document.getElementById('reality-enter').textContent};
+  })()`);
+  assert.equal(selected.id,'les-deux-alpes');
+  assert.equal(selected.href.includes('reality=les-deux-alpes'),false,
+    'choosing the resort must not trigger early navigation');
+  assert.match(selected.button,/进入雪场/);
+  try {
+    await evaluate(`(() => {
+      document.getElementById('reality-enter').click();
+      return true;
+    })()`);
+  } catch(error) {
+    if(!/context|navigation|closed/i.test(error.message))throw error;
+  }
+  let entered=false;
+  for(let i=0;i<220;i++) {
+    entered=await evaluate(`location.search.includes('reality=les-deux-alpes') &&
+      location.search.includes('network=1') &&
+      window.__ski?.m.Course.reality?.id==='les-deux-alpes' &&
+      window.__ski?.app()?.ready &&
+      document.getElementById('reality-resort-name').textContent==='Les Deux Alpes'`)
+      .catch(()=>false);
+    if(entered)break;
+    await delay(200);
+  }
+  assert(entered,'homepage Enter must load authentic Les Deux Alpes and its own network');
+  console.log('Two REAL areas: homepage selection, lazy load and successful launch passed');
   console.log('Two REAL ski areas in selector; no synthetic pack');
 } finally {
   clearTimeout(watchdog);

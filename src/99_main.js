@@ -438,28 +438,40 @@ else {
       chooser.appendChild(a);
     }
     chooser.hidden = !chooser.children.length;
-    // Only show the dropdown when two *validated and published* DEM packs
-    // exist in the build catalog. Missing optional packs cannot be selected.
+    // Homepage: choose a validated resort first; only fetch its DEM when
+    // the player explicitly presses Enter. The procedural mode stays free.
+    // The catalog contains no unverified optional packs, so missing resorts
+    // cannot appear here or be downloaded accidentally.
     const picker = document.getElementById('reality-picker');
     const select = document.getElementById('reality-select');
-    if (resorts.length > 1) {
-      for (const resort of resorts) {
-        const option = document.createElement('option');
-        option.value = resort.id;
-        option.textContent = resort.name;
-        select.appendChild(option);
-      }
-      select.value = chosen.id;
-      picker.hidden = false;
-      select.addEventListener('change', () => {
-        const selected = Reality.get(select.value);
-        if (!selected) return;
-        const url = new URLSearchParams(location.search);
-        url.set('reality', selected.id);
-        url.delete('network'); // never enable another resort's graph by accident
-        location.href = '?' + url;
-      });
+    const enter = document.getElementById('reality-enter');
+    for (const resort of resorts) {
+      const option = document.createElement('option');
+      option.value = resort.id;
+      option.textContent = resort.name;
+      select.appendChild(option);
     }
+    select.value = chosen.id;
+    picker.hidden = false;
+    const enterSelectedResort = () => {
+      const selected = Reality.get(select.value);
+      if (!selected) return;
+      const url = new URLSearchParams(location.search);
+      url.set('reality', selected.id);
+      // Open the complete piste network when verified. Never carry over
+      // another resort's network flag into a single-piste asset.
+      if (selected.network) url.set('network', '1');
+      else url.delete('network');
+      location.href = '?' + url;
+    };
+    enter.addEventListener('click', enterSelectedResort);
+    // Keyboard users may choose via the native select and press Enter.
+    select.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        enterSelectedResort();
+      }
+    });
   }
   boot(UI.stage).then(() => { UI.ready(); lastT = performance.now(); requestAnimationFrame(loop); if (QS.has('autostart')) UI.go(); }).catch(e => { if (!retryOnWebGL2(e)) reportError(e); });
 }
