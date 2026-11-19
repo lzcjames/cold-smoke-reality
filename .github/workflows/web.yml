@@ -161,6 +161,17 @@ jobs:
           mkdir -p site
           cp dist/dev.html site/index.html
           cp -R dist/reality site/
+          # Jandri uses real archived OSM line geometry. The atlas is a
+          # separate, on-demand 2D asset until full LiDAR ground coverage is
+          # validated. A PR may run before the artifact-preservation job
+          # commits the generated SVG, but main must contain it.
+          if [ -s docs/p4/JANDRI-OSM-MAP.svg ]; then
+            cp docs/p4/JANDRI-OSM-MAP.svg site/reality/jandri-osm-map.svg
+          elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo 'Missing versioned Jandri OSM atlas on main' >&2
+            exit 1
+          fi
+
           echo "asset_sha=$(sha256sum site/reality/alpe-dhuez.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "p4_sha=$(sha256sum site/reality/les-deux-alpes.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
