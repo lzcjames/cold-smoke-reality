@@ -103,17 +103,22 @@ const Reality = (() => {
     try {
       // URL hash invalidates changed packs. CacheStorage makes navigation back
       // to an already downloaded resort deterministic even if HTTP cache policies
-      // differ by browser; at most three packs are retained on disk.
+      // differ by browser. Keep at most three packs, with LRU eviction.
       const url = 'reality/' + resort.id + '.json?v=' + resort.revision;
-      let store = null, data = null, responseForStore = null;
+      let store = null, data = null, responseForStore = null, reusedResponse = null;
       try {
         if (typeof caches !== 'undefined') {
           store = await caches.open('cold-smoke-resorts-v1');
           const hit = await store.match(url);
           if (hit?.ok) {
+            // Clone before consuming JSON, so a successfully used entry can
+            // be moved to the back of the cache's insertion-ordered keys.
+            const clone = hit.clone();
             const candidate = await hit.json();
-            if (candidate?.id === resort.id) data = candidate;
-            else await store.delete(url);
+            if (candidate?.id === resort.id) {
+              data = candidate;
+              reusedResponse = clone;
+            } else await store.delete(url);
           }
         }
       } catch (_) { data = null; store = null; } // cache access may be disabled
@@ -129,9 +134,10 @@ const Reality = (() => {
       const terrain = create(data);
       terrain.resortName = resort.name;
       if (network) terrain.network = PisteNetwork.create(terrain, data);
-      if (responseForStore && store) {
+      if (store && (responseForStore || reusedResponse)) {
         try {
-          await store.put(url, responseForStore);
+          if (reusedResponse) await store.delete(url);
+          await store.put(url, responseForStore || reusedResponse);
           const current = new URL(url, location.href), keys = await store.keys();
           for (const key of keys) {
             const candidate = new URL(key.url);
