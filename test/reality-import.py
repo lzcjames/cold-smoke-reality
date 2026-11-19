@@ -34,6 +34,14 @@ with TemporaryDirectory() as directory:
     assert 2 < grid["cols"] <= 1200 and 2 < grid["rows"] <= 1200
     assert len(grid["heights"]) == grid["rows"] * grid["cols"]
     assert piste["osmWay"] == 1
+    alternate = importer.build(
+        dem, osm, "ign", 1, "second-resort",
+        (6.03, 45.055, 6.145, 45.140),
+        (45.08, 6.06, 45.125, 6.120),
+    )
+    assert alternate["id"] == "second-resort"
+    assert alternate["grid"]["cols"] != grid["cols"]
+    assert alternate["piste"]["osmWay"] == piste["osmWay"]
     assert piste["points"][0][1] > piste["points"][-1][1], "reverse uphill OSM order"
     try:
         importer.build(dem, osm, "ign", 99)
