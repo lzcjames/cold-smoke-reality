@@ -122,7 +122,7 @@ const Reality = (() => {
         // A cached 404 must not poison the pack when an outage recovers.
         if (!response.ok) response = await fetch(url, { cache: 'reload' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
-        responseForStore = response.clone();
+        responseForStore = store ? response.clone() : null;
         data = await response.json();
       }
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
