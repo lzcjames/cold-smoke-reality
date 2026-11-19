@@ -155,6 +155,28 @@ test('uses exact OSM nodes, downhill exits, and one DEM for the piste network', 
 });
 
 
+test('turn-aware boundary stakes keep original OSM lines and terrain unchanged for both resorts', () => {
+  const { create: createNetwork } = vm.runInNewContext(
+    run(['02b_piste_network.js']) + '\\nPisteNetwork');
+  for (const id of ['alpe-dhuez', 'les-deux-alpes']) {
+    const asset = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/reality', id + '.json'), 'utf8'));
+    const original = asset.pistes.map(p => JSON.stringify(p.points));
+    const terrain = create(asset);
+    const net = createNetwork(terrain, asset);
+    assert.ok(net.stakes.length >= 12, id);
+    for (const stake of net.stakes) {
+      assert.ok(Number.isFinite(stake.x) && Number.isFinite(stake.z), id);
+      assert.ok(terrain.withinDEM(stake.x, stake.z), id);
+      assert.equal(stake.y, terrain.height(stake.x, stake.z), id);
+      assert.ok(Math.abs(Math.hypot(...stake.right) - 1) < 1e-7, id);
+    }
+    // Generated marker geometry must never rewrite authentic OSM way points.
+    assert.deepEqual(asset.pistes.map(p => JSON.stringify(p.points)), original, id);
+    assert.deepEqual(net.junctions.map(j=>j.osmNode),
+      asset.junctions.map(j=>j.osmNode), id);
+  }
+});
+
 test('supports a second resort geometry without an engine change', () => {
   const alternate = fixture();
   alternate.id = 'test-alternate-resort';
