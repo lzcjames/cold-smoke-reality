@@ -19,8 +19,8 @@ assert.equal(asset.junctions.length, 2);
 assert.deepEqual(asset.junctions.map(j=>j.osmNode).sort((a,b)=>a-b),
   [6057592057,6057592113].sort((a,b)=>a-b));
 assert.equal(asset.grid.heights.length, asset.grid.cols * asset.grid.rows);
-assert.match(asset.elevationSource, /IGN LiDAR HD MNT 0\\.5 m/);
-assert.match(asset.provenance.demSource, /IGN LiDAR HD MNT 0\\.5 m/);
+assert.match(asset.elevationSource, /IGN LiDAR HD MNT 0\.5 m/);
+assert.match(asset.provenance.demSource, /IGN LiDAR HD MNT 0\.5 m/);
 assert.equal(asset.elevationSource.includes('RGE ALTI'), false);
 assert.equal(asset.provenance.osmTimestampUTC, '2026-07-24T11:04:51Z');
 for (const key of ['osmSha256','demSha256']) {
