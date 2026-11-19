@@ -225,6 +225,36 @@ try {
     }
     console.log(mode, result.piste || 'seeded mountain', lang, backend, 'skiing, rendered frame and ground contact passed');
   }
+
+  // Also exercise the generated menu link, not only direct ?reality= URLs.
+  await navigate('/?' + options + '&ui&lang=en&backend=webgl2',
+    'Boolean(document.querySelector("#reality-resorts a"))');
+  const alternateLink = await evaluate(`({
+    label: document.querySelector('#reality-resorts a').textContent,
+    url: document.querySelector('#reality-resorts a').getAttribute('href'),
+    hidden: document.getElementById('reality-resorts').hidden
+  })`);
+  assert.equal(alternateLink.hidden, false);
+  assert.match(alternateLink.label, /Synthetic Test Resort/);
+  assert.match(alternateLink.url, /reality=test-only-resort/);
+  assert.doesNotMatch(alternateLink.url, /network=1/);
+  try {
+    await evaluate('document.querySelector("#reality-resorts a").click(); true');
+  } catch (error) {
+    if (!/context|navigation|closed/i.test(error.message)) throw error;
+  }
+  let opened = false;
+  for (let i = 0; i < 200; i++) {
+    opened = await evaluate(`location.search.includes('reality=test-only-resort') &&
+      Boolean(window.__ski?.app()?.ready) && window.__ski.m.Course.reality?.id === 'test-only-resort' &&
+      document.getElementById('reality-resort-name')?.textContent === 'Synthetic Test Resort'`)
+      .catch(() => false);
+    if (opened) break;
+    await delay(200);
+  }
+  assert.equal(opened, true, 'menu selection must boot the synthetic resort with correct credits');
+  assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
+  console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
 } finally {
   clearTimeout(timer);
   socket?.close();
