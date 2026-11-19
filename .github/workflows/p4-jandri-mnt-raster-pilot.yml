@@ -1,0 +1,52 @@
+name: P4 Jandri real IGN MNT two-tile pilot (non-publishing)
+
+on:
+  push:
+    branches:
+      - audit/jandri-mnt-raster-pilot
+    paths:
+      - 'tools/reality/jandri_mnt_raster_pilot.py'
+      - '.github/workflows/p4-jandri-mnt-raster-pilot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  official-ground-raster-pilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GDAL_CACHEMAX: '128'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover genuine archived official WFS metadata (not elevation data)
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          run-id: 44635187118
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-ign-index
+      - name: Install GDAL and NumPy for strict GeoTIFF checks
+        timeout-minutes: 8
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin
+      - name: Acquire at most two adjacent official IGN 0.5m MNT tiles
+        timeout-minutes: 17
+        run: |
+          mkdir -p p4-evidence /tmp/jandri-real-ground-pilot
+          /usr/bin/python3 tools/reality/jandri_mnt_raster_pilot.py \
+            --wfs /tmp/jandri-ign-index/jandri-ign-wfs-original.geojson \
+            --metadata /tmp/jandri-ign-index/jandri-mnt-metadata-coverage.json \
+            --work /tmp/jandri-real-ground-pilot \
+            --out p4-evidence/jandri-ign-two-tile-raster-report.json
+      - name: Retain audit manifest only — never publish raw 0.5m DEM tiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-two-real-ign-rasters-audit
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
