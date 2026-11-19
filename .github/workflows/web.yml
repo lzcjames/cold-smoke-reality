@@ -43,6 +43,8 @@ jobs:
         run: |
           if [ "$PR_NUMBER" = "10" ]; then
             npm run test:browser -- --release --screenshots
+          elif [ "$PR_NUMBER" = "11" ]; then
+            npm run test:browser -- --release --p3
           else
             npm run test:browser -- --release
           fi
@@ -52,6 +54,19 @@ jobs:
         with:
           name: pr10-headless-rendered-frames
           path: screenshots/pr10/
+          if-no-files-found: warn
+      - name: P3 synthetic 3/10/50/100 piste CPU and graphics allocation profiling
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 11
+        run: node docs/p3/benchmark.cjs p3-scale-metrics.json
+      - name: Upload P3 raw benchmark samples and real rendered frames
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.number == 11
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3-piste-scale-profiling
+          path: |
+            p3-scale-metrics.json
+            p3-browser-metrics.json
+            screenshots/p3/
           if-no-files-found: warn
       - name: Benchmark La Balme junction signs (PR #9 ABBA)
         if: github.event_name == 'pull_request' && github.event.pull_request.number == 9
