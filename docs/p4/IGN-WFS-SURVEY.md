@@ -8,6 +8,23 @@ The original returned GeoJSON (archived as `p4-ign-lidar-tile-index` on the run)
 
 An observed entry has tile identifier `0945-6437`, mission `21LHD6QM`, edition `2025-02-20Z`, survey end `2021-10-15Z`, Lambert-93 CRS and IGN69 altitude datum. The original response should be consulted for exact per-tile metadata; dates vary and must not be inferred from this one example.
 
+## Key OSM node tile locations (EPSG:2154)
+
+Using the original archived OSM node coordinates, converted WGS84 → Lambert-93:
+
+| OSM shared node | Approx. Lambert-93 X / Y (m) | Observed MNT tile ID |
+| --- | --- | --- |
+| 6057592113 | 946767 / 6438489 | `0946-6439` |
+| 6057592057 | 947924 / 6438135 | `0947-6439` |
+
+The returned tile index also contains the tiles spanned by the **surveyed vertices** of the three shortlisted pistes:
+
+- Diable 1 (219409078): `0946-6439`, `0947-6439`, `0948-6439`.
+- Petites Crêtes (643745486): `0947-6438`, `0947-6439`, `0948-6438`, `0948-6439`.
+- Vallons du Diable (643786947): `0946-6438`, `0946-6439`, `0947-6438`.
+
+Those lists describe vertex positions only, *not* verified coverage of all intervening segments, the terrain crop, guard margins or actual raster data. Validate all of those separately.
+
 **Not yet established:** that all 25 WMS links successfully download valid GeoTIFF rasters, that they are each free of nodata at every sampled track point, that the 25 tile footprints fully cover each selected piste and DEM guard margin, or that this measured ground surface passes the game downhill junction gates. No tile SHA-256 has been computed, and no source raster or game pack has been published.
 
 Next: rerun the corrected WFS parser, check individual GeoTIFF headers/provenance/hashes and raster nodata, then recalculate the directionality at nodes **6057592057** and **6057592113**. Never alter original Alpe d'Huez assets for this resort.
