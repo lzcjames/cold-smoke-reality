@@ -65,7 +65,7 @@ const report={resort:p4.id,measuredSources:{
   publishedTerrainGridResolutionM:p4.grid.step,
   publishedGridCells:p4.grid.cols*p4.grid.rows
 },inferredPresentation:{
-  playableWidthM:36,widthEvidence:'Fixed gameplay estimate: Reality.create uses halfWidth=18',
+  primaryPlayableWidthM:36,secondaryStakeSeparationM:24,networkLookupRadiusM:70,\n  widthEvidence:'Reality.create uses halfWidth=18; PisteNetwork.create places secondary stakes at ±12m and searches 70m',
   pisteBoundarySurveyed:false,decorativeVegetationSurveyed:false,
   rendererSurface:'Procedural snow / shading, not survey-grade photogrammetry',
   fullOfficialRouteCoverageVerified:false
@@ -77,5 +77,5 @@ else {
   for(const p of pistes) console.log(p.name,p.osmWay,
     p.centrelineMeters+'m',p.osmVertices+' OSM vertices',
     'approx elevation change '+p.elevationChangeM+'m');
-  console.log('Web DEM 15m from IGN native 0.5m; fixed 36m gameplay width is NOT measured.');
+  console.log('Web DEM 15m from IGN native 0.5m; 36m primary corridor and 24m secondary stake spacing are NOT measured.');
 }
