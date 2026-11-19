@@ -64,9 +64,9 @@ test('10/50/100 synthetic ways fit in a bounded 2D sign atlas and retain origina
     assert.equal(atlas.h, markers.stats.atlasHeight);
     assert.equal(atlas.format, 'r8', 'full-resolution monochrome glyphs use 1 B/pixel');
     assert.equal(atlas.data.byteLength, atlas.w * atlas.h);
+    const values = m.backing.buffers[0];
     assert.ok(atlas.data.byteLength + values.byteLength < 10 * 1024 * 1024,
       '100-piste visual resources must not consume over 10 MiB');
-    const values = m.backing.buffers[0];
     let uvCount = 0, laterRow = false;
     for (let i = 0; i < values.length; i += 8) {
       const u = values[i + 3], v = values[i + 4];
