@@ -179,7 +179,7 @@ test('turn-aware boundary stakes keep original OSM lines and terrain unchanged f
 
 test('P4 off-piste mask follows all authentic pistes without changing measured terrain', () => {
   const { create: createNetwork } = vm.runInNewContext(
-    run(['02b_piste_network.js']) + '\\nPisteNetwork');
+    run(['02b_piste_network.js']) + '\nPisteNetwork');
   const p4 = require('../data/reality/les-deux-alpes.json');
   const p1 = require('../data/reality/alpe-dhuez.json');
   const terrain = create(p4);
