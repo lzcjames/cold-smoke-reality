@@ -237,7 +237,7 @@ const Game = (() => {
   };
 
   G.resetReality = function () {
-    const terrain = Course.reality, spawn = terrain.network?.spawn;
+    const terrain = Course.reality, spawn = terrain.selectedSpawn || terrain.network?.spawn;
     if (spawn) G.reset(-spawn[1], spawn[0]);
     else G.reset(terrain.start);
   };
