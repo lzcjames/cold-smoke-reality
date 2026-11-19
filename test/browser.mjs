@@ -386,14 +386,16 @@ try {
   assert.equal(alternateRequests, requestsBeforePick,
     'selection alone must not fetch the next DEM');
   assert.match(selectedWithoutLoading.button, /进入雪场/);
-  try {
-    await evaluate(`(() => {
-      document.getElementById('reality-enter').click();
-      return true;
-    })()`);
-  } catch (error) {
-    if (!/context|navigation|closed/i.test(error.message)) throw error;
-  }
+  // Send a real Chromium pointer click, not an element.click() synthetic
+  // activation that bypasses the very overlay bug reported by the player.
+  const enterPoint = await evaluate(`(() => {
+    const b = document.getElementById('reality-enter').getBoundingClientRect();
+    return {x:b.left+b.width/2,y:b.top+b.height/2};
+  })()`);
+  await cdp('Input.dispatchMouseEvent', {type:'mousePressed',
+    x:enterPoint.x,y:enterPoint.y,button:'left',clickCount:1});
+  await cdp('Input.dispatchMouseEvent', {type:'mouseReleased',
+    x:enterPoint.x,y:enterPoint.y,button:'left',clickCount:1});
   let opened = false;
   for (let i = 0; i < 200; i++) {
     opened = await evaluate(`location.search.includes('reality=test-only-resort') &&
