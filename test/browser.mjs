@@ -8,7 +8,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
 const captureImages = process.argv.includes('--screenshots');
-const p3 = process.argv.includes('--p3');
+const p3Only = process.argv.includes('--p3-only');
+const p3 = p3Only || process.argv.includes('--p3');
 const captures = new URL('../screenshots/pr10/', import.meta.url);
 if (captureImages) await mkdir(captures, { recursive: true });
 const p3Captures = new URL('../screenshots/p3/', import.meta.url);
@@ -82,7 +83,9 @@ const browser = spawn(process.env.BROWSER || 'chromium', ['--headless', '--no-sa
 let socket;
 let launchError;
 browser.on('error', error => { launchError = error; });
-const timer = setTimeout(() => browser.kill(), 410_000);
+// Each launch has an independent watchdog; the P3 stress suite no longer
+// accumulates the regular regression's elapsed time in one Chromium process.
+const timer = setTimeout(() => browser.kill(), p3Only ? 780_000 : 410_000);
 try {
   let port;
   for (let i=0;i<100 && !port;i++) {
@@ -172,13 +175,17 @@ try {
     }
     throw Error('Page did not become ready: '+path);
   }
+  // Keep the established browser regression and the expensive P3 scale run
+  // independent; each obtains a fresh Chromium/CDP session in CI.
+  const options = 'manual&w=320&h=180&gov=0&quality=2';
+  serveReality = p3Only;
+  if (!p3Only) {
   for (const backend of ['webgl2','webgpu']) {
     await navigate('/test/smoke.html?backend='+backend,'Boolean(window.__result)');
     const result=await evaluate('window.__result');
     console.log(result);
     assert(result.startsWith('ok '+backend) && !result.includes(' ERR '));
   }
-  const options = 'manual&w=320&h=180&gov=0&quality=2';
   await navigate('/?' + options + '&reality=alpe-dhuez', 'Boolean(window.__ski)');
   assert.match(await evaluate('window.__ski.boot()'), /^ERR Alpe d’Huez terrain unavailable/);
   assert.equal(await evaluate('window.__ski.app().ready'), false);
@@ -343,6 +350,7 @@ try {
   assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
   console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
   await capture('secondary-menu-reentry-webgl2');
+  }
 
   if (p3) {
     await cdp('Performance.enable');
