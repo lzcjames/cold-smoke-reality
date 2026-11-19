@@ -77,3 +77,37 @@ Acquisition checklist for each selected *real* 1 km tile:
 
 **No Jandri MNT tile has been acquired or certified by this PR.** Do not
 publish a playable Jandri area until the above checks are satisfied.
+
+## Automated official MNT coverage preflight (metadata only)
+
+The dedicated script `tools/reality/jandri_mnt_coverage.py` converts **all 37
+pinned real OSM ways** to Lambert-93, calculates the rectangular tile index
+cover with a 250 m screening margin, and tests every required kilometre tile
+against a saved or freshly queried official IGN WFS `url_mnt`. It rejects
+missing metadata, unapproved non-ground-product URLs, duplicate tile IDs,
+and truncated WFS responses. It deliberately refuses to claim that metadata
+completeness means terrain readiness.
+
+Run with a previously saved official response (requires Python GDAL for the
+Lambert-93 projection):
+
+```sh
+/usr/bin/python3 tools/reality/jandri_mnt_coverage.py \
+  --wfs /path/to/original-official-wfs.geojson \
+  --out /tmp/jandri-mnt-preflight.json
+```
+
+Run with a **live official WFS** (read-only, bounded query):
+
+```sh
+/usr/bin/python3 tools/reality/jandri_mnt_coverage.py \
+  --raw-out /tmp/jandri-wfs-original.geojson \
+  --out /tmp/jandri-mnt-preflight.json
+```
+
+The manual GitHub Actions workflow
+`.github/workflows/p4-jandri-mnt-coverage.yml` can generate a 30-day
+metadata-only artifact. It is not a DEM downloader. The full ski terrain
+will require approved actual original raster files, checksums and measured
+vertical continuity; the unavailable Jandri 5 / 1 bis alignments can enlarge
+the footprint beyond this current rectangular screening region.
