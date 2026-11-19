@@ -75,6 +75,7 @@ jobs:
     outputs:
       asset_sha: ${{ steps.stage.outputs.asset_sha }}
       p4_sha: ${{ steps.stage.outputs.p4_sha }}
+      jandri_sha: ${{ steps.stage.outputs.jandri_sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -161,6 +162,23 @@ jobs:
           mkdir -p site
           cp dist/dev.html site/index.html
           cp -R dist/reality site/
+          # A small independent piste atlas, NOT a playable new DEM pack.
+          # Verify pinned real July 2026 OSM source and all 37 way geometries
+          # before making the map visible to players.
+          test -s docs/p4/JANDRI-OSM-INDEX.json
+          test -s docs/p4/JANDRI-OSM-MAP.svg
+          python3 - <<'PY'
+          import json
+          d=json.load(open('docs/p4/JANDRI-OSM-INDEX.json'))
+          assert d['originalResponseSHA256']=='40dcc37e95a259fb7d0f036e10e4147ce9c7343fb69b167c23ec92241da5ff26'
+          assert d['snapshotTimestampUTC']=='2026-07-24T11:04:51Z'
+          assert d['wayCount']==37 and len(d['features'])==37
+          assert {w['names'][0] for w in d['features']} == {
+            'Jandri 1','Jandri 2','Jandri 3','Jandri 4','Balade du Jandri','Woops du Jandri'}
+          PY
+          cp docs/p4/JANDRI-OSM-MAP.svg site/reality/jandri-osm-map.svg
+          echo "jandri_sha=$(sha256sum site/reality/jandri-osm-map.svg | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
           echo "asset_sha=$(sha256sum site/reality/alpe-dhuez.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "p4_sha=$(sha256sum site/reality/les-deux-alpes.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
@@ -229,6 +247,7 @@ jobs:
           PAGE_URL: ${{ steps.deploy.outputs.page_url }}
           ASSET_SHA: ${{ needs.validate.outputs.asset_sha }}
           P4_SHA: ${{ needs.validate.outputs.p4_sha }}
+          JANDRI_SHA: ${{ needs.validate.outputs.jandri_sha }}
         run: |
           curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL}?v=${ASSET_SHA}" -o /tmp/cold-smoke-index.html
           grep -q 'id="view"' /tmp/cold-smoke-index.html
@@ -238,3 +257,6 @@ jobs:
           printf '%s  %s\n' "$ASSET_SHA" /tmp/alpe-dhuez.json | sha256sum --check
           curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/les-deux-alpes.json?v=${P4_SHA}" -o /tmp/les-deux-alpes.json
           printf '%s  %s\n' "$P4_SHA" /tmp/les-deux-alpes.json | sha256sum --check
+          grep -q 'reality/jandri-osm-map.svg' /tmp/cold-smoke-index.html
+          curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/jandri-osm-map.svg?v=${JANDRI_SHA}" -o /tmp/jandri-osm-map.svg
+          printf '%s  %s\n' "$JANDRI_SHA" /tmp/jandri-osm-map.svg | sha256sum --check
