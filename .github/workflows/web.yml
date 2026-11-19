@@ -197,4 +197,4 @@ jobs:
           test -n "$ASSET_SHA"
           printf '%s  %s\n' "$ASSET_SHA" /tmp/alpe-dhuez.json | sha256sum --check
           curl --fail --silent --show-error --retry 6 --retry-all-errors "${PAGE_URL%/}/reality/les-deux-alpes.json?v=${P4_SHA}" -o /tmp/les-deux-alpes.json
-          printf '%s  %s\\n' "$P4_SHA" /tmp/les-deux-alpes.json | sha256sum --check
+          printf '%s  %s\n' "$P4_SHA" /tmp/les-deux-alpes.json | sha256sum --check
