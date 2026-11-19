@@ -31,6 +31,24 @@ class TestIgnTileIndex(unittest.TestCase):
                       "file:///tmp/dem.tif"):
             self.assertIsNone(tiles.approved_tile_url(value))
 
+    def test_real_ign_mnt_wms_tile_link(self):
+        # Real link structure observed in archived IGN WFS response,
+        # but no raster is downloaded by this unit test.
+        wms = ("https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0"
+               "&EXCEPTIONS=text/xml&REQUEST=GetMap"
+               "&LAYERS=IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93"
+               "&FORMAT=image/geotiff&STYLES=&CRS=EPSG:2154"
+               "&BBOX=944999.75,6436000.25,945999.75,6437000.25"
+               "&WIDTH=2000&HEIGHT=2000"
+               "&FILENAME=LHD_FXX_0945_6437_MNT_O_0M50_LAMB93_IGN69.tif")
+        self.assertEqual(tiles.approved_tile_url(wms), wms)
+        for bad in (wms.replace("_MNT_", "_MNS_"),
+                    wms.replace("_MNT_", "_MNH_"),
+                    wms.replace("WIDTH=2000", "WIDTH=200000"),
+                    wms.replace("FORMAT=image/geotiff", "FORMAT=image/png"),
+                    wms.replace("CRS=EPSG:2154", "CRS=EPSG:4326")):
+            self.assertIsNone(tiles.approved_tile_url(bad))
+
     def test_metadata_is_not_published_as_dem(self):
         doc = {"type": "FeatureCollection", "features": [
             {"type": "Feature", "id": "valid", "properties": {
