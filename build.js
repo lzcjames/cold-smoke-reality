@@ -54,6 +54,25 @@ for (const entry of registry.resorts) {
   const content = fs.readFileSync(source); // missing required packs remain a build error
   const asset = JSON.parse(content.toString('utf8'));
   if (asset.id !== entry.id) throw Error('Resort identity mismatch: ' + entry.id);
+  if (entry.id === 'les-deux-alpes') {
+    // P4 is opt-in until measured IGN/Copernicus and timestamped OSM sources
+    // are supplied. Prevent accidentally staging a placeholder/synthetic pack.
+    const p = asset.provenance;
+    const ids = asset.pistes?.map(x => x.osmWay);
+    const sha = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+    if (!p || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(p.osmTimestampUTC) ||
+        typeof p.demEdition !== 'string' || !p.demEdition.trim() ||
+        typeof p.demReference !== 'string' || !/^https:\/\//.test(p.demReference) ||
+        !sha(p.demSha256) || !sha(p.osmSha256) ||
+        !Array.isArray(ids) || ids.length < 3 || ids.length > 5 ||
+        new Set(ids).size !== ids.length ||
+        !Array.isArray(p.wayIds) || p.wayIds.length !== ids.length ||
+        p.wayIds[0] !== asset.piste.osmWay ||
+        ids.some(id => !p.wayIds.includes(id)) ||
+        !Array.isArray(asset.junctions) || !asset.junctions.length) {
+      throw Error('Les Deux Alpes requires a verified measured DEM + timestamped OSM network, not a placeholder.');
+    }
+  }
   const context = vm.createContext({ asset });
   const network = vm.runInContext(jsReality + `
     const terrain = Reality.create(asset);
