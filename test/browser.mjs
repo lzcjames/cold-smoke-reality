@@ -345,6 +345,7 @@ try {
   await capture('secondary-menu-reentry-webgl2');
 
   if (p3) {
+    await cdp('Performance.enable');
     const records = [];
     for (const count of [3, 10, 50, 100]) {
       const id = count === 3 ? 'alpe-dhuez' : 'p3-synthetic-' + count;
@@ -396,7 +397,7 @@ try {
       })()`);
       assert.equal(result.boot, 'ok webgl2', JSON.stringify(result));
       assert.equal(result.id, id);
-      assert.equal(result.error, null);
+      assert(!result.error, 'graphics errors: ' + result.error);
       assert.equal(result.lost, false);
       assert(result.samples.length === 16 && result.samples.every(x => x.junctionDraws <= 1),
         'junction signage should remain one draw per frame');
