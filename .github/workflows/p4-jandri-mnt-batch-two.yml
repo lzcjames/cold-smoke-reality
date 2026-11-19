@@ -1,0 +1,54 @@
+name: P4 Jandri official IGN MNT batch two (non-publishing)
+
+on:
+  push:
+    branches:
+      - audit/jandri-mnt-batch-two
+    paths:
+      - 'tools/reality/jandri_mnt_batch_two.py'
+      - '.github/workflows/p4-jandri-mnt-batch-two.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-four-new-rasters:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GDAL_CACHEMAX: '128'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load real official IGN WFS metadata archive
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          run-id: 44635187118
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-wfs
+      - name: Install real raster verification dependencies
+        timeout-minutes: 9
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin
+      - name: Verify unique tile inventory and exclude earlier pilot samples
+        run: /usr/bin/python3 -m unittest discover -s test -p 'jandri_mnt_batch_two_test.py' -v
+      - name: Download and validate 4 more genuine 0.5m ground rasters
+        timeout-minutes: 21
+        run: |
+          mkdir -p p4-evidence /tmp/jandri-ign-four
+          /usr/bin/python3 tools/reality/jandri_mnt_batch_two.py \
+            --wfs /tmp/jandri-wfs/jandri-ign-wfs-original.geojson \
+            --metadata /tmp/jandri-wfs/jandri-mnt-metadata-coverage.json \
+            --work /tmp/jandri-ign-four \
+            --out p4-evidence/jandri-mnt-four-extra-rasters.json
+      - name: Preserve numerical manifest only; do not publish real DEM rasters
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-four-real-ign-rasters-audit
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
