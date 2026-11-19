@@ -3,7 +3,8 @@
   "resorts": [
     {
       "id": "alpe-dhuez",
-      "name": "Alpe d’Huez"
+      "name": "Alpe d’Huez",
+      "optional": true
     }
   ]
 }
