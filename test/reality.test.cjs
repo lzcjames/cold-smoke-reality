@@ -229,3 +229,45 @@ test('resort catalog is a small, separately packaged list, not DEM data', () => 
   assert.equal(source.id, catalog.resorts[0].id);
   assert.ok(source.grid.heights.length > 100000);
 });
+
+
+test('persistent resort cache reuses packs, expires revisions and caps its disk entries', async () => {
+  const records = new Map(), requests = [];
+  const origin = 'https://example.test/game/';
+  const keyFor = key => typeof key === 'string' ? new URL(key, origin).href : key.url;
+  function response(asset) {
+    return { ok: true, clone() { return response(asset); }, async json() { return asset; } };
+  }
+  const cache = {
+    match: async key => records.get(keyFor(key)) || null,
+    put: async (key, value) => { records.set(keyFor(key), value); },
+    keys: async () => [...records.keys()].map(url => ({ url })),
+    delete: async key => records.delete(keyFor(key)),
+  };
+  const ids = ['alpe-dhuez', 'second-resort', 'third-resort', 'fourth-resort'];
+  const catalog = ids.map(id => ({ id, name: id, network: false, revision: 'rev1' }));
+  const Reality = vm.runInNewContext(run(['02a_reality.js']) + '\nReality', {
+    URL, location: { href: origin },
+    document: { getElementById: () => ({ dataset: { realityCatalog: JSON.stringify(catalog) } }) },
+    caches: { open: async () => cache },
+    fetch: async url => {
+      requests.push(url);
+      const asset = fixture(); asset.id = url.split('/').pop().split('.json')[0];
+      return response(asset);
+    },
+  });
+  await Reality.load('alpe-dhuez');
+  await Reality.load('alpe-dhuez');
+  assert.equal(requests.length, 1, 'same cached pack should not fetch twice');
+  Reality.catalog()[0].revision = 'rev2';
+  await Reality.load('alpe-dhuez');
+  assert.equal(requests.length, 2, 'a new asset revision must fetch');
+  assert.equal(records.size, 1, 'older version of the same resort must be evicted');
+  await Reality.load('second-resort');
+  await Reality.load('third-resort');
+  await Reality.load('fourth-resort');
+  assert.equal(records.size, 3, 'cache must be bounded to three resort packs');
+  assert.equal([...records.keys()].some(url => url.includes('alpe-dhuez')), false);
+  await Reality.load('alpe-dhuez');
+  assert.equal(requests.length, 6, 'evicted resort must fetch again');
+});
