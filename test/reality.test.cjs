@@ -179,7 +179,7 @@ test('turn-aware boundary stakes keep original OSM lines and terrain unchanged f
 
 test('Les Deux Alpes sharp OSM fork gives early and near correctly directed signs', () => {
   const { create: createNetwork } = vm.runInNewContext(
-    run(['02b_piste_network.js']) + '\\nPisteNetwork');
+    run(['02b_piste_network.js']) + '\nPisteNetwork');
   const asset = require('../data/reality/les-deux-alpes.json');
   const terrain = create(asset), network = createNetwork(terrain, asset);
   assert.equal(network.signs.length, 10);
