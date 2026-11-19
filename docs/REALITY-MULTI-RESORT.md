@@ -14,15 +14,20 @@ Campanules content and ski physics remain unchanged.
 - Each resort has its own `data/reality/<id>.json` source and is published as
   `dist/reality/<id>.json`. The manifest source is
   `data/reality/catalog.json`; only listed IDs are routable. Slugs are
-  constrained to lowercase letters/digits and `-`. The build rejects missing,
-  invalid or duplicate resort files, invalid topology and mismatched identities.
+  constrained to lowercase letters/digits and `-`. The build rejects missing
+  **required** packs, invalid or duplicate resort files, invalid topology and
+  mismatched identities. An optional resort may use `"optional":true` and is
+  explicitly skipped with a warning if its DEM is missing. An empty catalog (or
+  absent catalog file) still builds procedural-only Cold Smoke; no Reality
+  links are shown and no DEM resources are published.
 - Default procedural mode never invokes the resort loader, so it downloads
   **zero** real-resort DEM packs. Opening
   `?reality=alpe-dhuez` loads only `alpe-dhuez.json`, while
   `?reality=alpe-dhuez&network=1` enables the verified multi-piste graph.
 - URLs include an asset-content SHA-256 revision,
   `/reality/<id>.json?v=<16-hex>`. Successful packs are saved in browser
-  **CacheStorage**, with a hard cap of **three** versioned resort responses.
+  **CacheStorage**, with a hard cap of **three** versioned resort responses;
+  successful revisits refresh least-recently-used (LRU) eviction order.
   A cached response is reused on return visits without a second network
   request. Updating a resort's revision evicts its older cached revision.
   HTTP caching (`cache: 'force-cache'`) provides a fallback if CacheStorage
@@ -63,8 +68,8 @@ Campanules content and ski physics remain unchanged.
    enabling a larger area.
 
 **Important:** the repo contains only one licensed real resort asset today.
-The second-resort test uses exclusively synthetic data in a temporary directory
-and does **not** publish a fictional ski area.
+The second-resort build and browser tests use exclusively synthetic data in
+isolated test contexts and do **not** publish a fictional ski area.
 
 ## Acceptance and performance limits
 
@@ -74,7 +79,12 @@ and does **not** publish a fictional ski area.
   browser regression test.
 - Build integration test stages a second synthetic resort without editing game
   source, validates both packs and verifies that changing one JSON changes only
-  that resort's revision.
+  that resort's revision. It also covers empty/no-catalog builds, missing
+  optional data, and errors for missing required packs.
+- Browser tests inject a second **test-only** synthetic resort into the test
+  server's in-memory HTML, verify its distinct actual DEM and piste by rendering
+  and skiing, and switch back to the original resort with correct credits and
+  cache isolation. No test-only data is written into the published `dist/`.
 - Existing Reality Mode and optional network continue to share one DEM and
   their existing WebGL2 / WebGPU pipelines.
 - Compare release HTML bytes, downloaded DEM bytes, startup time, and (where
