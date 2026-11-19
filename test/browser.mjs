@@ -2,10 +2,13 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import fixture from './reality-fixture.cjs';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
+const captureImages = process.argv.includes('--screenshots');
+const captures = new URL('../screenshots/pr10/', import.meta.url);
+if (captureImages) await mkdir(captures, { recursive: true });
 const html = await readFile(new URL('dist/dev.html', root));
 const pages = new Map([
   ['/', [html, 'text/html']],
@@ -98,6 +101,18 @@ try {
       throw Error(r.result.description || JSON.stringify(r.result.value ?? r.exceptionDetails));
     }
     return r.result.value;
+  }
+  async function capture(name) {
+    if (!captureImages) return;
+    // The actual 3D canvas is rendered by the running headless Chromium page.
+    // Capture the presented frame, not a synthetic illustration or test fixture.
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    const result = await cdp('Page.captureScreenshot', {
+      format: 'png', captureBeyondViewport: false, fromSurface: true
+    });
+    assert(result.data?.length > 1200, 'headless screenshot is unexpectedly empty');
+    await writeFile(new URL(name + '.png', captures), Buffer.from(result.data, 'base64'));
+    console.log('saved screenshot:', name + '.png', Buffer.from(result.data, 'base64').length, 'bytes');
   }
   await cdp('Network.enable');
   await cdp('Network.setBlockedURLs',{urls:['https://fonts.googleapis.com/*','https://fonts.gstatic.com/*']});
@@ -224,6 +239,30 @@ try {
       else assert.equal(result.junctionDraws, 0);
     }
     console.log(mode, result.piste || 'seeded mountain', lang, backend, 'skiing, rendered frame and ground contact passed');
+    if (captureImages && (mode === 'procedural' || mode === 'secondary' ||
+      mode === 'reality-return' || (network && backend === 'webgl2'))) {
+      // Use a reproducible downhill camera in both resorts, and a sign-facing
+      // camera at the verified Campanules junction for network mode.
+      const visible = await evaluate(`(() => {
+        const k = window.__ski, t = k.m.Course.reality;
+        if (t?.network) {
+          const sign = t.network.signs.find(x => x.to === 23257916 && !x.advance);
+          k.view([sign.x, sign.y + 4, sign.z + 16],
+            [sign.x, sign.y + 1.6, sign.z - 12], 0.95, 0);
+        } else if (t) {
+          const z = -Math.min(100, t.length / 3), x = t.centre(-z);
+          k.view([x, t.height(x, z) + 8, z + 23],
+            [x, t.height(x, z - 35) + 2, z - 35], 0.95, 0);
+        } else {
+          const p = k.game().root.pos;
+          k.view([p[0], p[1] + 8, p[2] + 28],
+            [p[0], p[1] + 2, p[2] - 24], 0.95, 0);
+        }
+        return {width: k.app().gfx.width, height: k.app().gfx.height};
+      })()`);
+      console.log('headless camera rendered:', mode, JSON.stringify(visible));
+      await capture(mode + '-' + backend);
+    }
   }
 
   // Also exercise the generated menu link, not only direct ?reality= URLs.
@@ -255,6 +294,7 @@ try {
   assert.equal(opened, true, 'menu selection must boot the synthetic resort with correct credits');
   assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
   console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
+  await capture('secondary-menu-reentry-webgl2');
 } finally {
   clearTimeout(timer);
   socket?.close();
