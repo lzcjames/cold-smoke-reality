@@ -265,9 +265,15 @@ test('persistent resort cache reuses packs, expires revisions and caps its disk 
   assert.equal(records.size, 1, 'older version of the same resort must be evicted');
   await Reality.load('second-resort');
   await Reality.load('third-resort');
+  await Reality.load('alpe-dhuez'); // A -> B -> C -> A should preserve A, evict B next
   await Reality.load('fourth-resort');
   assert.equal(records.size, 3, 'cache must be bounded to three resort packs');
-  assert.equal([...records.keys()].some(url => url.includes('alpe-dhuez')), false);
+  assert.equal([...records.keys()].some(url => url.includes('alpe-dhuez')), true,
+    'revisited original resort must remain cached');
+  assert.equal([...records.keys()].some(url => url.includes('second-resort')), false,
+    'least recently visited resort must be evicted');
   await Reality.load('alpe-dhuez');
+  assert.equal(requests.length, 5, 'recently visited resort must remain cached');
+  await Reality.load('second-resort');
   assert.equal(requests.length, 6, 'evicted resort must fetch again');
 });
