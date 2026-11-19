@@ -33,6 +33,8 @@ jobs:
         run: |
           sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin
+      - name: Verify unique tile inventory and exclude earlier pilot samples
+        run: /usr/bin/python3 -m unittest discover -s test -p 'jandri_mnt_batch_two_test.py' -v
       - name: Download and validate 4 more genuine 0.5m ground rasters
         timeout-minutes: 21
         run: |
