@@ -153,3 +153,67 @@ test('uses exact OSM nodes, downhill exits, and one DEM for the piste network', 
   broken.junctions[0].outgoing = [23257916];
   assert.throws(() => createNetwork(terrain, broken), /does not share/);
 });
+
+
+test('supports a second resort geometry without an engine change', () => {
+  const alternate = fixture();
+  alternate.id = 'test-alternate-resort';
+  alternate.piste.name = 'Other piste';
+  assert.equal(create(alternate).id, alternate.id);
+  assert.equal(create(alternate).piste, 'Other piste');
+  const invalid = fixture();
+  invalid.id = '../other';
+  assert.throws(() => create(invalid), /Invalid/);
+});
+
+test('lazy resort loader only fetches allowlisted revisioned assets and uses browser HTTP cache', async () => {
+  const data = fixture(), another = fixture();
+  another.id = 'second-resort';
+  const catalog = [
+    { id: 'alpe-dhuez', name: 'Alpe d’Huez', network: false, revision: 'a1b2' },
+    { id: 'second-resort', name: 'Second Resort', network: false, revision: 'c3d4' },
+  ];
+  const calls = [];
+  const context = {
+    document: { getElementById: id => id === 'app' ?
+      { dataset: { realityCatalog: JSON.stringify(catalog) } } : null },
+    fetch: async (url, options) => {
+      calls.push({ url, cache: options.cache });
+      return { ok: true, json: async () => url.includes('second-resort') ? another : data };
+    },
+  };
+  const Reality = vm.runInNewContext(run(['02a_reality.js']) + '\nReality', context);
+  assert.deepEqual(Array.from(Reality.catalog(), r => r.id), ['alpe-dhuez', 'second-resort']);
+  assert.equal(Reality.defaultId(), 'alpe-dhuez');
+  assert.equal(Reality.has('second-resort'), true);
+  assert.equal(Reality.has('unknown'), false);
+  assert.equal(calls.length, 0, 'reading catalog must not download DEM');
+  await assert.rejects(Reality.load('../other'), /Unknown resort/);
+  await assert.rejects(Reality.load('second-resort', true), /Unknown resort or piste network/);
+  assert.equal(calls.length, 0, 'unknown or unsupported resort must not fetch');
+  const first = await Reality.load('alpe-dhuez');
+  assert.equal(first.id, 'alpe-dhuez');
+  assert.equal(first.resortName, 'Alpe d’Huez');
+  const other = await Reality.load('second-resort');
+  assert.equal(other.id, 'second-resort');
+  assert.equal(other.piste, another.piste.name);
+  assert.deepEqual(calls, [
+    { url: 'reality/alpe-dhuez.json?v=a1b2', cache: 'force-cache' },
+    { url: 'reality/second-resort.json?v=c3d4', cache: 'force-cache' },
+  ]);
+  const wrong = vm.runInNewContext(run(['02a_reality.js']) + '\nReality', {
+    document: context.document,
+    fetch: async () => ({ ok: true, json: async () => another }),
+  });
+  await assert.rejects(wrong.load('alpe-dhuez'), /identity mismatch/);
+});
+
+test('resort catalog is a small, separately packaged list, not DEM data', () => {
+  const catalog = require('../data/reality/catalog.json');
+  assert.equal(catalog.version, 1);
+  assert.deepEqual(catalog.resorts.map(r => r.id), ['alpe-dhuez']);
+  assert.ok(Buffer.byteLength(JSON.stringify(catalog)) < 4096);
+  const source = require('../data/reality/alpe-dhuez.json');
+  assert.equal(source.id, catalog.resorts[0].id);
+  assert.ok(source.grid.heights.length > 100000);
+});
