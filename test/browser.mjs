@@ -342,11 +342,25 @@ try {
   assert.equal(resortPicker.hidden, false);
   assert.equal(resortPicker.selected, 'alpe-dhuez');
   assert.deepEqual(resortPicker.options, ['alpe-dhuez', 'test-only-resort']);
+  // Selecting an item must not fetch a second terrain pack. Only the
+  // separate homepage Enter button may navigate to that resort.
+  const requestsBeforePick = alternateRequests;
+  const selectedWithoutLoading = await evaluate(`(() => {
+    const picker = document.getElementById('reality-select');
+    picker.value = 'test-only-resort';
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    return { selected: picker.value,
+      href: location.search,
+      button: document.getElementById('reality-enter').textContent };
+  })()`);
+  assert.equal(selectedWithoutLoading.selected, 'test-only-resort');
+  assert.equal(selectedWithoutLoading.href.includes('reality=test-only-resort'), false);
+  assert.equal(alternateRequests, requestsBeforePick,
+    'selection alone must not fetch the next DEM');
+  assert.match(selectedWithoutLoading.button, /进入雪场/);
   try {
     await evaluate(`(() => {
-      const picker = document.getElementById('reality-select');
-      picker.value = 'test-only-resort';
-      picker.dispatchEvent(new Event('change', { bubbles: true }));
+      document.getElementById('reality-enter').click();
       return true;
     })()`);
   } catch (error) {
