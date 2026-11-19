@@ -1,0 +1,49 @@
+name: P4 Jandri IGN ground coverage preflight (non-publishing)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/jandri_mnt_coverage.py'
+      - 'tools/reality/p4_ign_tiles.py'
+      - 'test/jandri_mnt_coverage_test.py'
+      - '.github/workflows/p4-jandri-mnt-coverage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fail-closed MNT metadata gates
+        run: python3 -m unittest discover -s test -p 'jandri_mnt_coverage_test.py' -v
+
+  live-official-index:
+    # Explicit manual action only: no repeated WFS traffic on every PR.
+    if: github.event_name == 'workflow_dispatch'
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CRS projection tooling
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends python3-gdal
+      - name: Query official IGN WFS only, without downloading DEM tiles
+        run: |
+          mkdir -p p4-evidence
+          /usr/bin/python3 tools/reality/jandri_mnt_coverage.py \
+            --out p4-evidence/jandri-mnt-metadata-coverage.json \
+            --raw-out p4-evidence/jandri-ign-wfs-original.geojson
+      - name: Archive metadata and original response (NO DEM)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
