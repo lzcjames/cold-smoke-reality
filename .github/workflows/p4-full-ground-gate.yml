@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tools/reality/p4_full_ground_gate.py'
+      - 'test/p4-measured-candidate.cjs'
       - '.github/workflows/p4-full-ground-gate.yml'
   workflow_dispatch:
 
@@ -54,6 +55,17 @@ jobs:
             --wfs /tmp/p4-source-index/ign-index-original.geojson \
             --work /tmp/p4-full-ground \
             --report p4-evidence/p4-full-ground-gate.json
+      - name: Validate measured candidate in actual JS runtime and check resort identity isolation
+        run: |
+          node test/p4-measured-candidate.cjs /tmp/p4-full-ground/unpublished-validation-only.json
+      - name: Archive measured candidate for independent review (never publish)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-unpublished-measured-les-deux-alpes
+          path: /tmp/p4-full-ground/unpublished-validation-only.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Archive source hashes, coverage and validation reason only
         if: always()
         uses: actions/upload-artifact@v4
