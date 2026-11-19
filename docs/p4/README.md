@@ -100,6 +100,9 @@ it is **not a claim** that any three particular runs intersect.
 
 - Generic exact-OSM-ID network importer, with backward-compatible La Balme
   defaults, and a fail-closed measured-data pipeline for the second resort.
+  The runtime now accepts **secondary-to-secondary exact-node junctions**, not
+  only junctions directly on the primary way; a test-only non-primary fork
+  confirms this without changing the original La Balme signs or spawn.
 - Dated Overpass survey utility and offline GIS regression against real
   retained Alpe d’Huez source extracts. **No live API requests in CI**.
 - Optional Les Deux Alpes catalog entry; build refuses a provenance-free
