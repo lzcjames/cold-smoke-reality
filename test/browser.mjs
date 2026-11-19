@@ -1,14 +1,18 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import fixture from './reality-fixture.cjs';
+import synthetic from './p3-synthetic-network.cjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
 const captureImages = process.argv.includes('--screenshots');
+const p3 = process.argv.includes('--p3');
 const captures = new URL('../screenshots/pr10/', import.meta.url);
 if (captureImages) await mkdir(captures, { recursive: true });
+const p3Captures = new URL('../screenshots/p3/', import.meta.url);
+if (p3) await mkdir(p3Captures, { recursive: true });
 const html = await readFile(new URL('dist/dev.html', root));
 const pages = new Map([
   ['/', [html, 'text/html']],
@@ -29,14 +33,25 @@ alternateAsset.grid.heights = alternateAsset.grid.heights.map((value, i) =>
   value + 0.6 * Math.floor(i / alternateAsset.grid.cols));
 const releasedHtml = html.toString('utf8');
 assert(!releasedHtml.includes('test-only-resort'), 'synthetic resort must not be published');
+assert(!releasedHtml.includes('p3-synthetic-'), 'scale-test resorts must not be published');
+const p3Assets = new Map(p3 ? [10, 50, 100].map(count => {
+  const asset = synthetic.syntheticNetwork(realityAsset, count);
+  asset.id = 'p3-synthetic-' + count;
+  return [asset.id, asset];
+}) : []);
 const attribute = /data-reality-catalog="([^"]+)"/.exec(releasedHtml);
 assert(attribute && attribute[1].endsWith(']'), 'built resort catalog missing');
 const testEntry = JSON.stringify({
   id: alternateAsset.id, name: 'Synthetic Test Resort',
   network: false, revision: 'synthetic-browser-1',
 }).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const p3Entries = [...p3Assets].map(([id, asset]) => JSON.stringify({
+  id, name: 'SYNTHETIC P3 ' + asset.pistes.length + ' pistes',
+  network: true, revision: 'p3-test-' + asset.pistes.length,
+}).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'));
 const extra = attribute[1].length > 2 ? ',' : '';
-const testCatalog = attribute[1].slice(0, -1) + extra + testEntry + ']';
+const testCatalog = attribute[1].slice(0, -1) + extra +
+  [testEntry, ...p3Entries].join(',') + ']';
 pages.set('/', [releasedHtml.replace(attribute[0],
   'data-reality-catalog="' + testCatalog + '"'), 'text/html']);
 let serveReality = false, realityRequests = 0, successfulRealityRequests = 0;
@@ -45,13 +60,17 @@ const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   const isPrimary = path === '/reality/alpe-dhuez.json';
   const isSecondary = path === '/reality/test-only-resort.json';
-  const isReality = isPrimary || isSecondary;
+  const p3Id = path.startsWith('/reality/p3-synthetic-') ?
+    path.slice('/reality/'.length).replace(/\.json$/, '') : null;
+  const isP3 = p3Id && p3Assets.has(p3Id);
+  const isReality = isPrimary || isSecondary || isP3;
   if (isPrimary) realityRequests++;
   if (isSecondary) alternateRequests++;
   if (isPrimary && serveReality) successfulRealityRequests++;
   if (isSecondary && serveReality) successfulAlternateRequests++;
   const page = isReality && serveReality
-    ? [JSON.stringify(isPrimary ? realityAsset : alternateAsset), 'application/json']
+    ? [JSON.stringify(isPrimary ? realityAsset : isSecondary ? alternateAsset :
+      p3Assets.get(p3Id)), 'application/json']
     : pages.get(path);
   if (!page) return res.writeHead(404, { 'Cache-Control': 'no-store' }).end();
   res.writeHead(200, { 'Content-Type': page[1],
@@ -324,6 +343,84 @@ try {
   assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
   console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
   await capture('secondary-menu-reentry-webgl2');
+
+  if (p3) {
+    const records = [];
+    for (const count of [3, 10, 50, 100]) {
+      const id = count === 3 ? 'alpe-dhuez' : 'p3-synthetic-' + count;
+      const url = '/?' + options + '&backend=webgl2&reality=' + id + '&network=1';
+      await navigate(url, 'Boolean(window.__ski)');
+      const result = await evaluate(`(async () => {
+        const k = window.__ski, started = performance.now();
+        const boot = await k.boot();
+        if (!boot.startsWith('ok')) return { boot };
+        const bootMs = performance.now() - started;
+        const network = k.m.Course.reality?.network;
+        if (!network) throw Error('P3 network missing');
+        const sign = network.signs.find(x => x.name.startsWith('SYNTHETIC')) || network.signs[0];
+        const eye = [sign.x, sign.y + 4, sign.z + 16];
+        const look = [sign.x, sign.y + 1.7, sign.z - 16];
+        const gfx = k.app().gfx, gl = gfx.gl;
+        const original = gfx.draw;
+        let signDraws = 0, sceneDraws = 0;
+        gfx.draw = function(pipe, params) {
+          sceneDraws++;
+          if (pipe.name === 'junctionSigns') signDraws++;
+          return original.call(this, pipe, params);
+        };
+        const samples = [];
+        for (let i = 0; i < 22; i++) {
+          signDraws = 0; sceneDraws = 0;
+          const t = performance.now();
+          k.view(eye, look, 0.96, 0);
+          const submitMs = performance.now() - t;
+          gl.finish();
+          if (i >= 6) samples.push({
+            completeMs: performance.now() - t, submitMs,
+            draws: sceneDraws, junctionDraws: signDraws,
+          });
+        }
+        const summarize = name => {
+          const data = samples.map(s => s[name]).sort((a,b) => a-b);
+          return { median: data[Math.floor(data.length / 2)],
+            p95: data[Math.floor((data.length - 1) * .95)],
+            min: data[0], max: data.at(-1) };
+        };
+        return {
+          boot, bootMs, id: k.m.Course.reality.id, signs: network.signs.length,
+          stakes: network.stakes.length, junctions: network.junctions.length,
+          samples, frame: summarize('completeMs'), submission: summarize('submitMs'),
+          draws: summarize('draws'), junctionDraws: summarize('junctionDraws'),
+          error: k.err(), lost: gfx.lost,
+        };
+      })()`);
+      assert.equal(result.boot, 'ok webgl2', JSON.stringify(result));
+      assert.equal(result.id, id);
+      assert.equal(result.error, null);
+      assert.equal(result.lost, false);
+      assert(result.samples.length === 16 && result.samples.every(x => x.junctionDraws <= 1),
+        'junction signage should remain one draw per frame');
+      if (count > 3) assert(result.signs > count, 'synthetic forks should make signs');
+      const screenshot = await cdp('Page.captureScreenshot', {
+        format: 'png', fromSurface: true, captureBeyondViewport: false,
+      });
+      if (screenshot.data) await writeFile(new URL(count + '-pistes.png', p3Captures),
+        Buffer.from(screenshot.data, 'base64'));
+      const heap = (await cdp('Performance.getMetrics')).metrics;
+      result.jsHeapUsed = heap.find(x => x.name === 'JSHeapUsedSize')?.value;
+      result.jsHeapTotal = heap.find(x => x.name === 'JSHeapTotalSize')?.value;
+      records.push(result);
+      console.log('P3 Browser 3D', JSON.stringify({
+        pistes: count, bootMs: result.bootMs, signs: result.signs,
+        frameMs: result.frame, submissionMs: result.submission,
+        draws: result.draws, signDraws: result.junctionDraws,
+        heapUsed: result.jsHeapUsed,
+      }));
+    }
+    await writeFile(new URL('../p3-browser-metrics.json', root),
+      JSON.stringify({ kind: 'headless-SwiftShader-stress-NOT-hardware-FPS',
+        viewport: [320, 180], quality: 2, records }, null, 2) + '\n');
+  }
 } finally {
   clearTimeout(timer);
   socket?.close();
