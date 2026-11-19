@@ -62,6 +62,10 @@ test('10/50/100 synthetic ways fit in a bounded 2D sign atlas and retain origina
     const atlas = m.backing.textures[0];
     assert.equal(atlas.w, markers.stats.atlasWidth);
     assert.equal(atlas.h, markers.stats.atlasHeight);
+    assert.equal(atlas.format, 'r8', 'full-resolution monochrome glyphs use 1 B/pixel');
+    assert.equal(atlas.data.byteLength, atlas.w * atlas.h);
+    assert.ok(atlas.data.byteLength + values.byteLength < 10 * 1024 * 1024,
+      '100-piste visual resources must not consume over 10 MiB');
     const values = m.backing.buffers[0];
     let uvCount = 0, laterRow = false;
     for (let i = 0; i < values.length; i += 8) {
@@ -87,7 +91,7 @@ test('10/50/100 synthetic ways fit in a bounded 2D sign atlas and retain origina
     console.log('P3 synthetic', count, {
       signs: network.signs.length, stakes: network.stakes.length,
       atlas: [atlas.w, atlas.h], vertices: markers.stats.vertexCount,
-      atlasBytes: atlas.w * atlas.h * 4, vertexBytes: values.byteLength,
+      atlasBytes: atlas.w * atlas.h, vertexBytes: values.byteLength,
     });
   }
   assert.equal(JSON.stringify(real), original, 'published DEM/OSM must remain untouched');
