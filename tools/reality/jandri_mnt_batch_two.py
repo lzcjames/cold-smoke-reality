@@ -14,11 +14,18 @@ from jandri_mnt_coverage import evaluate, plan
 from p4_full_ground_gate import download, sha256, validate_raster, verify_source_url
 
 
-def batch_keys(all_keys, skip=2, count=4):
+# Exact IDs already confirmed in two-tile pilot 44636013026.
+PILOT_TILES = frozenset({"0945-6438", "0946-6438"})
+
+
+def batch_keys(all_keys, count=4, excluded=PILOT_TILES):
     ordered = sorted(set(all_keys))
-    if len(ordered) != len(all_keys) or skip < 0 or count < 1 or skip + count > len(ordered):
+    if len(ordered) != len(all_keys) or not excluded.issubset(set(ordered)) or count < 1:
         raise ValueError("Invalid bounded MNT batch")
-    return ordered[skip:skip + count]
+    pending = [tile for tile in ordered if tile not in excluded]
+    if count > len(pending):
+        raise ValueError("Requested batch exceeds unverified MNT inventory")
+    return pending[:count]
 
 
 def raster_stats(ds):
@@ -101,7 +108,7 @@ def main():
     args.work.mkdir(parents=True, exist_ok=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     report = {"status": "started", "stage": "real_MNT_raster_audit_only",
-              "allRequiredTiles": 24, "sampleTileIds": ids,
+              "allRequiredTiles": 24, "previouslyVerifiedTileIds": sorted(PILOT_TILES), "sampleTileIds": ids,
               "rasters": [], "edgeDiagnostics": [], "readyFor3D": False}
     data = {}
     try:
