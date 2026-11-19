@@ -167,7 +167,7 @@ test('turn-aware boundary stakes keep original OSM lines and terrain unchanged f
     for (const stake of net.stakes) {
       assert.ok(Number.isFinite(stake.x) && Number.isFinite(stake.z), id);
       assert.ok(terrain.withinDEM(stake.x, stake.z), id);
-      assert.equal(stake.y, terrain.height(stake.x, stake.z), id);
+      assert.equal(stake.y, net.preparedHeight(stake.x, stake.z), id);
       assert.ok(Math.abs(Math.hypot(...stake.right) - 1) < 1e-7, id);
     }
     // Generated marker geometry must never rewrite authentic OSM way points.
@@ -264,9 +264,9 @@ test('Petites Crêtes green piste has gentle simulated crossfall on raw steep IG
   assert.equal(network.spawnFor(0),null);
   // The game's physics, render normal and clipmap must read the same surface.
   const context=vm.createContext({ fixture, asset });
-  vm.runInContext('const Variants={ val:{}, def(){}, on(){} };\\n' +
+  vm.runInContext('const Variants={ val:{}, def(){}, on(){} };\n' +
     run(['00_util.js','02a_reality.js','02b_piste_network.js','03_course.js']) +
-    '\\nCourse.setReality(Reality.create(asset)); Course.reality.network=PisteNetwork.create(Course.reality,asset);', context);
+    '\nCourse.setReality(Reality.create(asset)); Course.reality.network=PisteNetwork.create(Course.reality,asset);', context);
   const physicsHeight=vm.runInContext('Course.height('+worldLeft[0]+','+worldLeft[1]+',0.5)',context);
   assert(Math.abs(physicsHeight-network.preparedHeight(...worldLeft))<0.02);
   const p1 = require('../data/reality/alpe-dhuez.json'), p1terrain=create(p1);
