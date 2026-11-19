@@ -42,15 +42,53 @@ def terrain_sampler(paths):
         if ds is None:
             raise ValueError("Not a readable GeoTIFF: " + str(path))
         ref = ds.GetSpatialRef()
-        if ref is None or ref.GetAuthorityCode(None) != "2154":
-            raise ValueError("IGN tile must be EPSG:2154: " + str(path))
+        expected = osr.SpatialReference()
+        expected.ImportFromEPSG(2154)
+        # IGN WMS GetMap GeoTIFFs sometimes carry a PROJCS["EPSG:2154"]
+        # definition with an unnamed geodetic datum. GDAL then returns no
+        # authority code, despite the documented CRS and proper Lambert-93
+        # projection parameters. Never accept only the advertised name:
+        # check actual projection method + all defining projected parameters.
+        if ref is None:
+            raise ValueError("IGN MNT tile lacks a projected spatial reference: " + str(path))
+        authority = ref.GetAuthorityCode(None)
+        equivalent = bool(ref.IsSame(expected))
+        if not equivalent:
+            required = (
+                ref.GetName() == "EPSG:2154"
+                and ref.GetAttrValue("PROJECTION") == "Lambert_Conformal_Conic_2SP"
+            )
+            parameters = ("standard_parallel_1", "standard_parallel_2",
+                          "latitude_of_origin", "central_meridian",
+                          "false_easting", "false_northing")
+            # Compare the actual Lambert-93 projection coefficients instead
+            # of asserting an EPSG authority that WMS GeoTIFFs may omit.
+            required = required and all(
+                abs(ref.GetProjParm(p) - expected.GetProjParm(p)) < 1e-6
+                for p in parameters
+            )
+            if not required:
+                raise ValueError("IGN tile projection differs from Lambert-93: " + str(path))
+        elif authority not in (None, "2154"):
+            raise ValueError("Contradictory EPSG code on IGN MNT tile: " + str(path))
+        # Source WFS identifies these tiles; exact bbox and grid must also
+        # correspond to the selected 1km Lambert-93 tile.
+        tile = path.stem
+        if tile not in ("0946-6439", "0947-6439"):
+            raise ValueError("Unknown real source tile ID: " + tile)
         if ds.RasterCount < 1:
             raise ValueError("IGN tile lacks ground-elevation band")
         gt = ds.GetGeoTransform()
         if abs(gt[2]) > 1e-9 or abs(gt[4]) > 1e-9:
             raise ValueError("Rotated source grid not supported")
-        if abs(abs(gt[1]) - 0.5) > 0.01 or abs(abs(gt[5]) - 0.5) > 0.01:
+        if abs(gt[1] - 0.5) > 1e-9 or abs(gt[5] + 0.5) > 1e-9:
             raise ValueError("Expected actual 0.5m IGN MNT source pixels")
+        km_easting = int(tile[:4])
+        km_northing = int(tile[5:])
+        if (ds.RasterXSize != 2000 or ds.RasterYSize != 2000 or
+                abs(gt[0] - (km_easting * 1000 - 0.25)) > 0.01 or
+                abs(gt[3] - (km_northing * 1000 + 0.25)) > 0.01):
+            raise ValueError("Source tile's grid does not match its WFS identifier")
         datasets.append((str(path), ds, gdal.InvGeoTransform(gt)))
 
     def sample(x, y):
