@@ -68,3 +68,46 @@ test('build adds a second resort without engine edits and revisions only the cha
     fs.rmSync(temp, { recursive: true, force: true });
   }
 });
+
+
+test('procedural-only build works without a catalog or DEM; optional packs are skipped', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cold-smoke-no-resort-'));
+  try {
+    for (const rel of ['src', 'xhs/fonts'])
+      fs.cpSync(path.join(root, rel), path.join(temp, rel), { recursive: true });
+    for (const rel of ['build.js', 'template.html'])
+      fs.copyFileSync(path.join(root, rel), path.join(temp, rel));
+    const run = () => spawnSync(process.execPath, ['build.js'], { cwd: temp, encoding: 'utf8' });
+    const verifyNoReality = () => {
+      const html = fs.readFileSync(path.join(temp, 'dist/index.html'), 'utf8');
+      assert.equal(html.includes('data-reality-asset="missing"'), true);
+      assert.equal(html.includes('data-network-asset="missing"'), true);
+      assert.deepEqual(catalogFromHTML(html), []);
+      assert.deepEqual(fs.readdirSync(path.join(temp, 'dist/reality')), []);
+      assert.match(html, /id="view"/, 'procedural game remains playable');
+    };
+    let build = run();
+    assert.equal(build.status, 0, build.stderr);
+    verifyNoReality(); // also supports checkouts without the catalog
+    fs.mkdirSync(path.join(temp, 'data/reality'), { recursive: true });
+    const catalogPath = path.join(temp, 'data/reality/catalog.json');
+    fs.writeFileSync(catalogPath, JSON.stringify({
+      version: 1, resorts: [{ id: 'alpe-dhuez', name: 'Alpe d’Huez', optional: true }],
+    }));
+    build = run();
+    assert.equal(build.status, 0, build.stderr);
+    assert.match(build.stderr, /Skipping optional resort pack/);
+    verifyNoReality(); // absent licensed DEM must not block original Cold Smoke
+    fs.writeFileSync(catalogPath, JSON.stringify({
+      version: 1, resorts: [{ id: 'alpe-dhuez', name: 'Required Resort' }],
+    }));
+    build = run();
+    assert.notEqual(build.status, 0, 'missing required pack must still fail');
+    fs.writeFileSync(catalogPath, JSON.stringify({ version: 1, resorts: [] }));
+    build = run();
+    assert.equal(build.status, 0, build.stderr);
+    verifyNoReality();
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
