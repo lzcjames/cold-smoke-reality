@@ -9,7 +9,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 ENDPOINT = "https://data.geopf.fr/wfs/ows"
@@ -41,7 +41,31 @@ def approved_tile_url(value):
             parts.port not in (None, 443) or parts.hostname not in
             {"data.geopf.fr", "wxs.ign.fr", "geoservices.ign.fr"}):
         return None
-    if not parts.path.lower().endswith((".tif", ".tiff", ".zip")):
+    if parts.path.lower().endswith((".tif", ".tiff", ".zip")):
+        return url
+    # IGN distributes LiDAR HD rasters as WMS GetMap GeoTIFF downloads:
+    # a /wms-r URL whose FILENAME query parameter ends in _MNT_*.tif.
+    # Never mistake an MNS (surface), MNH (height) or arbitrary map for MNT.
+    if parts.hostname != "data.geopf.fr" or parts.path != "/wms-r":
+        return None
+    q = {key.upper(): values for key, values in parse_qs(parts.query).items()}
+    one = lambda key: q.get(key, [""])[0]
+    if (one("SERVICE").upper() != "WMS" or
+            one("REQUEST").upper() != "GETMAP" or
+            one("FORMAT").lower() != "image/geotiff" or
+            one("LAYERS") != "IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93" or
+            one("CRS").upper() != "EPSG:2154" or
+            not one("FILENAME").upper().endswith(".TIF") or
+            "_MNT_" not in one("FILENAME").upper()):
+        return None
+    try:
+        bbox = [float(n) for n in one("BBOX").split(",")]
+        width, height = int(one("WIDTH")), int(one("HEIGHT"))
+    except (ValueError, TypeError):
+        return None
+    if (len(bbox) != 4 or not all(map(lambda n: n == n and abs(n) < 1e8, bbox)) or
+            bbox[0] >= bbox[2] or bbox[1] >= bbox[3] or
+            width <= 0 or height <= 0 or width > 5000 or height > 5000):
         return None
     return url
 
