@@ -28,7 +28,7 @@ const server = createServer((req,res) => {
 }).listen(0,'127.0.0.1');
 await once(server,'listening');
 const profile = await mkdtemp('/tmp/p4-authentic-browser-');
-const screenshots = new URL('../screenshots/p4-real/',root);
+const screenshots = new URL('screenshots/p4-real/',root);
 await mkdir(screenshots,{recursive:true});
 const browser = spawn(process.env.BROWSER || 'chromium', [
   '--headless','--no-sandbox','--use-angle=swiftshader',
@@ -186,6 +186,6 @@ try {
   server.close();
   await delay(300);
   await rm(profile,{force:true,recursive:true});
-  await writeFile(new URL('../p4-authentic-browser-report.json',root),
+  await writeFile(new URL('p4-authentic-browser-report.json',root),
     JSON.stringify({kind:'headless SwiftShader smoke NOT hardware FPS',report},null,2)+'\n');
 }
