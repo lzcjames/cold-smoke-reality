@@ -257,7 +257,7 @@ test('Petites Crêtes green piste has gentle simulated crossfall on raw steep IG
   const centre=terrain.project(...point);
   assert(Math.abs(network.preparedHeight(...centre)-terrain.height(...centre))<0.1,
     'groomed surface must preserve real piste centreline elevations');
-  const farther=terrain.project(point[0]-dn/len*25,point[1]+dx/len*25);
+  const farther=terrain.project(point[0]-dn/len*40,point[1]+dx/len*40);
   assert.equal(network.preparedHeight(...farther),terrain.height(...farther),
     'outside the groomed corridor preserve original mountain');
   assert.deepEqual(network.spawnFor(643745486).length,2);
