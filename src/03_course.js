@@ -749,7 +749,16 @@ const Course = ((vn1, vn2, h2U) => {
     return u + 0.22 * Math.sin(1.9634954 * u + 1.7 + ph) + 0.035 * Math.sin(5.1050881 * u + 0.6 - 0.8 * ph);
   };
   // how far up into the mountain's own country a point lies (0 on the run and its shoulders, 1 high on the walls)
-  C.mountain = function (x, z) { const c = at(-z), u = x - c.cx, e = LV ? edgeE(-z, u, Math.abs(u) - c.hw, c.hw) : Math.abs(u) - c.hw; return smooth(30, 900, e); };
+  C.mountain = function (x, z) {
+    // The P4 source contains THREE real OSM pistes. Classifying snow solely
+    // around the primary route incorrectly treated secondary pistes as
+    // off-piste mountain. Reuse a compact, precomputed 15 m distance mask:
+    // <= ~18m is the *estimated* groomed corridor; outside it gradually
+    // gains the existing natural mountain/rock shading.
+    if (C.reality?.network?.distanceAt) return smooth(20, 62, C.reality.network.distanceAt(x, z));
+    const c = at(-z), u = x - c.cx, e = LV ? edgeE(-z, u, Math.abs(u) - c.hw, c.hw) : Math.abs(u) - c.hw;
+    return smooth(30, 900, e);
+  };
   const _g = [0, 0, 0];
   C.normal = function (x, z, d = 0.3) {
     const hx = C.height(x + d, z, 0.5) - C.height(x - d, z, 0.5), hz = C.height(x, z + d, 0.5) - C.height(x, z - d, 0.5);
@@ -759,7 +768,29 @@ const Course = ((vn1, vn2, h2U) => {
   // ---- trees: one candidate per jittered grid cell, fully deterministic
   const _t = { x: 0, z: 0, h: 0, r: 0, variant: 0, rot: 0, ok: false }; let _ridge = 0, _enc = 0;
   C.treeDensity = function (x, z) {
-    if (C.reality) return 0;
+    if (C.reality) {
+      const terrain = C.reality, dist = terrain.network?.distanceAt;
+      // The actual LiDAR DEM measures *terrain*, not trees. These are
+      // explicitly procedural game obstacles, placed conservatively only on
+      // lower, gentler off-piste shoulders away from ALL three OSM pistes.
+      // Keep P1 unchanged. No trees inside any estimated piste corridor.
+      if (terrain.id !== 'les-deux-alpes' || !dist ||
+          !terrain.withinDEM(x, z)) return 0;
+      const away = dist(x, z);
+      if (away < 29 || away > 67) return 0;
+      const altitude = terrain.altitude(x, z);
+      if (altitude > 2200) return 0;
+      const span = 7.5;
+      const grade = Math.hypot(
+        terrain.height(x + span, z) - terrain.height(x - span, z),
+        terrain.height(x, z + span) - terrain.height(x, z - span)
+      ) / (2 * span);
+      if (grade >= 0.8) return 0;
+      const grove = 0.62 + 0.38 * vnoise2(x / 60, z / 60, 29);
+      return 0.64 * smooth(29, 47, away) *
+        (1 - smooth(2030, 2200, altitude)) *
+        (1 - smooth(0.36, 0.8, grade)) * grove;
+    }
     const s = -z; if (s < -400) return 0; const c = at(s), u = x - c.cx, au = Math.abs(u), e = LV ? edgeE(s, u, au - c.hw, c.hw) : au - c.hw;
     let d = 0;
     if (e > 3) {

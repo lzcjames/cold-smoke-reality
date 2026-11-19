@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'test/p4-authentic-browser.mjs'
+      - 'src/02a_reality.js'
+      - 'src/02b_piste_network.js'
+      - 'src/03_course.js'
+      - 'test/reality.test.cjs'
       - 'src/99_main.js'
       - 'template.html'
       - 'test/browser.mjs'

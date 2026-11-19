@@ -85,6 +85,9 @@ const Reality = (() => {
       id: data.id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
       difficulty: typeof piste.difficulty === 'string' ? piste.difficulty : null,
       height, centre,
+      // Absolute IGN DEM elevation for altitude-aware *procedural* off-piste
+      // vegetation. This does not assert a surveyed tree inventory.
+      altitude: elevation,
       project(e, n) {
         return [(n - n0) * de - (e - e0) * dn, -(e - e0) * de - (n - n0) * dn];
       },
