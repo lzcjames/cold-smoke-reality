@@ -105,7 +105,7 @@ const Reality = (() => {
       // to an already downloaded resort deterministic even if HTTP cache policies
       // differ by browser. Keep at most three packs, with LRU eviction.
       const url = 'reality/' + resort.id + '.json?v=' + resort.revision;
-      let store = null, data = null, responseForStore = null, reusedResponse = null;
+      let store = null, data = null, cachedTerrain = null, responseForStore = null, reusedResponse = null;
       try {
         if (typeof caches !== 'undefined') {
           store = await caches.open('cold-smoke-resorts-v1');
@@ -116,8 +116,18 @@ const Reality = (() => {
             const clone = hit.clone();
             const candidate = await hit.json();
             if (candidate?.id === resort.id) {
-              data = candidate;
-              reusedResponse = clone;
+              // Do not trust a cached JSON merely because its id matches.
+              // Validate its terrain and (when requested) its piste network
+              // before accepting it; a damaged cache must be recoverable.
+              try {
+                const terrain = create(candidate);
+                if (network) terrain.network = PisteNetwork.create(terrain, candidate);
+                data = candidate;
+                cachedTerrain = terrain;
+                reusedResponse = clone;
+              } catch (_) {
+                await store.delete(url);
+              }
             } else await store.delete(url);
           }
         }
@@ -131,9 +141,9 @@ const Reality = (() => {
         data = await response.json();
       }
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
-      const terrain = create(data);
+      const terrain = cachedTerrain || create(data);
       terrain.resortName = resort.name;
-      if (network) terrain.network = PisteNetwork.create(terrain, data);
+      if (network && !cachedTerrain) terrain.network = PisteNetwork.create(terrain, data);
       if (store && (responseForStore || reusedResponse)) {
         try {
           if (reusedResponse) await store.delete(url);
