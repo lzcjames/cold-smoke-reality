@@ -309,7 +309,7 @@ test('resort cache rejects wrong-id and damaged same-id assets without mixing re
     delete: async path => records.delete(key(path.url || path)),
     keys: async () => [...records.keys()].map(url => ({ url })),
   };
-  const Reality = vm.runInNewContext(run(['02a_reality.js']) + '\\nReality', {
+  const Reality = vm.runInNewContext(run(['02a_reality.js']) + String.fromCharCode(10) + 'Reality', {
     URL, location: { href: origin },
     document: { getElementById: () => ({ dataset: { realityCatalog: JSON.stringify(catalog) } }) },
     caches: { open: async () => cache },
