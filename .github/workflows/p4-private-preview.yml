@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'test/p4-authentic-browser.mjs'
+      - 'src/99_main.js'
+      - 'template.html'
+      - 'test/browser.mjs'
       - '.github/workflows/p4-private-preview.yml'
   workflow_dispatch:
 
