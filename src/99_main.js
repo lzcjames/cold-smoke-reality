@@ -2,7 +2,7 @@
 const App = { state: { speed: 0, lean: 0 }, ready: false, t: 0, lookYaw: null, lampTilt: 0.07 };
 const QS = new URLSearchParams(location.search);
 const REALITY_MODE = !(self.COLD_SMOKE && (/*native{*/self.COLD_SMOKE.createGraphics || /*}native*/self.COLD_SMOKE.noDev)) &&
-  QS.get('reality') === Reality.id;
+  Reality.has(QS.get('reality'));
 // ?dev, or a path ending in /dev, is the test harness and the developer menu. The 小红书 build sets COLD_SMOKE.noDev and never opens it.
 const DEV = !REALITY_MODE && !(self.COLD_SMOKE && self.COLD_SMOKE.noDev) && (QS.has('dev') || /(?:^|\/)dev\/?$/.test(location.pathname) || !!(self.COLD_SMOKE && self.COLD_SMOKE.dev));      // (COLD_SMOKE.dev: a test file opened as it is, with no address to put ?dev in)
 
@@ -15,7 +15,8 @@ async function boot(stage) {
   await step(0.03, '醒来');
   if (typeof XHS !== 'undefined') await XHS.restore();               // (inside 小红书: the player's settings from the container's own storage)
   if (REALITY_MODE) {
-    Course.setReality(await Reality.load(QS.get('network') === '1'));
+    Course.setReality(await Reality.load(QS.get('reality'), QS.get('network') === '1'));
+    document.getElementById('reality-resort-name').textContent = Course.reality.resortName;
     const credits = document.getElementById('reality-credits');
     const piste = document.getElementById('reality-piste');
     piste.textContent = Course.reality.piste;
@@ -392,8 +393,10 @@ if (QS.has('manual') && !QS.has('ui')) document.getElementById('app').classList.
 else {
   UI.init();
   const link = document.getElementById('reality-mode');
-  if (REALITY_MODE || (link.dataset.realityAsset === 'available' && !self.COLD_SMOKE?.noDev)) {
+  const resorts = Reality.catalog();
+  if ((REALITY_MODE || (link.dataset.realityAsset === 'available' && !self.COLD_SMOKE?.noDev)) && resorts.length) {
     link.hidden = false;
+    const chosen = REALITY_MODE ? Reality.get(QS.get('reality')) : resorts[0];
     const query = new URLSearchParams(location.search);
     if (REALITY_MODE) {
       query.delete('reality');
@@ -401,23 +404,40 @@ else {
       link.textContent = 'Cold Smoke';
       document.getElementById('reality-back').href = '?' + query;
     } else {
-      query.set('reality', Reality.id);
+      query.set('reality', chosen.id);
+      query.delete('network');
+      link.textContent = 'Reality Mode · ' + chosen.name;
     }
     const networkLink = document.getElementById('reality-network');
     const networkQuery = new URLSearchParams(location.search);
-    networkQuery.set('reality', Reality.id);
+    networkQuery.set('reality', chosen.id);
     if (QS.get('network') === '1') {
       networkQuery.delete('network');
-      networkLink.textContent = I18N.en() ? 'La Balme only' : '仅滑 La Balme';
+      networkLink.textContent = I18N.en() ? 'Single piste' : '单雪道';
     } else {
       networkQuery.set('network', '1');
-      networkLink.textContent = I18N.en() ? 'Alpe d’Huez piste network' : 'Alpe d’Huez 雪道网络';
+      networkLink.textContent = I18N.en() ? chosen.name + ' piste network' : chosen.name + ' 雪道网络';
     }
     networkLink.href = '?' + networkQuery;
-    networkLink.hidden = networkLink.dataset.networkAsset !== 'available';
+    networkLink.hidden = !chosen.network;
     networkLink.addEventListener('click', event => event.stopPropagation());
     link.href = '?' + query;
     link.addEventListener('click', event => event.stopPropagation());
+    // Extra resort links are generated from the catalog: adding a resort pack
+    // requires no change to the game UI or runtime code.
+    const chooser = document.getElementById('reality-resorts');
+    for (const resort of resorts) {
+      if (resort.id === chosen.id) continue;
+      const a = document.createElement('a');
+      const url = new URLSearchParams(location.search);
+      url.set('reality', resort.id);
+      url.delete('network');
+      a.href = '?' + url;
+      a.textContent = 'Reality Mode · ' + resort.name;
+      a.addEventListener('click', event => event.stopPropagation());
+      chooser.appendChild(a);
+    }
+    chooser.hidden = !chooser.children.length;
   }
   boot(UI.stage).then(() => { UI.ready(); lastT = performance.now(); requestAnimationFrame(loop); if (QS.has('autostart')) UI.go(); }).catch(e => { if (!retryOnWebGL2(e)) reportError(e); });
 }
