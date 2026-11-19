@@ -100,6 +100,8 @@ jobs:
           node test/p4-measured-candidate.cjs data/reality/les-deux-alpes.json
       - run: npm run check
       - run: npm test
+      - name: Audit published Les Deux Alpes geometry and evidence limitations
+        run: node test/p4-truth-in-geometry.cjs
       - name: Browser regression with optional PR #10 visual captures
         env:
           BROWSER: ${{ steps.chrome.outputs.chrome-path }}
