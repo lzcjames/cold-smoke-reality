@@ -30,8 +30,6 @@ def evaluate_archive(report, raw):
     if hashlib.sha256(raw).hexdigest() != report.get("wfsSourceSHA256"):
         raise ValueError("WFS archive SHA256 mismatch")
     source = json.loads(raw)
-    if report.get("sourceSHA256") != report.get("sourceSHA256"):
-        raise ValueError("Invalid report")
     checked = evaluate(report, source)
     if not checked["coverageMetadataComplete"] or checked["requiredTileCount"] != 24:
         raise ValueError("Jandri MNT coverage incomplete or changed")
