@@ -21,13 +21,13 @@ jobs:
         run: python3 -m unittest discover -s test -p 'p4_ign_tiles_test.py'
 
   live-tile-index:
-    if: github.event_name == 'workflow_dispatch'
     needs: index-unit-tests
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Query official WFS (read-only, no original DEM downloaded)
+      - name: Query official WFS (advisory; no original DEM downloaded)
+        continue-on-error: true
         run: |
           mkdir -p p4-evidence
           python3 tools/reality/p4_ign_tiles.py \
