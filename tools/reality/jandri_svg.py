@@ -71,10 +71,16 @@ def make_svg(index):
         label=way["names"][0]
         if label not in byname or way["approxPlanarLengthM"]>byname[label]["approxPlanarLengthM"]:
             byname[label]=way
-    for name,way in byname.items():
+    # Numbered pins avoid the illegible overlapping name halos created by
+    # SVG paint-order implementations in some image renderers. The number
+    # matches the unambiguous sidebar and never implies extra connectivity.
+    sorted_names=sorted(byname,key=str.lower)
+    for number,name in enumerate(sorted_names,1):
+        way=byname[name]
         pts=[xy(p) for p in way["coordinates"]]
         x,y=pts[len(pts)//2]
-        svg.append(f'<text x="{x+10:.0f}" y="{y-11:.0f}" font-family="Arial,sans-serif" font-size="17" font-weight="700" paint-order="stroke" stroke="#fff" stroke-width="5" fill="#18354b">{esc(name)}</text>')
+        svg.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="16" fill="#ffffff" stroke="#17384e" stroke-width="2.5"/>')
+        svg.append(f'<text x="{x:.1f}" y="{y+5:.1f}" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#17384e">{number}</text>')
     svg.extend([
         '<path d="M945 190 V129" stroke="#17384e" stroke-width="4"/>',
         '<path d="M934 148 L945 125 L956 148" fill="none" stroke="#17384e" stroke-width="4"/>',
@@ -86,12 +92,13 @@ def make_svg(index):
     groups={}
     for way in ways: groups.setdefault(way["names"][0],[]).append(way)
     y=203
-    for name,group in sorted(groups.items(),key=lambda p:p[0].lower()):
+    for number,(name,group) in enumerate(sorted(groups.items(),key=lambda p:p[0].lower()),1):
         if y>872: break
         difficulty=group[0].get("tags",{}).get("piste:difficulty","unknown")
         color=COLORS.get(difficulty,"#767f8f")
         distance=sum(w["approxPlanarLengthM"] for w in group)
-        svg.append(f'<circle cx="1102" cy="{y-5}" r="7" fill="{color}"/>')
+        svg.append(f'<circle cx="1104" cy="{y-6}" r="13" fill="{color}"/>')
+        svg.append(f'<text x="1104" y="{y-1}" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#fff">{number}</text>')
         svg.append(f'<text x="1119" y="{y}" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="#1b3243">{esc(name)}</text>')
         svg.append(f'<text x="1119" y="{y+21}" font-family="Arial,sans-serif" font-size="13" fill="#587184">{len(group)} ways · ~{distance/1000:.2f} km · OSM {esc(difficulty)}</text>')
         y+=57
