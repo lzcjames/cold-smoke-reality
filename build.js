@@ -28,8 +28,11 @@ let tpl = fs.readFileSync(path.join(root, 'template.html'), 'utf8');
 }
 // Resource catalog is tiny and lives in the HTML shell. DEMs remain separate,
 // version-addressed JSON packs. The default procedural run never fetches them.
-const registry = JSON.parse(fs.readFileSync(path.join(root, 'data/reality/catalog.json'), 'utf8'));
-if (registry.version !== 1 || !Array.isArray(registry.resorts) || !registry.resorts.length ||
+const catalogFile = path.join(root, 'data/reality/catalog.json');
+const registry = fs.existsSync(catalogFile)
+  ? JSON.parse(fs.readFileSync(catalogFile, 'utf8'))
+  : { version: 1, resorts: [] }; // a standalone procedural build needs no DEM
+if (registry.version !== 1 || !Array.isArray(registry.resorts) ||
     registry.resorts.length > 100) throw Error('Invalid resort catalog.');
 const outDir = path.join(root, 'dist/reality');
 fs.rmSync(outDir, { recursive: true, force: true });
@@ -40,10 +43,15 @@ const jsReality = ['02a_reality.js', '02b_piste_network.js']
 for (const entry of registry.resorts) {
   if (!entry || typeof entry.id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.id) ||
       typeof entry.name !== 'string' || !entry.name.trim() || entry.name.length > 90 ||
-      seen.has(entry.id)) throw Error('Invalid or duplicate resort catalog entry.');
+      seen.has(entry.id) || (entry.optional !== undefined && typeof entry.optional !== 'boolean'))
+    throw Error('Invalid or duplicate resort catalog entry.');
   seen.add(entry.id);
   const source = path.join(root, 'data/reality', entry.id + '.json');
-  const content = fs.readFileSync(source);
+  if (!fs.existsSync(source) && entry.optional === true) {
+    console.warn('Skipping optional resort pack without data: ' + entry.id);
+    continue;
+  }
+  const content = fs.readFileSync(source); // missing required packs remain a build error
   const asset = JSON.parse(content.toString('utf8'));
   if (asset.id !== entry.id) throw Error('Resort identity mismatch: ' + entry.id);
   const context = vm.createContext({ asset });
@@ -63,8 +71,8 @@ if (!tpl.includes('data-reality-catalog="missing"')) {
 }
 tpl = tpl.replace('data-reality-catalog="missing"',
   'data-reality-catalog="' + escapeAttribute(JSON.stringify(list)) + '"');
-tpl = tpl.replace('data-reality-asset="missing"', 'data-reality-asset="available"');
-if (list[0].network) tpl = tpl.replace('data-network-asset="missing"', 'data-network-asset="available"');
+if (list.length) tpl = tpl.replace('data-reality-asset="missing"', 'data-reality-asset="available"');
+if (list[0]?.network) tpl = tpl.replace('data-network-asset="missing"', 'data-network-asset="available"');
 console.log('resort packs:', list.map(r => r.id + ' @' + r.revision).join(', '));
 const out = tpl.replace('/*__JS__*/', () => js);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
