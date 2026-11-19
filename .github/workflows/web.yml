@@ -43,8 +43,6 @@ jobs:
         run: |
           if [ "$PR_NUMBER" = "10" ]; then
             npm run test:browser -- --release --screenshots
-          elif [ "$PR_NUMBER" = "11" ]; then
-            npm run test:browser -- --release --p3 --screenshots
           else
             npm run test:browser -- --release
           fi
@@ -55,6 +53,11 @@ jobs:
           name: pr10-headless-rendered-frames
           path: screenshots/pr10/
           if-no-files-found: warn
+      - name: P3 3/10/50/100 piste browser stress (fresh Chromium process)
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 11
+        env:
+          BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+        run: npm run test:browser -- --release --p3-only --screenshots
       - name: P3 synthetic 3/10/50/100 piste CPU and graphics allocation profiling
         if: github.event_name == 'pull_request' && github.event.pull_request.number == 11
         run: node docs/p3/benchmark.cjs p3-scale-metrics.json
