@@ -23,7 +23,7 @@ const server = createServer((req, res) => {
   if (isReality) realityRequests++;
   const page = isReality && serveReality ?
     [JSON.stringify(realityAsset), 'application/json'] : pages.get(path);
-  if (!page) return res.writeHead(404).end();
+  if (!page) return res.writeHead(404, { 'Cache-Control': 'no-store' }).end();
   res.writeHead(200, { 'Content-Type': page[1],
     'Cache-Control': isReality ? 'public, max-age=600' : 'no-store' }).end(page[0]);
 }).listen(0, '127.0.0.1');
