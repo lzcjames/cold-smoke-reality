@@ -16,11 +16,12 @@ const pages = new Map([
 const realityAsset = process.argv.includes('--release')
   ? JSON.parse(await readFile(new URL('dist/reality/alpe-dhuez.json', root), 'utf8'))
   : fixture();
-let serveReality = false, realityRequests = 0;
+let serveReality = false, realityRequests = 0, successfulRealityRequests = 0;
 const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   const isReality = path === '/reality/alpe-dhuez.json';
   if (isReality) realityRequests++;
+  if (isReality && serveReality) successfulRealityRequests++;
   const page = isReality && serveReality ?
     [JSON.stringify(realityAsset), 'application/json'] : pages.get(path);
   if (!page) return res.writeHead(404, { 'Cache-Control': 'no-store' }).end();
@@ -97,6 +98,7 @@ try {
   console.log('Missing Reality data stops startup');
   serveReality = true;
 
+  let firstRealityRequests = null;
   for (const [mode, lang, backend] of [
     ['procedural', 'en', 'webgpu'], ['reality', 'zh', 'webgl2'], ['reality', 'en', 'webgpu'],
     ...(realityAsset.junctions ? [['network', 'zh', 'webgl2'], ['network', 'en', 'webgpu']] : []),
@@ -159,6 +161,13 @@ try {
     if (!reality) assert.equal(realityRequests, requestsBefore,
       'the procedural mountain must not request any resort DEM');
     if (reality) {
+      if (firstRealityRequests == null) {
+        firstRealityRequests = successfulRealityRequests;
+        assert.ok(firstRealityRequests >= 1, 'first resort launch should fetch DEM once');
+      } else {
+        assert.equal(successfulRealityRequests, firstRealityRequests,
+          'returning to this unchanged resort should reuse the browser HTTP cache');
+      }
       assert.equal(result.piste, realityAsset.piste.name);
       assert.equal(result.osmWay, realityAsset.piste.osmWay);
       assert(result.descent > 25);
