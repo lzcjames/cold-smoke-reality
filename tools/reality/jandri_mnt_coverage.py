@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from p4_ign_tiles import ENDPOINT, approved_tile_url, params
+try:\n    from .p4_ign_tiles import ENDPOINT, approved_tile_url, params\nexcept ImportError:  # direct command-line execution\n    from p4_ign_tiles import ENDPOINT, approved_tile_url, params
 
 PINNED_SHA = "40dcc37e95a259fb7d0f036e10e4147ce9c7343fb69b167c23ec92241da5ff26"
 PINNED_STAMP = "2026-07-24T11:04:51Z"
