@@ -129,7 +129,7 @@ try {
         assert.equal(result.way,219409078);
         assert.match(result.source,/IGN LiDAR HD MNT 0\.5 m/);
         assert.equal(result.junctions,2);
-        assert.equal(result.signs,6);
+        assert.equal(result.signs,10, 'two directions at the sharp fork need early and near signs');
         assert(result.markerIds.every(n=>[219409078,643745486,643786947].includes(n)));
       } else {
         assert.equal(result.way,23257919);
