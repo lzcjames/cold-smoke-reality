@@ -223,7 +223,9 @@ test('lazy resort loader only fetches allowlisted revisioned assets and uses bro
 test('resort catalog is a small, separately packaged list, not DEM data', () => {
   const catalog = require('../data/reality/catalog.json');
   assert.equal(catalog.version, 1);
-  assert.deepEqual(catalog.resorts.map(r => r.id), ['alpe-dhuez']);
+  assert.deepEqual(catalog.resorts.map(r => r.id), ['alpe-dhuez', 'les-deux-alpes']);
+  assert.equal(catalog.resorts[1].optional, true,
+    'P4 resort remains unavailable until surveyed DEM and OSM are supplied');
   assert.ok(Buffer.byteLength(JSON.stringify(catalog)) < 4096);
   const source = require('../data/reality/alpe-dhuez.json');
   assert.equal(source.id, catalog.resorts[0].id);
