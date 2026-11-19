@@ -24,6 +24,22 @@ Those are preliminary **vertex samples**, not piste grades or a complete skiabil
 - Petites Crêtes and Vallons du Diable share **no** OSM node in the retained source.
 - In the original source ordering, the Vallons du Diable node is near a locally uphill/flat set of samples (`1801.9, 1803.0, 1804.0, 1804.7, 1803.8` m). Whether the directed 12–25 m junction descent threshold is satisfied **has not been established**.
 
+
+## Directed junction gate (measured, 2026-11-19)
+
+A second examination of the **original archived** OSM JSON and unpublished Copernicus-derived asset evaluates the exact directed-junction rule already implemented in `tools/reality/network.py`. Each waypoint is transformed from WGS84 to EPSG:2154, and terrain height is bilinearly interpolated from the archived 15 m game grid. For each path direction at the node, interpolate along the source line to 25 m, then calculate `(height_at_node - height_at_25m) * direction`, where direction is `-1` for upstream/incoming and `+1` for downstream/outgoing. The existing importer accepts a direction only if that value is at least 0.5 m and the path has at least 12 m of length.
+
+| Shared OSM node | Way | Incoming 25 m test | Outgoing 25 m test |
+| --- | --- | ---: | ---: |
+| 6057592057 | Diable 1 (219409078) | +11.32 m, passes | +12.13 m, passes |
+| 6057592057 | Petites Crêtes (643745486) | +2.37 m, passes | -0.07 m, fails |
+| 6057592113 | Diable 1 (219409078) | +11.31 m, passes | End of OSM way, unavailable |
+| 6057592113 | Vallons du Diable (643786947) | -1.85 m, fails | -0.33 m, fails |
+
+All values are approximate, specific to the archived Copernicus **DSM**, and must not be presented as survey-grade piste grades. The exact-node test is satisfied at both nodes, but **node 6057592113 has no accepted downhill outgoing path** among these selected ways under the current 25 m / 0.5 m rule. A combined three-way P4 import is therefore **blocked** with the available DSM. Node 6057592057 also does not provide a confirmed two-way outgoing fork: Petites Crêtes has no acceptable outgoing direction there.
+
+**Do not loosen `network.py` thresholds to force the route into production.** Obtain finer ground elevations (preferably IGN RGE ALTI) and reassess exact-node connections, or choose a different surveyed real set of 3–5 ways. Do not assert that a sampled DSM rise proves an officially mapped ski run is unskiable in real life. These findings apply to the candidate game route and this DEM dataset only.
+
 ## Release gates
 
 1. Reproduce the import using the original pinned OSM artifact and source-identified DEM tiles; record checksums and source licence. Independently check provenance.
