@@ -95,7 +95,25 @@ except ValueError:
 else:
     raise AssertionError("Invalid GIS coordinate unexpectedly accepted")
 
-# All optional Les Deux Alpes source files must come from the real survey;
-# the PR may not silently ship an invented or synthetic resort pack.
-assert not (ROOT / "data/reality/les-deux-alpes.json").exists()
-print("P4 GIS preflight passed: strict OSM IDs, real shared-node topology, staged asset absent")
+# P4 was published after a full authentic OSM + IGN MNT source audit.
+# Require the pinned source identity and actual directed OSM junctions here;
+# an invented or substituted second resort must now fail GIS preflight.
+published = json.loads((ROOT / "data/reality/les-deux-alpes.json").read_text())
+assert published["id"] == "les-deux-alpes"
+assert published["version"] == 1
+assert published["piste"]["osmWay"] == 219409078
+assert {p["osmWay"] for p in published["pistes"]} == {
+    219409078, 643745486, 643786947
+}
+assert {j["osmNode"] for j in published["junctions"]} == {
+    6057592057, 6057592113
+}
+assert published["provenance"]["osmTimestampUTC"] == "2026-07-24T11:04:51Z"
+assert published["provenance"]["osmSha256"] == (
+    "40dcc37e95a259fb7d0f036e10e4147ce9c7343fb69b167c23ec92241da5ff26"
+)
+assert "IGN LiDAR HD MNT 0.5 m" in published["elevationSource"]
+assert len(published["grid"]["heights"]) == (
+    published["grid"]["cols"] * published["grid"]["rows"]
+)
+print("P4 GIS preflight passed: both real resorts and pinned P4 survey provenance")
