@@ -177,6 +177,36 @@ test('turn-aware boundary stakes keep original OSM lines and terrain unchanged f
   }
 });
 
+test('P4 off-piste mask follows all authentic pistes without changing measured terrain', () => {
+  const { create: createNetwork } = vm.runInNewContext(
+    run(['02b_piste_network.js']) + '\\nPisteNetwork');
+  const p4 = require('../data/reality/les-deux-alpes.json');
+  const p1 = require('../data/reality/alpe-dhuez.json');
+  const terrain = create(p4);
+  const checksum = terrain.height(0,-40);
+  const network = createNetwork(terrain, p4);
+  assert.equal(typeof network.distanceAt,'function');
+  assert.equal(createNetwork(create(p1),p1).distanceAt,null,
+    'P1 should retain its original rendering path');
+  for (const piste of p4.pistes) {
+    for (const point of piste.points) {
+      const [x,z] = terrain.project(...point);
+      assert(network.distanceAt(x,z) < 12,
+        'actual OSM centreline must lie inside its own groomed mask: '+piste.name);
+    }
+  }
+  assert.equal(terrain.height(0,-40), checksum,
+    'piste visual mask must never change the IGN DEM / physics');
+  const g=p4.grid, samples=[];
+  for(let j=10;j<g.rows-10;j+=8) for(let i=10;i<g.cols-10;i+=8) {
+    const [x,z]=terrain.project(g.east+i*g.step,g.north-j*g.step);
+    samples.push(network.distanceAt(x,z));
+  }
+  assert(samples.some(d=>d>=68),'off-piste terrain must remain distinct');
+  assert(samples.some(d=>d>24&&d<60),'mask must have a graded transition');
+  assert(samples.every(Number.isFinite),'finite and deterministic distance field');
+});
+
 test('supports a second resort geometry without an engine change', () => {
   const alternate = fixture();
   alternate.id = 'test-alternate-resort';
