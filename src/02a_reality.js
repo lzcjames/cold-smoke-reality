@@ -101,19 +101,48 @@ const Reality = (() => {
       throw new Error('Unknown resort or piste network: ' + resortId);
     }
     try {
-      // Revisioned URL + browser HTTP cache retain downloaded resort packs across
-      // visits without pinning the large raw JSON in JS memory indefinitely.
+      // URL hash invalidates changed packs. CacheStorage makes navigation back
+      // to an already downloaded resort deterministic even if HTTP cache policies
+      // differ by browser; at most three packs are retained on disk.
       const url = 'reality/' + resort.id + '.json?v=' + resort.revision;
-      let response = await fetch(url, { cache: 'force-cache' });
-      // A temporary 404 can be cached. Revalidate on failure so a later
-      // retry can recover when the pack becomes available again.
-      if (!response.ok) response = await fetch(url, { cache: 'reload' });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const data = await response.json();
+      let store = null, data = null, responseForStore = null;
+      try {
+        if (typeof caches !== 'undefined') {
+          store = await caches.open('cold-smoke-resorts-v1');
+          const hit = await store.match(url);
+          if (hit?.ok) {
+            const candidate = await hit.json();
+            if (candidate?.id === resort.id) data = candidate;
+            else await store.delete(url);
+          }
+        }
+      } catch (_) { data = null; store = null; } // cache access may be disabled
+      if (!data) {
+        let response = await fetch(url, { cache: 'force-cache' });
+        // A cached 404 must not poison the pack when an outage recovers.
+        if (!response.ok) response = await fetch(url, { cache: 'reload' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        responseForStore = response.clone();
+        data = await response.json();
+      }
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
       const terrain = create(data);
       terrain.resortName = resort.name;
       if (network) terrain.network = PisteNetwork.create(terrain, data);
+      if (responseForStore && store) {
+        try {
+          await store.put(url, responseForStore);
+          const current = new URL(url, location.href), keys = await store.keys();
+          for (const key of keys) {
+            const candidate = new URL(key.url);
+            if (candidate.pathname === current.pathname && candidate.search !== current.search) {
+              await store.delete(key); // old revision of this resort
+            }
+          }
+          const remaining = await store.keys();
+          while (remaining.length > 3) await store.delete(remaining.shift());
+        } catch (_) { /* Quota/private mode: HTTP cache still works as fallback. */ }
+      }
       return terrain;
     } catch (error) {
       throw new Error(resort.name + ' terrain unavailable: ' + error.message);
