@@ -87,6 +87,25 @@ jobs:
             if [ "$attempt" -eq 3 ]; then exit 1; fi
             sleep 6
           done
+      - name: Inspect downloaded GeoTIFF CRS and geotransform (diagnostic)
+        run: |
+          for tile in 0946-6439 0947-6439; do
+            echo "=== official IGN MNT $tile ==="
+            gdalinfo "/tmp/p4-ground/$tile.tif" | head -85
+          done
+          /usr/bin/python3 - <<'PY'
+          from osgeo import gdal, osr
+          for tile in ("0946-6439", "0947-6439"):
+              ds = gdal.Open("/tmp/p4-ground/"+tile+".tif")
+              srs = ds.GetSpatialRef()
+              expected = osr.SpatialReference()
+              expected.ImportFromEPSG(2154)
+              print(tile, "projection-string", repr(ds.GetProjection()[:280]),
+                    "authority", srs.GetAuthorityCode(None) if srs else None,
+                    "same-as-2154", bool(srs and srs.IsSame(expected)),
+                    "geotransform", ds.GetGeoTransform(),
+                    "size", ds.RasterXSize, ds.RasterYSize)
+          PY
       - name: Read actual EPSG:2154, 0.5m ground heights at OSM shared nodes
         run: |
           /usr/bin/python3 tools/reality/p4_ground_node_probe.py \
