@@ -76,6 +76,22 @@ def build_pack(dem, osm, source, primary, neighbours, bounds, piste_bounds,
     asset.update(graph.build(asset, ways, primary_id=primary, neighbour_ids=set(neighbours)))
     if not asset["junctions"] or not any(len(j["outgoing"]) > 1 for j in asset["junctions"]):
         raise ValueError("No confirmed OSM downhill fork among the selected ways.")
+    # An unrelated piste near the chosen resort must not sneak into the pack
+    # just because another pair forms a valid junction.
+    adjacency = {p["osmWay"]: set() for p in asset["pistes"]}
+    for junction in asset["junctions"]:
+        ids = set(junction["incoming"] + junction["outgoing"])
+        for osm_id in ids:
+            adjacency[osm_id].update(ids - {osm_id})
+    reachable, pending = set(), [primary]
+    while pending:
+        item = pending.pop()
+        if item in reachable:
+            continue
+        reachable.add(item)
+        pending.extend(adjacency[item] - reachable)
+    if reachable != set(adjacency):
+        raise ValueError("Some selected pistes are not connected by exact OSM nodes.")
     asset["provenance"] = {
         "osm": "© OpenStreetMap contributors · ODbL 1.0",
         "osmTimestampUTC": stamp,
