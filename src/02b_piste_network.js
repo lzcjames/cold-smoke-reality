@@ -154,7 +154,42 @@ const PisteNetwork = (() => {
       output.piste = found.piste;
       return true;
     }
-    return { signs, stakes, spawn, lookup, junctions: data.junctions };
+    // P4 only: a tiny 15 m distance field from the *actual* three OSM
+    // centrelines. This is a visual/guidance mask, NOT surveyed piste edge
+    // polygons and not a legally authoritative off-piste safety boundary.
+    // Precompute once at resort load, so clipmap shading and vegetation
+    // queries do not walk OSM line segments every frame. The existing exact
+    // lookup remains the authority for route navigation and ski restart.
+    let distanceAt = null;
+    if (terrain.id === 'les-deux-alpes' && data.grid) {
+      const { cols, rows, step, east, north } = data.grid;
+      const origin = terrain.project(east, north);
+      const e = terrain.project(east + step, north);
+      const n = terrain.project(east, north - step);
+      const ux = e[0] - origin[0], uz = e[1] - origin[1];
+      const vx = n[0] - origin[0], vz = n[1] - origin[1];
+      const det = ux * vz - uz * vx;
+      if (Math.abs(det) < 1e-7) throw Error('Degenerate real piste distance grid');
+      const cells = new Uint8Array(cols * rows);
+      const nearest = {};
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const x = origin[0] + i * ux + j * vx;
+        const z = origin[1] + i * uz + j * vz;
+        cells[j * cols + i] = lookup(x, z, nearest) ?
+          Math.min(70, Math.round(nearest.distance)) : 70;
+      }
+      distanceAt = (x, z) => {
+        const dx = x - origin[0], dz = z - origin[1];
+        const u = (dx * vz - dz * vx) / det;
+        const v = (dz * ux - dx * uz) / det;
+        if (u < 0 || v < 0 || u > cols - 1 || v > rows - 1) return 70;
+        const i = Math.min(cols - 2, Math.floor(u)), j = Math.min(rows - 2, Math.floor(v));
+        const tx = u - i, tz = v - j, k = j * cols + i;
+        return (cells[k] * (1 - tx) + cells[k + 1] * tx) * (1 - tz) +
+          (cells[k + cols] * (1 - tx) + cells[k + cols + 1] * tx) * tz;
+      };
+    }
+    return { signs, stakes, spawn, lookup, junctions: data.junctions, distanceAt };
   }
   return { create };
 })();
