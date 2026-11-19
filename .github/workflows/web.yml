@@ -83,6 +83,7 @@ jobs:
       - uses: browser-actions/setup-chrome@v1
         id: chrome
       - name: Restore validated separate Les Deux Alpes resort data
+        if: hashFiles('data/reality/les-deux-alpes.json') == ''
         uses: actions/download-artifact@v4
         with:
           name: p4-unpublished-measured-les-deux-alpes
@@ -92,8 +93,10 @@ jobs:
       - name: Verify source hash and stage real independently loaded resort
         run: |
           set -eu
-          echo '2915a1b89873a636255b4ccee14a7371e628638e8c37ced0b940213a25d990c3  /tmp/p4-verified-release/unpublished-validation-only.json' | sha256sum --check
-          cp /tmp/p4-verified-release/unpublished-validation-only.json data/reality/les-deux-alpes.json
+          if [ ! -s data/reality/les-deux-alpes.json ]; then
+            cp /tmp/p4-verified-release/unpublished-validation-only.json data/reality/les-deux-alpes.json
+          fi
+          echo '2915a1b89873a636255b4ccee14a7371e628638e8c37ced0b940213a25d990c3  data/reality/les-deux-alpes.json' | sha256sum --check
           node test/p4-measured-candidate.cjs data/reality/les-deux-alpes.json
       - run: npm run check
       - run: npm test
@@ -166,6 +169,41 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: site
+
+  persist_measured_pack:
+    name: Persist verified licensed pack for future Pages rebuilds
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Retrieve only the validated game asset from this same CI run
+        if: hashFiles('data/reality/les-deux-alpes.json') == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: cold-smoke-web
+          path: /tmp/p4-pages-release
+      - name: Keep 129 KB licensed JSON in the repository permanently
+        run: |
+          set -eu
+          if [ ! -s data/reality/les-deux-alpes.json ]; then
+            cp /tmp/p4-pages-release/reality/les-deux-alpes.json data/reality/les-deux-alpes.json
+          fi
+          echo '2915a1b89873a636255b4ccee14a7371e628638e8c37ced0b940213a25d990c3  data/reality/les-deux-alpes.json' | sha256sum --check
+          git add data/reality/les-deux-alpes.json
+          if git diff --cached --quiet; then
+            echo 'Verified asset already persisted; no additional commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'data(P4): persist validated Les Deux Alpes LiDAR/OSM pack'
+          git push origin HEAD:main
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
