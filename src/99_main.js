@@ -22,7 +22,7 @@ async function boot(stage) {
     // difficult descent to Petites Crêtes (green). Only the P4 measured
     // network and exact OSM way ids are eligible; no generated routes.
     const chosenPiste = REALITY_MODE && Course.reality.id === 'les-deux-alpes' &&
-      Course.reality.network && /^\\d+$/.test(QS.get('piste') || '') ?
+      Course.reality.network && /^\d+$/.test(QS.get('piste') || '') ?
       Number(QS.get('piste')) : 0;
     if (chosenPiste) {
       const point = Course.reality.network.spawnFor(chosenPiste);
