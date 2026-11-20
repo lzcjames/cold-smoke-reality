@@ -1,0 +1,37 @@
+name: P4 Jandri no-invented-piste-footprint gate
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/audit-jandri-piste-footprint.cjs'
+      - 'test/jandri-piste-footprint.test.cjs'
+      - '.github/workflows/p4-jandri-piste-footprint.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  footprint-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject missing real piste boundaries and tunnel clearance
+        run: node --test test/jandri-piste-footprint.test.cjs
+      - name: Audit all pinned Jandri centreline data without inventing areas
+        run: |
+          mkdir -p p4-evidence
+          node tools/reality/audit-jandri-piste-footprint.cjs docs/p4/JANDRI-OSM-INDEX.json > p4-evidence/jandri-piste-boundary-evidence.json
+          node -e '
+            const a=require("./p4-evidence/jandri-piste-boundary-evidence.json");
+            if (a.wayCount!==37 || a.publishSafe!==false ||
+                a.approvedPlayableAreas!==0 || a.tunnelWayIds.length!==1)
+              process.exit(1);
+            console.log("No fabricated Jandri piste area; 37 authentic centreline ways audited.");
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-real-piste-footprint-evidence
+          path: p4-evidence/
+          retention-days: 30
