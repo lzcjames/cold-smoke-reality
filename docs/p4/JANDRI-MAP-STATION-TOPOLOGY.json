@@ -14,19 +14,22 @@
       "id": "les-deux-alpes-1650",
       "label": "LES DEUX ALPES 1650 M",
       "elevationPrintedM": 1650,
-      "operatorPlatformConfirmed": false
+      "operatorPlatformConfirmed": false,
+      "operatorStationSectorConfirmed": true
     },
     {
       "id": "jandri-2600",
       "label": "JANDRI 2600",
       "elevationPrintedM": 2600,
-      "operatorPlatformConfirmed": false
+      "operatorPlatformConfirmed": false,
+      "operatorStationSectorConfirmed": true
     },
     {
       "id": "jandri-3200",
       "label": "JANDRI 3200",
       "elevationPrintedM": 3200,
-      "operatorPlatformConfirmed": false
+      "operatorPlatformConfirmed": false,
+      "operatorStationSectorConfirmed": true
     }
   ],
   "cartographicLiftAlignment": [
@@ -34,13 +37,15 @@
       "from": "les-deux-alpes-1650",
       "to": "jandri-2600",
       "depictedInMap": true,
-      "confirmedPassengerService": false
+      "confirmedPassengerService": false,
+      "operatorRouteSectorsConfirmed": true
     },
     {
       "from": "jandri-2600",
       "to": "jandri-3200",
       "depictedInMap": true,
-      "confirmedPassengerService": false
+      "confirmedPassengerService": false,
+      "operatorRouteSectorsConfirmed": true
     }
   ],
   "openskidataStationAudit": {
@@ -67,5 +72,30 @@
     "Operator through-service vs transfer unverified",
     "Site entrance, exit, platform floor and piste corridor unverified",
     "Map printed altitude labels are not a substitute for IGN local measured station ground"
-  ]
+  ],
+  "operatorDocumentation": {
+    "sourceURLs": [
+      "https://www.skipass-2alpes.com/fr/blog/le-nouveau-jandri",
+      "https://www.aeon-montagnes.com/telepherique-3s-jandri/",
+      "https://www.les2alpes.com/hiver/offres/jandri-troncon-1-acces-2600m-les-deux-alpes-fr-hiver-2959381/"
+    ],
+    "confirmedFacilityName": "Jandri 3S",
+    "replaced": "former Jandri Express",
+    "lowerTerminalSectorMeters": 1650,
+    "intermediateStationSectorMeters": 2600,
+    "upperTerminalSectorMeters": 3200,
+    "firstSectionStationSectors": [
+      "les-deux-alpes-1650",
+      "jandri-2600"
+    ],
+    "secondSectionStationSectors": [
+      "jandri-2600",
+      "jandri-3200"
+    ],
+    "routeLayoutDocumented": true,
+    "boardingPlatformCoordinatesConfirmed": false,
+    "winterMustChangeCabinConfirmedFor2026": false,
+    "summerThroughCabinConfirmedFor2026": false,
+    "sourceEvidence": "Official operator/skipass documentation independently verifies physical station sectors and two sections; does not confirm current-season through-ride policy or access portals."
+  }
 }
