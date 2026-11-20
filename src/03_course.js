@@ -765,6 +765,13 @@ const Course = ((vn1, vn2, h2U) => {
   };
   const _g = [0, 0, 0];
   C.normal = function (x, z, d = 0.3) {
+    // Real resort DEMs are sampled on 15 m cells. A 0.35 m derivative
+    // follows each bilinear cell's constant slope and snaps at cell edges,
+    // making the skier, skis and camera twitch even at stable frame rates.
+    // Spread only the *normal* over 3 m either side; keep actual terrain
+    // heights, collision contact and the original DEM exactly unchanged.
+    // Procedural snow retains its original fine-scale derivative.
+    if (C.reality) d = Math.max(d, 3);
     const hx = C.height(x + d, z, 0.5) - C.height(x - d, z, 0.5), hz = C.height(x, z + d, 0.5) - C.height(x, z - d, 0.5);
     const nx = -hx / (2 * d), nz = -hz / (2 * d), l = Math.hypot(nx, 1, nz); _g[0] = nx / l; _g[1] = 1 / l; _g[2] = nz / l; return _g;
   };
