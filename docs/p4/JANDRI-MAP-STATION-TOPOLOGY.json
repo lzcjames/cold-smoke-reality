@@ -1,0 +1,71 @@
+{
+  "stage": "human_reviewed_schematic_map_station_topology_only",
+  "source": {
+    "kind": "user_supplied_resort_piste_map_pdf",
+    "filename": "plan_hiver_les2alpes_aeon.pdf",
+    "page": 1,
+    "sha256": "7be8b77bea5806654918c2007cdd363a3477fb21f2d23b46ad03a0f352e96252",
+    "pdfCreatedLocal": "2026-11-09T07:58:27+01:00",
+    "officialSourceURLVerified": false,
+    "georeferenced": false
+  },
+  "illustratedStationSectors": [
+    {
+      "id": "les-deux-alpes-1650",
+      "label": "LES DEUX ALPES 1650 M",
+      "elevationPrintedM": 1650,
+      "operatorPlatformConfirmed": false
+    },
+    {
+      "id": "jandri-2600",
+      "label": "JANDRI 2600",
+      "elevationPrintedM": 2600,
+      "operatorPlatformConfirmed": false
+    },
+    {
+      "id": "jandri-3200",
+      "label": "JANDRI 3200",
+      "elevationPrintedM": 3200,
+      "operatorPlatformConfirmed": false
+    }
+  ],
+  "cartographicLiftAlignment": [
+    {
+      "from": "les-deux-alpes-1650",
+      "to": "jandri-2600",
+      "depictedInMap": true,
+      "confirmedPassengerService": false
+    },
+    {
+      "from": "jandri-2600",
+      "to": "jandri-3200",
+      "depictedInMap": true,
+      "confirmedPassengerService": false
+    }
+  ],
+  "openskidataStationAudit": {
+    "jandriI": {
+      "bottomSourceRecords": 2,
+      "topSourceRecords": 2
+    },
+    "jandriII": {
+      "bottomSourceRecords": 0,
+      "topSourceRecords": 2
+    },
+    "interpretation": "missing_bottom_tag_is_not_proof_of_absent_real_lower_station"
+  },
+  "requestedExpressRide": {
+    "enabled": false,
+    "verifiedUpperTerminal": false,
+    "verifiedIntermediateTransfer": false,
+    "verifiedThroughRide": false,
+    "approvedBoardingSites": 0,
+    "approvedDisembarkSites": 0
+  },
+  "limitations": [
+    "Schematic illustration is not exact GNSS geometry",
+    "Operator through-service vs transfer unverified",
+    "Site entrance, exit, platform floor and piste corridor unverified",
+    "Map printed altitude labels are not a substitute for IGN local measured station ground"
+  ]
+}
