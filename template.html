@@ -495,6 +495,9 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #jandri-winter-preview button { font: inherit; border: 1px solid #8198a6; border-radius: 6px; padding: .35rem .6rem; }
 #jandri-winter-preview button:disabled { opacity: .58; cursor: not-allowed; }
 #jandri-winter-preview .jp-note { display: block; margin-top: .4rem; color: #c6d7e0; line-height: 1.5; }
+#reality-return-start { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: max(12px, var(--gt)); padding: 8px 13px; border: 1px solid rgba(244,247,251,.55); border-radius: 999px; background: rgba(10,22,33,.83); color: var(--snow); font: 500 12px var(--f-ui); pointer-events: auto; cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+#reality-return-start[hidden] { display: none; }
+#reality-return-start:disabled { opacity: .5; cursor: wait; }
 #reality-back { position: absolute; z-index: 100; top: 1rem; left: 1rem; }
 #reality-credits { position: absolute; z-index: 2; bottom: .5rem; right: .75rem; padding: .25rem .5rem; background: #101820cc; font-size: 11px; pointer-events: auto; }
 </style>
@@ -543,6 +546,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
     </footer>
   </section>
   <section id="hud" class="layer">
+    <button type="button" id="reality-return-start" hidden title="回到当前已核对雪道起点，非 Jandri 3S 真正终点站">快速回本雪道起点</button>
     <div id="seg"><small id="seg-en"></small><b id="seg-cn"></b><div class="split"><p id="split"></p></div></div>
     <div id="hint"><i></i><span id="hint-t"></span></div>
     <div class="spd"><b id="spd">0</b><span class="unit">KM/H<em id="drop2"></em></span><span class="tach"><i id="tach"></i></span></div>
