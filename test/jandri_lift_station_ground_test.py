@@ -59,7 +59,7 @@ class JandriGroundTests(unittest.TestCase):
         except ImportError:
             self.skipTest("NumPy only required for the real GDAL audit")
         self.assertAlmostEqual(ground_sample(FakeDataset(),945500,6437750),2150)
-        self.assertIsNone(ground_sample(FakeDataset(),945000,6437750))
+        self.assertIsNone(ground_sample(FakeDataset(),944999.5,6437750))
     def test_missing_station_identity_is_blocking(self):
         r=fixture();r["lifts"][0]["stations"][1]["dailyStationId"]="0-0"
         with self.assertRaisesRegex(ValueError,"Duplicate"):
