@@ -1,0 +1,72 @@
+name: P4 OpenSkiData Jandri lift & station snapshot (audit only)
+
+on:
+  # Automatic data acquisition deliberately limited to this branch and
+  # initial workflow creation. OpenSkiData permits at most one daily download.
+  push:
+    branches:
+      - feat/jandri-openskidata-lift-discovery
+    paths:
+      - '.github/workflows/p4-jandri-openskidata-lifts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p4-openskidata-lifts-source-daily
+  cancel-in-progress: false
+
+jobs:
+  actual-open-ski-data-snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install streaming OpenSkiData parser
+        run: python3 -m pip install --user --disable-pip-version-check ijson
+      - name: Check local lift, station, source identity and geometry tests
+        run: python3 -m unittest discover -s test -p 'jandri_openskidata_lifts_test.py' -v
+      - name: Download publisher's single daily GeoJSON build, no vector tiles
+        timeout-minutes: 16
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/osd-snapshot p4-evidence
+          curl --fail --location --silent --show-error --retry 2 \
+            --connect-timeout 20 --max-time 120 \
+            -o /tmp/osd-snapshot/metadata.json \
+            https://tiles.openskimap.org/metadata.json
+          # Download Lifts and Spots once each; --compressed handles gzip response.
+          curl --fail --location --silent --show-error --compressed \
+            --connect-timeout 20 --max-time 700 --max-filesize 200000000 \
+            -o /tmp/osd-snapshot/lifts.geojson \
+            https://tiles.openskimap.org/geojson/lifts.geojson
+          curl --fail --location --silent --show-error --compressed \
+            --connect-timeout 20 --max-time 700 --max-filesize 200000000 \
+            -o /tmp/osd-snapshot/spots.geojson \
+            https://tiles.openskimap.org/geojson/spots.geojson
+      - name: Match real ski-lift lines and stations near Jandri
+        timeout-minutes: 6
+        run: |
+          python3 tools/reality/jandri_openskidata_lifts.py \
+            --metadata /tmp/osd-snapshot/metadata.json \
+            --lifts /tmp/osd-snapshot/lifts.geojson \
+            --spots /tmp/osd-snapshot/spots.geojson \
+            --out p4-evidence/jandri-openskidata-lift-discovery.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('p4-evidence/jandri-openskidata-lift-discovery.json'))
+          assert r['nearbyCounts']['lifts'] > 0, 'No nearby real lift evidence: fail closed'
+          assert r['approvedSkiLiftRideLinks'] == 0 and not r['readyForGameplay']
+          print('Real OpenSkiData local features:',r['nearbyCounts'])
+          for x in r['candidates']['lifts']:
+              print(x['name'],x['liftType'],x['status'],x['upstreamOSMIds'])
+          PY
+      - name: Preserve only bounded local discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-openskidata-lifts-stations-real-audit
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
