@@ -76,10 +76,22 @@ async function boot(stage) {
   await step(0.44, '种树');
   { const t0 = performance.now(); Trees.init(gfx); if (DEV) console.log('trees', Math.round(performance.now() - t0) + 'ms', Math.round(Trees.stats.tris) + ' tris'); }
   Gates.init(gfx);
-  const pisteMarkers = Course.reality && PisteMarkers.init(gfx, Course.reality);
-  if (pisteMarkers) Render.passes.opaque.push(R => pisteMarkers.draw(R.origin));
-  const junctionSigns = JunctionSigns.init(gfx, Course.reality?.network);
-  if (junctionSigns) Render.passes.opaque.push(R => junctionSigns.draw(R));
+  let pisteMarkers = Course.reality && PisteMarkers.init(gfx, Course.reality);
+  Render.passes.opaque.push(R => { if (pisteMarkers) pisteMarkers.draw(R.origin); });
+  let junctionSigns = JunctionSigns.init(gfx, Course.reality?.network);
+  Render.passes.opaque.push(R => { if (junctionSigns) junctionSigns.draw(R); });
+  // Resort entry can happen after boot. Install real, optional piste/sign
+  // geometry with the SAME GPU setup checks as boot, without refreshing.
+  App.prepareRealitySigns = async terrain => {
+    const newMarkers = PisteMarkers.init(gfx, terrain);
+    const newJunctions = JunctionSigns.init(gfx, terrain.network);
+    for (const item of [newMarkers, newJunctions]) {
+      if (!item) continue;
+      if (gfx.finishPipelineAsync) await gfx.finishPipelineAsync(item.pipe);
+      else gfx.finishPipeline(item.pipe);
+    }
+    return () => { pisteMarkers = newMarkers; junctionSigns = newJunctions; };
+  };
   await step(0.56, '点亮星云');
   Spray.init(gfx); Grains.init(gfx); Dust.init(gfx); Nebula.init(gfx, +QS.get('nebres') || (gfx.caps.maxTex >= 4096 && (navigator.deviceMemory || 8) >= 4 ? 1536 : 768)); Clouds.init(gfx, +QS.get('cloudres') || 0); Shafts.init(gfx); Tracks.init(gfx);
   Wind.init(gfx);                                                        // snow the wind carries off the crests and along the ground (11b_wind.js)
@@ -499,16 +511,64 @@ else {
     }
     select.value = chosen.id;
     picker.hidden = false;
-    const enterSelectedResort = () => {
+    const enterSelectedResort = async () => {
       const selected = Reality.get(select.value);
-      if (!selected) return;
-      const url = new URLSearchParams(location.search);
-      url.set('reality', selected.id);
-      // Open the complete piste network when verified. Never carry over
-      // another resort's network flag into a single-piste asset.
-      if (selected.network) url.set('network', '1');
-      else url.delete('network');
-      location.href = '?' + url;
+      if (!selected || !App.ready || enter.disabled || UI.state !== 'title') return;
+      // Never auto-enter the first option on a native dropdown click.
+      // Fetch only the explicitly selected, provenance-validated resort pack.
+      enter.disabled = true;
+      const originalLabel = enter.textContent;
+      enter.textContent = '正在加载雪场…';
+      const note = picker.querySelector('.resort-note');
+      const originalNote = note?.textContent;
+      try {
+        const terrain = await Reality.load(selected.id, !!selected.network);
+        const installSigns = await App.prepareRealitySigns(terrain);
+        Course.setReality(terrain);
+        if (Trees.reset) Trees.reset();
+        if (Deer.herd) { Deer.herd.length = 0; Deer.next = 36; }
+        if (typeof Fauna !== 'undefined' && Fauna.reset) Fauna.reset();
+        Game.onRealityRestart = () => { Tracks.reset(); Spray.clear(); };
+        const piste = document.getElementById('reality-piste');
+        const credits = document.getElementById('reality-credits');
+        document.getElementById('reality-resort-name').textContent = terrain.resortName;
+        piste.textContent = terrain.selectedPiste?.name || terrain.piste;
+        piste.href = 'https://www.openstreetmap.org/way/' +
+          (terrain.selectedPiste?.osmWay || terrain.osmWay);
+        document.getElementById('reality-dem').textContent = terrain.elevationSource;
+        credits.hidden = false;
+        installSigns();
+        // Rebuild the camera-relative terrain and physics in-place. No
+        // location.href navigation: the WebGL/WebGPU context stays alive.
+        App.swap(Game.resetReality);
+        await new Promise((resolve, reject) => {
+          let frames = 0;
+          const check = () => {
+            if (!App.swapping) return resolve();
+            if (++frames > 1200) return reject(Error('雪场地形重建超时'));
+            requestAnimationFrame(check);
+          };
+          requestAnimationFrame(check);
+        });
+        // Update refresh/share URL only after the real pack is fully installed.
+        const url = new URL(location.href);
+        url.searchParams.set('reality', selected.id);
+        if (selected.network) url.searchParams.set('network', '1');
+        else url.searchParams.delete('network');
+        history.replaceState(history.state, '', url);
+        await UI.go();
+      } catch (error) {
+        // A failed download/validation must never trigger a random
+        // procedural descent or a blank, endlessly reloading page.
+        console.error('Resort entry failed', error);
+        if (note) note.textContent = '雪场加载失败：' + error.message;
+        enter.disabled = false;
+        enter.textContent = originalLabel;
+        return;
+      }
+      if (note) note.textContent = originalNote;
+      enter.disabled = false;
+      enter.textContent = originalLabel;
     };
     // The page also supports "tap anywhere to start" for procedural skiing.
     // Do not let native select clicks bubble into that global shortcut.

@@ -448,7 +448,7 @@ try {
     .replace(/&gt;/g, '>').replace(/&amp;/g, '&')).map(x => x.id);
   assert.deepEqual(resortPicker.options, [...officialIds, 'test-only-resort']);
   // Selecting an item must not fetch a second terrain pack. Only the
-  // separate homepage Enter button may navigate to that resort.
+  // separate homepage Enter button may load and start that resort in-place.
   const requestsBeforePick = alternateRequests;
   const selectedWithoutLoading = await evaluate(`(() => {
     const picker = document.getElementById('reality-select');
@@ -463,6 +463,12 @@ try {
   assert.equal(alternateRequests, requestsBeforePick,
     'selection alone must not fetch the next DEM');
   assert.match(selectedWithoutLoading.button, /进入雪场/);
+  // The same document and GPU context must survive clicking Enter resort:
+  // no page navigation/reload, but a real resort and actual run must start.
+  const beforeInPlace = await evaluate(`(() => {
+    window.__resortEntryPageSentinel = 'same-document-ski-start';
+    return {timeOrigin:performance.timeOrigin};
+  })()`);
   // Send a real Chromium pointer click, not an element.click() synthetic
   // activation that bypasses the very overlay bug reported by the player.
   const enterPoint = await evaluate(`(() => {
@@ -477,14 +483,19 @@ try {
   for (let i = 0; i < 200; i++) {
     opened = await evaluate(`location.search.includes('reality=test-only-resort') &&
       Boolean(window.__ski?.app()?.ready) && window.__ski.m.Course.reality?.id === 'test-only-resort' &&
+      window.__ski.ui().state === 'run' && window.__ski.game().mode === 'run' &&
+      window.__resortEntryPageSentinel === 'same-document-ski-start' &&
       document.getElementById('reality-resort-name')?.textContent === 'Synthetic Test Resort'`)
       .catch(() => false);
     if (opened) break;
     await delay(200);
   }
-  assert.equal(opened, true, 'resort selector must boot the synthetic resort with correct credits');
+  assert.equal(opened, true, 'clicking Enter resort must start validated resort immediately in the existing page');
+  const afterInPlace = await evaluate(`({timeOrigin:performance.timeOrigin, marker:window.__resortEntryPageSentinel})`);
+  assert.equal(afterInPlace.timeOrigin,beforeInPlace.timeOrigin,'resort launch must not reload');
+  assert.equal(afterInPlace.marker,'same-document-ski-start');
   assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
-  console.log('Multi-resort menu link, navigation, credits and cached re-entry passed');
+  console.log('Multi-resort in-place entry, zero reloads, credits and terrain cache passed');
   await capture('secondary-menu-reentry-webgl2');
   }
 
