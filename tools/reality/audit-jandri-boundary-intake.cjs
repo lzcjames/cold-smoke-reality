@@ -4,6 +4,7 @@
 // polygon overlaps an OSM centreline, not proof of groomed or safe ski terrain.
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const {isDeepStrictEqual} = require('node:util');
 const PINNED = '40dcc37e95a259fb7d0f036e10e4147ce9c7343fb69b167c23ec92241da5ff26';
 function insideRing(point, ring) {
   let inside = false;
@@ -46,6 +47,13 @@ function intake(index, fc, metadata, sourceBytes) {
       !/^[0-9a-f]{64}$/.test(metadata.sha256 || '') ||
       !sourceBytes || crypto.createHash('sha256').update(sourceBytes).digest('hex')!==metadata.sha256)
     throw new Error('Missing dated, licensed, byte-authenticated source evidence');
+  // Hashing sourceBytes is insufficient if the caller passes a different,
+  // independently edited FeatureCollection. Audit exactly the parsed bytes.
+  let authenticatedFeatureCollection;
+  try { authenticatedFeatureCollection = JSON.parse(sourceBytes.toString('utf8')); }
+  catch { throw new Error('Authenticated GeoJSON bytes are not valid JSON'); }
+  if (!isDeepStrictEqual(fc, authenticatedFeatureCollection))
+    throw new Error('Boundary candidate differs from authenticated GeoJSON source bytes');
   const ways = new Map(index.features.filter(w=>w.type==='way'&&w.drawable).map(w=>[w.id,w]));
   const findings=[];
   const seen=new Set();
