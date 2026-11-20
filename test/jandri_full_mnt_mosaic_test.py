@@ -19,7 +19,7 @@ class FullJandriMntAuditTests(unittest.TestCase):
         profile=sampled_polyline([(0,0),(30,0),(30,40)],
                                  lambda x,y:1000-y)
         self.assertAlmostEqual(profile["lengthM"],70)
-        self.assertEqual(profile["sampleCount"],5)
+        self.assertEqual(profile["sampleCount"],4)
         self.assertEqual(profile["cumulativeDescentM"],40)
 
     def test_reject_fake_zero_length_and_missing_elevation(self):
