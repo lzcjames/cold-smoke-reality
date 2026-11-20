@@ -17,6 +17,7 @@ function plan(destination='jandri-3200') {
 }
 function hooks(log, overrides={}) {
   return {
+    async authorizePlan() {log.push('authorize');return true;},
     async loadDestination() {log.push('load');return {id:'authenticated-terrain'};},
     async validateArrival(p,terrain) {log.push('validate');return terrain.id==='authenticated-terrain';},
     async cover(ms) {log.push('cover:'+ms);},
@@ -31,7 +32,7 @@ test('a verified 1800ms trip loads and validates before any visual transition or
   const result=await moduleUnderTest.run(plan(),hooks(events));
   assert.equal(result.status,'arrived');
   assert.equal(result.stationId,'station-top');
-  assert.deepEqual(events,['load','validate','cover:1800','place','reveal:1800']);
+  assert.deepEqual(events,['authorize','load','validate','cover:1800','place','reveal:1800']);
   assert.equal(moduleUnderTest.busy,false);
 });
 test('failed terrain validation refuses both fade and teleport',async()=>{
@@ -39,14 +40,14 @@ test('failed terrain validation refuses both fade and teleport',async()=>{
   await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
     async validateArrival(){events.push('reject');return false;}
   })),/not verified/);
-  assert.deepEqual(events,['load','reject']);
+  assert.deepEqual(events,['authorize','load','reject']);
 });
 test('a failed position commit rolls back and uncovers the screen',async()=>{
   const events=[];
   await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
     async placePlayer(){events.push('failed-place');throw Error('GPU terrain not ready');}
   })),/GPU terrain not ready/);
-  assert.deepEqual(events,['load','validate','cover:1800','failed-place','rollback','reveal:1800']);
+  assert.deepEqual(events,['authorize','load','validate','cover:1800','failed-place','rollback','reveal:1800']);
 });
 test('rejects unverified positions, untrusted destinations and missing safety hooks',async()=>{
   const events=[];
@@ -73,7 +74,7 @@ test('a partially failed fade restores screen without moving skier',async()=>{
   await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
     async cover(){events.push('broken-cover');throw Error('fade interrupted');}
   })),/fade interrupted/);
-  assert.deepEqual(events,['load','validate','broken-cover','reveal:1800']);
+  assert.deepEqual(events,['authorize','load','validate','broken-cover','reveal:1800']);
 });
 test('original placement error survives a failed rollback',async()=>{
   const events=[];
@@ -83,4 +84,23 @@ test('original placement error survives a failed rollback',async()=>{
   })),/placement failed/);
   assert.ok(events.includes('rollback-failed'));
   assert.ok(events.includes('reveal:1800'));
+});
+
+test('well-shaped but unauthorized plans cannot download terrain or move player',async()=>{
+  const events=[];
+  await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
+    async authorizePlan(){events.push('deny');return false;}
+  })),/not source-authorized/);
+  assert.deepEqual(events,['deny']);
+  assert.equal(moduleUnderTest.busy,false);
+});
+test('authorization must explicitly return true, errors fail closed',async()=>{
+  const events=[];
+  await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
+    async authorizePlan(){events.push('no-proof');return {verified:true};}
+  })),/not source-authorized/);
+  await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
+    async authorizePlan(){events.push('error');throw Error('source unavailable');}
+  })),/source unavailable/);
+  assert.deepEqual(events,['no-proof','error']);
 });
