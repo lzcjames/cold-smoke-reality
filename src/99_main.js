@@ -411,6 +411,35 @@ else {
   UI.init();
   const link = document.getElementById('reality-mode');
   const resorts = Reality.catalog();
+  // Jandri's verified station-sector information is not a DEM pack.
+  // Always show the informational planner even when all optional 3D
+  // resort packs are absent; never imply that 3D skiing is available.
+  const jandriPreview = document.getElementById('jandri-winter-preview');
+  const jandriDestination = document.getElementById('jandri-winter-destination');
+  const jandriDate = document.getElementById('jandri-winter-date');
+  const jandriPath = document.getElementById('jandri-winter-path');
+  const jandriHours = document.getElementById('jandri-winter-hours');
+  if (jandriPreview && jandriDestination && jandriDate && jandriPath && jandriHours) {
+    jandriPreview.hidden = false;
+    const paintJandriPreview = () => {
+      const toSummit = jandriDestination.value === 'jandri-3200';
+      jandriPath.textContent = toSummit ?
+        '冬季 · 1650 → 2600（中间换乘）→ 3200 · 两段缆车' :
+        '冬季 · 1650 → 2600 · 第一段缆车';
+      const published = JandriWinterSchedule.lookup(jandriDate.value, jandriDestination.value);
+      const hours = published.schedule;
+      jandriHours.textContent = hours ?
+        '官方计划 · 第一段 ' + hours.first.join('–') +
+        (hours.second ? ' · 第二段 ' + hours.second.join('–') : '') +
+        '（非实时，不代表今日开放）' :
+        '当前所选日期无已核对的冬季时刻表（不代表缆车关闭）';
+    };
+    jandriDestination.addEventListener('change', paintJandriPreview);
+    jandriDate.addEventListener('change', paintJandriPreview);
+    jandriPreview.addEventListener('click', event => event.stopPropagation());
+    paintJandriPreview();
+  }
+
   if ((REALITY_MODE || (link.dataset.realityAsset === 'available' && !self.COLD_SMOKE?.noDev)) && resorts.length) {
     link.hidden = false;
     const chosen = REALITY_MODE ? Reality.get(QS.get('reality')) : resorts[0];
@@ -470,25 +499,6 @@ else {
     }
     select.value = chosen.id;
     picker.hidden = false;
-    // Visible, read-only winter Jandri 3S travel-plan preview.
-    // Only officially documented 1650/2600/3200 sectors; no fabricated
-    // station coordinates, passable corridors, or ride/teleport interaction.
-    const jandriPreview = document.getElementById('jandri-winter-preview');
-    const jandriDestination = document.getElementById('jandri-winter-destination');
-    const jandriPath = document.getElementById('jandri-winter-path');
-    if (jandriPreview && jandriDestination && jandriPath) {
-      jandriPreview.hidden = false;
-      const paintJandriPreview = () => {
-        const toSummit = jandriDestination.value === 'jandri-3200';
-        jandriPath.textContent = toSummit ?
-          '冬季 · 1650 → 2600（中间换乘）→ 3200 · 两段缆车' :
-          '冬季 · 1650 → 2600 · 第一段缆车';
-      };
-      jandriDestination.addEventListener('change', paintJandriPreview);
-      // Do not propagate clicks to the title screen's tap-anywhere-to-ski shortcut.
-      jandriPreview.addEventListener('click', event => event.stopPropagation());
-      paintJandriPreview();
-    }
     const enterSelectedResort = () => {
       const selected = Reality.get(select.value);
       if (!selected) return;
