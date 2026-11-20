@@ -275,7 +275,12 @@ const Terrain = (() => {
     let n = 0, later = sliceOn() && !force;
     // a level about to move more than a scroll or two (the skier was set down somewhere else, a free camera flew off, a test skied without
     // drawing) is made on the spot as it always was, and so is everything still owed: what is drawn next must be whole
-    if (later) for (const L of T.levels) if (L.valid) { target(L, camX, camZ); if (Math.abs(tgt[0] - L.cx) > 4 || Math.abs(tgt[1] - L.cz) > 4) { later = false; break; } }
+    if (later) for (const L of T.levels) if (L.valid) { target(L, camX, camZ); // The drawn mesh uses only the middle 128 of 256 cells, leaving
+    // 64 texels of unseen runway on either side. Up to 12 texels of
+    // scroll is safely queueable, even during a brief dropped frame.
+    // Previously >4 triggered synchronous processing of *all* pending
+    // levels, which made a single slow frame cascade into another.
+    if (Math.abs(tgt[0] - L.cx) > 12 || Math.abs(tgt[1] - L.cz) > 12) { later = false; break; } }
     if (!later && SQ.length) { if (force) dropQueue(); else n += runQueue(SQ.length); }
     for (let l = T.LEVELS - 1; l >= 0; l--) n += updateLevel(T.levels[l], camX, camZ, force, later);
     if (SQ.length) n += runQueue(Math.max(1, Math.ceil(SQ.length / 12)));
