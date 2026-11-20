@@ -482,7 +482,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-enter { margin-left: .55rem; padding: .52rem .9rem; border-radius: 6px; color: #13202d; background: var(--sun); font: inherit; font-size: .85em; font-weight: 600; }
 #reality-enter:focus-visible { outline: 2px solid var(--snow); outline-offset: 3px; }
 #reality-enter[hidden] { display: none; }
-#reality-picker .resort-note { display: block; margin-top: .35rem; font-size: .72em; color: var(--dim); }
+#reality-start-piste-wrap { display: block; margin: .5rem auto; max-width: 22rem; }\n#reality-start-piste-wrap[hidden] { display: none; }\n#reality-start-piste-wrap label { display: block; font-size: .75rem; margin-bottom: .25rem; }\n#reality-start-piste { max-width: 100%; padding: .4rem; color: var(--snow); background: #17232d; border: 1px solid #8198a6; border-radius: 6px; }\n#reality-picker .resort-note { display: block; margin-top: .35rem; font-size: .72em; color: var(--dim); }
 #reality-picker .jandri-map-link { display: inline-block; margin-top: .48rem; font-size: .78em; color: #b9dbec; pointer-events: auto; text-decoration: underline; text-underline-offset: 2px; }
 /* Research preview only: authentic winter Jandri station SECTORS, not ride access. */
 #jandri-winter-preview { margin: .4rem auto 0; max-width: 26rem; pointer-events: auto; position: relative; z-index: 4; text-align: left; font-size: .77rem; color: var(--snow); }
@@ -517,7 +517,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <p class="how" id="how">倾斜手机转弯，或按住屏幕左右拖动</p>
       <p><a id="reality-mode" data-reality-asset="missing" href="?reality=alpe-dhuez" hidden>Reality Mode · Alpe d’Huez</a></p>
       <p><a id="reality-network" data-network-asset="missing" href="?reality=alpe-dhuez&amp;network=1" hidden></a></p>
-      <p id="reality-picker" hidden><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select><button id="reality-enter" type="button">进入雪场</button><small class="resort-note">选择后点击进入，才会加载所选雪场的真实地形</small><a class="jandri-map-link" href="reality/jandri-osm-map.svg" target="_blank" rel="noopener noreferrer">查看 Jandri 真实雪道线路图（暂非 3D 可滑）</a></p>
+      <p id="reality-picker" hidden><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select><span id="reality-start-piste-wrap" hidden><label for="reality-start-piste">起点雪道 / Starting piste（已有 3 条实测雪道）</label><select id="reality-start-piste" aria-label="Choose verified Les Deux Alpes piste"><option value="643745486">Petites Crêtes · 绿道</option><option value="643786947">Vallons du Diable · 蓝道</option><option value="219409078">Diable 1 · 黑道</option></select></span><button id="reality-enter" type="button">进入雪场</button><small class="resort-note">选择后点击进入，才会加载所选雪场的真实地形</small><a class="jandri-map-link" href="reality/jandri-osm-map.svg" target="_blank" rel="noopener noreferrer">查看 Jandri 真实雪道线路图（暂非 3D 可滑）</a></p>
       <details id="jandri-winter-preview" hidden>
         <summary>Jandri 3S · 冬季路线预览（暂不可乘坐）</summary>
         <div class="jp-body">
