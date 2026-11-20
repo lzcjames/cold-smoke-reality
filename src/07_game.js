@@ -867,6 +867,16 @@ const Game = (() => {
       fl[key] = want > cur ? cur + (want - cur) * (1 - Math.exp(-dt / 0.03)) : cur + (want - cur) * (1 - Math.exp(-dt / 0.25));
     }
   }
+  // The measured height remains authoritative for snow collision. On
+  // ground contact only, filter sub-decimetre visual bob with a velocity
+  // prediction so a steady downhill descent is not delayed or flattened.
+  // Clamping to +/-7 cm prevents visible floating away from the skis.
+  function stabilizeSkierVisualY(previous, target, vy, dt) {
+    if (!Number.isFinite(previous) || !Number.isFinite(vy) || dt <= 0) return target;
+    const predicted = previous + vy * dt;
+    const corrected = predicted + (target - predicted) * (1 - Math.exp(-14 * dt));
+    return clamp(corrected, target - 0.07, target + 0.07);
+  }
   function updatePose(dt) {
     const first = !pose.init, k = first ? 1e6 : 1, kd = dt * k; pose.init = true;
     const FB = typeof Variants !== 'undefined' && Variants.val.feel === 'b', MO4 = typeof Variants !== 'undefined' && Variants.val.mo4 === 'b';
@@ -1160,7 +1170,10 @@ const Game = (() => {
     }
     pose.mogK = S.mogKe == null ? 1 : S.mogKe;      // (新求解器: how much of a mogul's height the physics rides, the rest the legs are to take)
     pose.sink = S.contact ? fl.L - S.e : 0;      // (新求解器: how far under the physics' own snow the figure's skis are put: soft snow, a landing)
-    root.pos[0] = P[0] + ox; root.pos[1] = fy + oy; root.pos[2] = P[2] + oz; root.fwd[0] = fx; root.fwd[1] = fyv; root.fwd[2] = fz; root.nrm[0] = nx; root.nrm[1] = ny; root.nrm[2] = nz;
+    const bodyY = fy + oy;
+    fl.visY = first || !S.contact || S.crash > 0
+      ? bodyY : stabilizeSkierVisualY(fl.visY, bodyY, v[1], dt);
+    root.pos[0] = P[0] + ox; root.pos[1] = fl.visY; root.pos[2] = P[2] + oz; root.fwd[0] = fx; root.fwd[1] = fyv; root.fwd[2] = fz; root.nrm[0] = nx; root.nrm[1] = ny; root.nrm[2] = nz;
     // (what the lens frames by: the feet on the snow; in the air the level the feet would hang at, which does not bob as the knees come up)
     fl.fr = lerp(fy, P[1] + 0.03 - 0.38 * Xs, fl.kc);
     // (...and the snow the lens goes by cannot stay above them: coming down on that line faster than it sinks, the skier takes it along,
