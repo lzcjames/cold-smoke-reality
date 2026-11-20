@@ -6,7 +6,7 @@
 
 **一个人，一座山，一直往下滑。整个游戏是一个 HTML 文件，画面和声音全部由代码生成。**
 
-[**▶ Play in your browser / 在线试玩**](https://huisky.xyz/cold-smoke/play) · [English](#english) · [中文](#中文)
+[**Cold Smoke Reality · 项目仓库**](https://github.com/lzcjames/cold-smoke-reality) · [English](#english) · [中文](#中文)
 
 ![Cold Smoke gameplay](docs/media/hero.gif)
 
@@ -78,8 +78,8 @@ The native pause menu keeps your selected page as the Duo opens or closes. Time 
 You need [Node.js](https://nodejs.org) 18 or newer and a browser with WebGPU or WebGL2 (any recent Chrome, Edge, Safari or Firefox).
 
 ```bash
-git clone https://github.com/huiskylabs/cold-smoke.git
-cd cold-smoke
+git clone https://github.com/lzcjames/cold-smoke-reality.git
+cd cold-smoke-reality
 npm start            # = node build.js && node tools/serve.js
 ```
 
@@ -191,8 +191,8 @@ WKWebView 运行与 Web 版共用的滑行逻辑和声音，Metal 绘制雪场�
 需要 [Node.js](https://nodejs.org) 18 以上，和支持 WebGPU 或 WebGL2 的浏览器（最近版本的 Chrome、Edge、Safari、Firefox 都可以）。
 
 ```bash
-git clone https://github.com/huiskylabs/cold-smoke.git
-cd cold-smoke
+git clone https://github.com/lzcjames/cold-smoke-reality.git
+cd cold-smoke-reality
 npm start            # 等于 node build.js && node tools/serve.js
 ```
 
