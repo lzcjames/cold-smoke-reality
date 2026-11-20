@@ -19,6 +19,17 @@ function fixture(polygon=around) {
     sha256:crypto.createHash('sha256').update(raw).digest('hex')};
   return [fc,meta,raw];
 }
+function authenticated(fc, meta) {
+  const raw=Buffer.from(JSON.stringify(fc));
+  return [fc,{...meta,sha256:crypto.createHash('sha256').update(raw).digest('hex')},raw];
+}
+test('reject a substituted object even when original source bytes have a valid SHA-256',()=>{
+  const [fc,m,raw]=fixture();
+  const modified=structuredClone(fc);
+  modified.features[0].properties.sourceFeatureId='unverified-replacement';
+  assert.throws(()=>intake(source,modified,m,raw),/differs from authenticated/);
+  assert.equal(intake(source,fc,m,raw).readyForGame,false);
+});
 test('screen a verifiable real OSM way overlap but never publish piste area',()=>{
   const [fc,m,raw]=fixture();
   const report=intake(source,fc,m,raw);
@@ -41,16 +52,16 @@ test('reject tampered bytes and unlicensed/unattributed sources',()=>{
   assert.throws(()=>intake(source,fc,{...m,sourceURL:'http://example.org'},raw),/source evidence/);
 });
 test('reject invalid geometry and invented OSM route IDs',()=>{
-  const [fc,m,raw]=fixture();
+  const [fc,m]=fixture();
   const bad={...fc,features:[{...fc.features[0],geometry:{type:'Point',coordinates:[lon,lat]}}]};
-  assert.throws(()=>intake(source,bad,m,raw),/Non-polygon/);
+  assert.throws(()=>intake(source,...authenticated(bad,m)),/Non-polygon/);
   const invented={...fc,features:[{...fc.features[0],
     properties:{sourceFeatureId:'x',osmWayIds:[1234567890]}}]};
-  assert.throws(()=>intake(source,invented,m,raw),/crosswalk/);
+  assert.throws(()=>intake(source,...authenticated(invented,m)),/crosswalk/);
   const open=around.slice(0,-1);
   const malformed={...fc,features:[{...fc.features[0],
     geometry:{type:'Polygon',coordinates:[open]}}]};
-  assert.throws(()=>intake(source,malformed,m,raw),/Invalid closed/);
+  assert.throws(()=>intake(source,...authenticated(malformed,m)),/Invalid closed/);
 });
 test('polygon holes never count as a valid inside region',()=>{
   const hole=[[lon-.00005,lat-.00005],[lon+.00005,lat-.00005],
