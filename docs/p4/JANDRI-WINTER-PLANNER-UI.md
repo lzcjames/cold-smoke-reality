@@ -44,6 +44,23 @@ Les 2 Alpes tourist office / Alpes Isère [Jandri first section](https://www.alp
 
 The [2025 technical survey in Quota Neve](https://www.quotaneve.it/en/3s-jandri-in-les-2-alpes/) reports winter separate section operation with alighting/requeueing at 2600, and [April 2025 SATA staff visit notes](https://passion2alpes.com/medias/les-coulisses-du-jandri-3s) independently describe winter separate and summer through-running. This substantiates the winter game design, but is **not official dated confirmation of every 2026/27 passenger platform or passage**. Do not unlock boarding until current floor/exit geometry, protected transfer and piste corridor are independently verified.
 
+## Lightweight quick ride (proposed game integration)
+
+The source-audited winter transport module exports `planQuickWinterArrival`.
+It is a pure, physics-free planning helper: after the existing boarding,
+two-section transfer, and verified arrival gates pass, it returns the exact
+verified destination position and an **1800 ms suggested UI transition**.
+No cable line, moving cabin, lift mechanics, camera path, or physics update
+is required. Both 2600 and 3200 destinations remain supported; quick travel
+to 3200 is not permission to bypass the evidence requirements at 2600.
+
+**Not yet a playable lift.** The home-screen ride controls remain disabled.
+A later UI PR must load authenticated destination terrain, verify the player
+spawn/collision envelope against that terrain, show the short transition,
+then place the player at the confirmed exit. It must fail closed if any step
+is missing and must never fall back to a guessed station or procedural run.
+The published timetable is information only, not a live boarding permit.
+
 ## Browser transition adapter (not enabled)
 
 `src/02d_jandri_quick_transition.js` provides `JandriQuickTransition.run(plan, hooks)`
