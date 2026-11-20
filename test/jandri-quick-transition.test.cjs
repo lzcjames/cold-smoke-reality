@@ -67,3 +67,20 @@ test('concurrent quick travel is blocked without duplicate terrain loading',asyn
   await first;
   assert.equal(events.filter(e=>e==='loading').length,1);
 });
+
+test('a partially failed fade restores screen without moving skier',async()=>{
+  const events=[];
+  await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
+    async cover(){events.push('broken-cover');throw Error('fade interrupted');}
+  })),/fade interrupted/);
+  assert.deepEqual(events,['load','validate','broken-cover','reveal:1800']);
+});
+test('original placement error survives a failed rollback',async()=>{
+  const events=[];
+  await assert.rejects(moduleUnderTest.run(plan(),hooks(events,{
+    async placePlayer(){throw Error('placement failed');},
+    async rollback(){events.push('rollback-failed');throw Error('rollback failed');}
+  })),/placement failed/);
+  assert.ok(events.includes('rollback-failed'));
+  assert.ok(events.includes('reveal:1800'));
+});
