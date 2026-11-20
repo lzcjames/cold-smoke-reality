@@ -40,6 +40,8 @@ async function boot(stage) {
       (Course.reality.selectedPiste?.osmWay || Course.reality.osmWay);
     document.getElementById('reality-dem').textContent = Course.reality.elevationSource;
     credits.hidden = false;
+    document.getElementById('reality-return-start').hidden =
+      !(Course.reality.id === 'les-deux-alpes' && Course.reality.selectedSpawn && Course.reality.selectedPiste);
     Game.onRealityRestart = () => { Tracks.reset(); Spray.clear(); };
   }
   Quality.decide(); App.applyQuality(true);                             // how much this device is asked to draw (00c_quality.js)
@@ -421,6 +423,24 @@ addEventListener('resize', () => App.redraw());
 if (QS.has('manual') && !QS.has('ui')) document.getElementById('app').classList.add('bare');
 else {
   UI.init();
+  // Lightweight gameplay retry at the same authenticated piste start.
+  // No cabin animation, guessed 3S terminal, new pack request or navigation.
+  const returnStart = document.getElementById('reality-return-start');
+  returnStart.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const terrain = Course.reality;
+    if (!App.ready || App.swapping || UI.state !== 'run' || Game.mode !== 'run' ||
+        terrain?.id !== 'les-deux-alpes' || !terrain.network ||
+        !terrain.selectedSpawn || !terrain.selectedPiste ||
+        !terrain.withinDEM(...terrain.selectedSpawn)) return;
+    const nearest = {};
+    if (!terrain.network.lookup(...terrain.selectedSpawn, nearest) ||
+        nearest.piste?.osmWay !== terrain.selectedPiste.osmWay) return;
+    // Reuse already validated terrain and the renderer's existing fade.
+    // No network transfer, new scenery or synthetic lift location.
+    App.swap(Game.resetReality);
+  });
   const link = document.getElementById('reality-mode');
   const resorts = Reality.catalog();
   // Jandri's verified station-sector information is not a DEM pack.
@@ -561,6 +581,8 @@ else {
           (terrain.selectedPiste?.osmWay || terrain.osmWay);
         document.getElementById('reality-dem').textContent = terrain.elevationSource;
         credits.hidden = false;
+        document.getElementById('reality-return-start').hidden =
+          !(terrain.id === 'les-deux-alpes' && terrain.selectedSpawn && terrain.selectedPiste);
         installSigns();
         // Rebuild the camera-relative terrain and physics in-place. No
         // location.href navigation: the WebGL/WebGPU context stays alive.

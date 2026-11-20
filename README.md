@@ -93,6 +93,20 @@ Add `?dev` (or open a path ending in `/dev`; the local server serves that as the
 
 See [Alpe d’Huez data import and testing](docs/REALITY.md) for setup.
 
+**Les Deux Alpes playable preview:** On the title screen choose `Les Deux Alpes`,
+then select `Petites Crêtes` (green), `Vallons du Diable` (blue) or
+`Diable 1` (black), and press `进入雪场`. These are the three currently
+committed IGN LiDAR/OSM measured pistes, not the whole Jandri domain.
+
+While skiing a selected measured Les Deux Alpes piste, use
+`快速回本雪道起点` to restart that SAME run via the built-in terrain
+transition. It reuses the loaded terrain and adds no moving gondola,
+cable physics or additional download. It is a gameplay shortcut,
+**not** an authentic Jandri 2600/3200 cable-car transfer. The real
+Jandri ride controls remain locked until verified landing corridors
+and complete destination terrain are available.
+
+
 ### Project structure
 
 ```

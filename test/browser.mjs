@@ -571,6 +571,38 @@ try {
   assert.equal(realStarted,true,'real Petites Crêtes must start without reloading or switching to Diable 1');
   assert.equal(await evaluate('performance.timeOrigin'),selectedRealPiste.timeOrigin);
   console.log('Real IGN/OSM Petites Crêtes green piste: mouse-enter and active ski run passed');
+  const beforeReturn=await evaluate(`(() => {
+    const k=window.__ski, game=k.game(), btn=document.getElementById('reality-return-start');
+    const spot=k.m.Course.reality.selectedSpawn;
+    game.s.p[0] += 45; game.s.p[2] -= 100;
+    const rect=btn.getBoundingClientRect();
+    const x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+    const top=document.elementFromPoint(x,y);
+    return {visible:!btn.hidden,hit:top===btn,
+      title:btn.title,spot,url:location.href,timeOrigin:performance.timeOrigin,x,y};
+  })()`);
+  assert.equal(beforeReturn.visible,true,'quick return appears only with measured piste');
+  assert.equal(beforeReturn.hit,true,'quick return must be mouse-clickable');
+  assert.match(beforeReturn.title,/非 Jandri 3S/);
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',
+    x:beforeReturn.x,y:beforeReturn.y,button:'left',clickCount:1});
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',
+    x:beforeReturn.x,y:beforeReturn.y,button:'left',clickCount:1});
+  let returned=false;
+  for(let i=0;i<100;i++){
+    returned=await evaluate(`(() => {
+      const k=window.__ski,t=k.m.Course.reality,g=k.game();
+      const spot=t.selectedSpawn;
+      return !k.app().swapping && k.ui().state==='run' && g.mode==='run' &&
+        Math.hypot(g.s.p[0]-spot[0],g.s.p[2]-spot[1])<15;
+    })()`).catch(()=>false);
+    if(returned)break;
+    await delay(100);
+  }
+  assert.equal(returned,true,'quick return must restart at selected real green run');
+  assert.equal(await evaluate('location.href'),beforeReturn.url,'quick return must not navigate');
+  assert.equal(await evaluate('performance.timeOrigin'),beforeReturn.timeOrigin,'quick return must not reload');
+  console.log('Measured piste quick return: actual click, same terrain and active replay passed');
   }
 
   if (p3) {
