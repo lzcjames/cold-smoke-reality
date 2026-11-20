@@ -1,0 +1,52 @@
+name: P4 real OpenSkiData Jandri I/II station crosswalk (audit only)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/jandri_lift_station_crosswalk.py'
+      - 'test/jandri_lift_station_crosswalk_test.py'
+      - '.github/workflows/p4-jandri-lift-station-crosswalk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-pinned-jandri-stations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run geometry and fail-closed station crosswalk tests
+        run: python3 -m unittest discover -s test -p 'jandri_lift_station_crosswalk_test.py' -v
+      - name: Restore already verified real daily OpenSkiData source evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-openskidata-lifts-stations-real-audit
+          run-id: 44731959163
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-openskidata-original
+      - name: Match exact Jandri I/II OSM lift IDs to original station data and piste distance
+        run: |
+          set -euo pipefail
+          mkdir -p p4-evidence
+          python3 tools/reality/jandri_lift_station_crosswalk.py \
+            --openskidata /tmp/jandri-openskidata-original/jandri-openskidata-lift-discovery.json \
+            --osm-index docs/p4/JANDRI-OSM-INDEX.json \
+            --out p4-evidence/jandri-lift-station-crosswalk.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('p4-evidence/jandri-lift-station-crosswalk.json'))
+          assert len(x['lifts'])==2 and not x['readyForGame']
+          assert not any(l['expressToTopEnabled'] for l in x['lifts'])
+          for lift in x['lifts']:
+              print('Verified source-linked station inventory:',lift['lift'],lift['sourceStationCount'])
+          PY
+      - name: Retain only numeric source-linked Jandri station evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-source-linked-lift-station-crosswalk
+          path: p4-evidence/
+          if-no-files-found: error
+          retention-days: 30
