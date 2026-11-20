@@ -1,0 +1,21 @@
+name: P4 Jandri external piste boundary evidence intake gate
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/audit-jandri-boundary-intake.cjs'
+      - 'test/jandri-boundary-intake.test.cjs'
+      - '.github/workflows/p4-jandri-boundary-intake.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  external-polygon-intake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Screen strict source provenance and geometry; never publish areas
+        run: node --test test/jandri-boundary-intake.test.cjs
