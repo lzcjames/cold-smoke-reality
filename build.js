@@ -38,7 +38,7 @@ const outDir = path.join(root, 'dist/reality');
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 const list = [], seen = new Set();
-const jsReality = ['02a_reality.js', '02b_piste_network.js']
+const jsReality = ['02a_reality.js', '02b_piste_network.js', '02e_jandri_lower.js']
   .map(file => fs.readFileSync(path.join(srcDir, file), 'utf8')).join('\n');
 for (const entry of registry.resorts) {
   if (!entry || typeof entry.id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.id) ||
@@ -76,7 +76,7 @@ for (const entry of registry.resorts) {
   const context = vm.createContext({ asset });
   const network = vm.runInContext(jsReality + `
     const terrain = Reality.create(asset);
-    if (asset.pistes || asset.junctions) PisteNetwork.create(terrain, asset);
+    if (asset.pistes || asset.junctions) PisteNetwork.create(terrain, JandriLower.extend(asset, terrain));
     Boolean(asset.pistes && asset.junctions);
   `, context);
   const revision = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
