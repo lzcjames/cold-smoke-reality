@@ -20,6 +20,8 @@ test('the 1650 - Jandri 2600 - Jandri 3200 station chain remains unapproved',()=
   ]);
   assert.ok(map.cartographicLiftAlignment.every(x=>x.depictedInMap && !x.confirmedPassengerService));
   assert.ok(map.illustratedStationSectors.every(x=>!x.operatorPlatformConfirmed));
+  assert.ok(map.illustratedStationSectors.every(x=>x.operatorStationSectorConfirmed===true));
+  assert.ok(map.cartographicLiftAlignment.every(x=>x.operatorRouteSectorsConfirmed===true));
 });
 test('source Jandri II missing bottom label never denies physical service or unlocks skip',()=>{
   assert.equal(map.openskidataStationAudit.jandriII.bottomSourceRecords,0);
@@ -30,4 +32,14 @@ test('source Jandri II missing bottom label never denies physical service or unl
   assert.equal(map.requestedExpressRide.approvedDisembarkSites,0);
   assert.equal(map.requestedExpressRide.verifiedThroughRide,false);
   assert.equal(map.requestedExpressRide.verifiedIntermediateTransfer,false);
+});
+
+test('official sources corroborate current 3S station sectors, not seasonal transfer rules',()=>{
+  assert.equal(map.operatorDocumentation.confirmedFacilityName,'Jandri 3S');
+  assert.equal(map.operatorDocumentation.routeLayoutDocumented,true);
+  assert.equal(map.operatorDocumentation.intermediateStationSectorMeters,2600);
+  assert.deepEqual(map.operatorDocumentation.secondSectionStationSectors,['jandri-2600','jandri-3200']);
+  assert.equal(map.operatorDocumentation.boardingPlatformCoordinatesConfirmed,false);
+  assert.equal(map.operatorDocumentation.winterMustChangeCabinConfirmedFor2026,false);
+  assert.equal(map.requestedExpressRide.enabled,false);
 });
