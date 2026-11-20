@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {MODES}=require('../tools/reality/lift_ride_flow.cjs');
 const {
  SEASON,TERMINALS,validateGraph,chooseWinterTrip,advanceWinterTrip,
- continueAt2600,expressWinterTrip,journeyChoices,
+ continueAt2600,expressWinterTrip,planQuickWinterArrival,journeyChoices,
 }=require('../tools/reality/jandri_winter_3s_flow.cjs');
 
 function graph(){
@@ -93,4 +93,27 @@ test('cannot restart expired ride, fake destination or skip intermediate leg',()
   const arrived=expressWinterTrip(g,r,transfer);
   assert.throws(()=>expressWinterTrip(g,arrived,transfer),/Express action requires/);
   assert.throws(()=>chooseWinterTrip(g,boarding,'fictional-3500'),/2600 or 3200/);
+});
+
+test('quick ride produces only a lightweight verified arrival plan with no simulated cabins',()=>{
+  const g=graph();
+  const mid=planQuickWinterArrival(g,boarding,TERMINALS.MID);
+  const top=planQuickWinterArrival(g,boarding,TERMINALS.SUMMIT,transfer);
+  assert.equal(mid.transitionMs,1800);
+  assert.equal(mid.needsCabinAnimation,false);
+  assert.equal(mid.needsLiftPhysics,false);
+  assert.equal(mid.arrival.stationId,'middle');
+  assert.equal(top.arrival.stationId,'upper');
+  assert.deepEqual(top.arrival,expressWinterTrip(g,chooseWinterTrip(g,boarding,TERMINALS.SUMMIT),transfer).arrival);
+  assert.equal(Object.isFrozen(top),true);
+});
+test('quick ride never bypasses winter station or destination evidence gates',()=>{
+  const g=graph();
+  assert.throws(()=>planQuickWinterArrival(g,boarding,TERMINALS.SUMMIT),/2600m transfer/);
+  assert.throws(()=>planQuickWinterArrival(g,boarding,TERMINALS.SUMMIT,{...transfer,verifiedTransferCorridor:false}),/2600m transfer/);
+  assert.throws(()=>planQuickWinterArrival(g,boarding,'fake-summit',transfer),/2600 or 3200/);
+  assert.throws(()=>planQuickWinterArrival(g,{...boarding,authorizedToBoard:false},TERMINALS.MID),/Cannot board/);
+  const broken=graph();
+  broken.legs[1].lift.top.verifiedTerrainClearance=false;
+  assert.throws(()=>planQuickWinterArrival(broken,boarding,TERMINALS.SUMMIT,transfer),/verified geometry/);
 });

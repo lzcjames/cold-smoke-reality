@@ -152,6 +152,28 @@ function expressWinterTrip(graph, trip, transferEvidence) {
   return advanceWinterTrip(graph,second,MODES.EXPRESS);
 }
 
+/**
+ * Lightweight future transport: validated terminal placement plus a UI fade.
+ * This does NOT render cabins, simulate cable physics or move the skier.
+ * The caller must independently load the destination terrain and position the
+ * player only after the transition. Never expose the action unless all
+ * lift, boarding, transfer and disembark evidence gates pass.
+ */
+function planQuickWinterArrival(graph, boarding, destination, transferEvidence) {
+  const ride=chooseWinterTrip(graph,boarding,destination);
+  const completed=expressWinterTrip(graph,ride,transferEvidence);
+  if (completed.status!=='arrived' || !completed.arrival)
+    throw new Error('Quick Jandri ride has no verified destination');
+  return Object.freeze({
+    type:'jandri_verified_quick_arrival',
+    season:SEASON, destination, mode:MODES.EXPRESS,
+    transitionMs:1800,
+    needsCabinAnimation:false,
+    needsLiftPhysics:false,
+    arrival:completed.arrival,
+  });
+}
+
 function journeyChoices(graph, trip) {
   const riding=trip?.status==='riding' && trip.segmentIndex===0 && trip.site===graph?.site;
   return [{
@@ -166,5 +188,5 @@ function journeyChoices(graph, trip) {
 
 module.exports={
   SEASON, TERMINALS, DESTINATIONS, validateGraph, chooseWinterTrip,
-  advanceWinterTrip, continueAt2600, expressWinterTrip, journeyChoices
+  advanceWinterTrip, continueAt2600, expressWinterTrip, planQuickWinterArrival, journeyChoices
 };
