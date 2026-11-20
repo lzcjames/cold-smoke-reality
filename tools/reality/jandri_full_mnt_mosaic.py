@@ -18,6 +18,11 @@ except ImportError:
     from jandri_mnt_coverage import plan, evaluate
     from p4_full_ground_gate import download, sha256, validate_raster, verify_source_url
 
+try:
+    from .jandri_local_node_probe import measure_shared_nodes
+except ImportError:
+    from jandri_local_node_probe import measure_shared_nodes
+
 EXPECTED_TILES = 24
 EXPECTED_WAYS = 37
 SAMPLE_STEP_M = 30.0
@@ -155,7 +160,7 @@ def main():
     report = {"status": "started", "stage": "full_authentic_MNT_mosaic_gate_non_publishing",
               "osmSourceSHA256": expected["sourceSHA256"], "wfsSourceSHA256": wfs_sha,
               "tileCountExpected": EXPECTED_TILES, "sourceTiles": [],
-              "crossTileEdges": [], "osmWayProfiles": [],
+              "crossTileEdges": [], "osmWayProfiles": [], "sharedNodeMeasurements": [],
               "readyFor3D": False, "reason": "Measured DEM analysis only, not a safe ski simulation"}
     args.work.mkdir(parents=True, exist_ok=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -212,6 +217,14 @@ def main():
             report["osmWayProfiles"].append(profile)
         if len(report["osmWayProfiles"]) != EXPECTED_WAYS:
             raise ValueError("Missing real OSM way profiles")
+        report["sharedNodeMeasurements"] = measure_shared_nodes(
+            original_osm, lambda lon,lat: project.TransformPoint(lon,lat)[:2],
+            lambda x,y:sampled_height(mosaic,x,y))
+        if len(report["sharedNodeMeasurements"]) != 8 or any(
+                not node["allArmsMeasured"] for node in report["sharedNodeMeasurements"]):
+            raise ValueError("Incomplete measured Jandri shared-node approaches")
+        print("Measured authentic shared Jandri nodes:",
+              len(report["sharedNodeMeasurements"]), flush=True)
         report["status"]="complete_real_mosaic_and_profiles_not_published"
         print("Real ground mosaic verified:",len(rasters),"tiles,",
               len(report["crossTileEdges"]),"complete borders,",
