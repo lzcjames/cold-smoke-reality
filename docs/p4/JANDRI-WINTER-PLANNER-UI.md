@@ -71,7 +71,7 @@ The adapter loads destination terrain and requires an independent
 `validateArrival` success **before** covering the view or moving the player.
 Its caller must provide the actual approved game-world terrain and collision
 proof, plus `cover`, `placePlayer`, `reveal` and `rollback` callbacks.
-The supplied plan must match the authenticated quick-arrival contract.
+A matching plan shape is not sufficient evidence of source authenticity: the caller must also provide an independent `authorizePlan` hook that returns strictly `true` for this exact plan before destination data is loaded. The hook must validate source provenance and current route/boarding policy; no automatic trust is granted to a plan simply because it declares itself verified.
 A validation failure keeps the current player position unchanged; a partial
 placement failure calls rollback, and duplicate concurrent rides are rejected.
 
