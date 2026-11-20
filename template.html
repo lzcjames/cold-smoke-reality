@@ -492,6 +492,19 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-picker #reality-enter { box-sizing: border-box; width: 100%; margin: 2px 0 0; min-height: 42px; padding: 9px 14px; border-radius: 7px; }
 #reality-picker .resort-note { display: block; margin: 0; font-size: 11px; line-height: 1.45; color: var(--dim); }
 #reality-picker .jandri-map-link { display: block; width: fit-content; max-width: 100%; margin: 0; font-size: 11px; line-height: 1.4; color: #b9dbec; text-decoration: underline; text-underline-offset: 2px; white-space: normal; }
+/* Compact landscape phone and 320x180 automated browser: preserve clickable menu. */
+@media (max-height: 280px) {
+  #title.on { padding: 4px 8px; overflow-y: auto; justify-content: flex-start; gap: 0; }
+  #title.on > .mark, #title.on .cta .act, #title.on .cta .how,
+  #title.on .cta > p, #title.on #jandri-winter-preview { display: none !important; }
+  #title.on .cta { margin: 0; width: 100%; }
+  #title.on #reality-picker { margin: 0; padding: 5px 8px; gap: 3px; }
+  #title.on #reality-picker .resort-note,
+  #title.on #reality-picker .jandri-map-link { display: none; }
+  #title.on #reality-picker select { min-height: 29px; padding: 3px 7px; }
+  #title.on #reality-picker #reality-enter { min-height: 30px; padding: 3px 7px; }
+  #title.on #reality-picker label { font-size: 11px; }
+}
 #title.on:has(#reality-picker:not([hidden])) #reality-mode,
 #title.on:has(#reality-picker:not([hidden])) #reality-network { display: none; }
 @media (max-height: 590px) {
