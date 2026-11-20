@@ -1,0 +1,71 @@
+name: P4 Jandri I/II authentic IGN station ground gate (non-publishing)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/jandri_lift_station_ground.py'
+      - 'test/jandri_lift_station_ground_test.py'
+      - '.github/workflows/p4-jandri-lift-station-ground.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-authentic-station-ground:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover pinned source-only Jandri station and IGN WFS originals
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-source-linked-lift-station-crosswalk
+          run-id: 44741585451
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-lift-sources
+      - uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          run-id: 44635187118
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-ign-sources
+      - name: Install real GDAL and NumPy
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin
+      - name: Run exact projected tile and station-source safety tests
+        run: |
+          /usr/bin/python3 -m unittest discover -s test -p 'jandri_lift_station_ground_test.py' -v
+          /usr/bin/python3 -m unittest discover -s test -p 'jandri_lift_station_crosswalk_test.py' -v
+      - name: Measure only official IGN ground tiles actually containing source stations
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/jandri-station-ground p4-evidence
+          /usr/bin/python3 tools/reality/jandri_lift_station_ground.py \
+            --crosswalk /tmp/jandri-lift-sources/jandri-lift-station-crosswalk.json \
+            --index docs/p4/JANDRI-OSM-INDEX.json \
+            --wfs /tmp/jandri-ign-sources/jandri-ign-wfs-original.geojson \
+            --metadata /tmp/jandri-ign-sources/jandri-mnt-metadata-coverage.json \
+            --work /tmp/jandri-station-ground \
+            --out p4-evidence/jandri-station-real-ign-ground.json
+          /usr/bin/python3 - <<'PY'
+          import json
+          r=json.load(open('p4-evidence/jandri-station-real-ign-ground.json'))
+          assert r['status']=='source_ground_measured_with_explicit_coverage_limits'
+          assert r['sourceLinkedStations']==6
+          assert r['approvedBoardingZones']==0 and r['approvedExpressDestinations']==0
+          assert not r['readyForGame']
+          print('Ground measured:',r['stationsWithActualIGNGroundHeight'],'out of six source linked records')
+          PY
+      - name: Retain only numerical station/ground provenance (no original GeoTIFF)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-I-II-authentic-IGN-station-ground
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
