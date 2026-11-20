@@ -43,3 +43,22 @@ lift transport pack.
 Les 2 Alpes tourist office / Alpes Isère [Jandri first section](https://www.alpes-isere.com/sit/jandri-troncon-1-acces-2600m-5671467/) was updated **2026-10-01**, and expressly lists **distinct first- and second-section hours** for five ranges from **2026-11-28 to 2027-05-02**. The tiny offline `src/02c_jandri_winter_schedule.js` holds those dated public hours and their source URL, allowing user-selected dates without any live API request or resort geometry downloads. `test/jandri-winter-schedule.test.cjs` checks every source boundary and negative date case. The rendered UI discloses that these are **published planned times, not real-time operation**, so weather closures, wind shutdowns and queue/access rules may differ. On dates outside the published range, it says there is no verified published schedule, **not** that the lift is closed.
 
 The [2025 technical survey in Quota Neve](https://www.quotaneve.it/en/3s-jandri-in-les-2-alpes/) reports winter separate section operation with alighting/requeueing at 2600, and [April 2025 SATA staff visit notes](https://passion2alpes.com/medias/les-coulisses-du-jandri-3s) independently describe winter separate and summer through-running. This substantiates the winter game design, but is **not official dated confirmation of every 2026/27 passenger platform or passage**. Do not unlock boarding until current floor/exit geometry, protected transfer and piste corridor are independently verified.
+
+## Browser transition adapter (not enabled)
+
+`src/02d_jandri_quick_transition.js` provides `JandriQuickTransition.run(plan, hooks)`
+for a future **quick arrival** UI. No cable-car physics, vehicle models,
+moving lift geometry or second game loop are created.
+
+The adapter loads destination terrain and requires an independent
+`validateArrival` success **before** covering the view or moving the player.
+Its caller must provide the actual approved game-world terrain and collision
+proof, plus `cover`, `placePlayer`, `reveal` and `rollback` callbacks.
+The supplied plan must match the authenticated quick-arrival contract.
+A validation failure keeps the current player position unchanged; a partial
+placement failure calls rollback, and duplicate concurrent rides are rejected.
+
+The suggested 1800 ms is an animation parameter, not a measured load time.
+The hooks are intentionally unwired: the home-page buttons remain disabled
+until measured Jandri destination packs, safe exits, and a reliable rollback
+implementation exist. See `test/jandri-quick-transition.test.cjs`.
