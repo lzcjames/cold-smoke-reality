@@ -32,10 +32,10 @@ const UI = (() => {
     el.xr = $('xr');          // (shown by U.ready once start-up has asked the browser: XR.probe runs in boot, after this)
     el.xr.addEventListener('click', e => { e.stopPropagation(); XR.enter(); });
     // the whole picture is the button (the corner's glyphs, the title's other buttons and the menu keep their presses to themselves)
-    el.app.addEventListener('click', e => { if (U.state !== 'title' || U.open || el.bar.contains(e.target) || el.menu.contains(e.target) || el.more.contains(e.target) || e.target.closest?.('#reality-picker')) return; U.go(); });
+    el.app.addEventListener('click', e => { if (U.state !== 'title' || U.open || el.bar.contains(e.target) || el.menu.contains(e.target) || el.more.contains(e.target) || e.target.closest?.('#reality-picker, #jandri-winter-preview')) return; U.go(); });
     addEventListener('keydown', e => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = e.target && e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.closest?.('#reality-picker')) return;     // (a number in the developer panel keeps its own keys)
+      const tag = e.target && e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.closest?.('#reality-picker, #jandri-winter-preview')) return;     // (a number in the developer panel keeps its own keys)
       if (/^Arrow/.test(e.code) || e.code === 'Space') e.preventDefault();          // these would scroll a page; here they ski
       if (e.repeat) return;
       const on = sel => e.target && e.target.closest && e.target.closest(sel);      // (a control reached with the tab key takes its own Enter)
