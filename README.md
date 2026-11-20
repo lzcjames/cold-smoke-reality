@@ -95,8 +95,14 @@ See [Alpe d’Huez data import and testing](docs/REALITY.md) for setup.
 
 **Les Deux Alpes playable preview:** On the title screen choose `Les Deux Alpes`,
 then select `Petites Crêtes` (green), `Vallons du Diable` (blue) or
-`Diable 1` (black), and press `进入雪场`. These are the three currently
-committed IGN LiDAR/OSM measured pistes, not the whole Jandri domain.
+`Diable 1` (black), and press `进入雪场`. The menu also offers **Jandri 1 and Jandri 2 lower-part previews**, clipped
+to two genuine July 2026 OSM centreline segments within the same measured
+IGN LiDAR terrain grid. These are NOT complete Jandri pistes: Jandri 1
+covers roughly 2110→1830m elevation, Jandri 2 roughly 2240→2180m in the
+current DEM crop. Their labelled difficulty is deliberately UNVERIFIED;
+a surveyed piste width, snow grooming, protected obstacles and exact course
+boundaries are still missing. No Jandri 3 tunnel, 2600m station or 3200m
+summit is playable. The original three measured pistes remain selectable.
 
 While skiing a selected measured Les Deux Alpes piste, use
 `快速回本雪道起点` to restart that SAME run via the built-in terrain

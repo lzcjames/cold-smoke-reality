@@ -555,7 +555,7 @@ else {
         // and validate the actual network before choosing a spawn point.
         if (selected.id === 'les-deux-alpes') {
           const id = Number(startPiste.value);
-          const expected = new Set([643745486, 643786947, 219409078]);
+          const expected = new Set([643745486, 643786947, 219409078, 644393970, 219275197]);
           if (!expected.has(id) || !terrain.network)
             throw Error('所选真实雪道尚未通过网络验证');
           const point = terrain.network.spawnFor(id);

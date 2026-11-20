@@ -472,7 +472,7 @@ try {
   assert.equal(startingPisteUI.visibleForLes2,true);
   assert.equal(startingPisteUI.hiddenAgain,true);
   assert.equal(startingPisteUI.selected,'643745486');
-  assert.deepEqual(startingPisteUI.options,['643745486','643786947','219409078']);
+  assert.deepEqual(startingPisteUI.options,['643745486','643786947','219409078','644393970','219275197']);
   assert.equal(startingPisteUI.title,true);
   assert.doesNotMatch(startingPisteUI.href,/piste=/);
   console.log('Real Les Deux Alpes piste selector displays correctly without auto-loading');
@@ -603,6 +603,50 @@ try {
   assert.equal(await evaluate('location.href'),beforeReturn.url,'quick return must not navigate');
   assert.equal(await evaluate('performance.timeOrigin'),beforeReturn.timeOrigin,'quick return must not reload');
   console.log('Measured piste quick return: actual click, same terrain and active replay passed');
+  // Jandri 2 lower segment is an authentic July-2026 OSM way clipped to the
+  // currently measured lower IGN DEM. Test actual skiing, not only an atlas.
+  await navigate('/?' + options + '&ui&lang=zh&backend=webgl2',
+    'Boolean(window.__ski?.app()?.ready && document.getElementById("reality-select"))');
+  const jandriChosen=await evaluate(`(() => {
+    const r=document.getElementById('reality-select'),p=document.getElementById('reality-start-piste');
+    r.value='les-deux-alpes';r.dispatchEvent(new Event('change',{bubbles:true}));
+    p.value='644393970';p.dispatchEvent(new Event('change',{bubbles:true}));
+    window.__jandriPisteSentinel='jandri-2-lower-IGN-preview';
+    return {selected:p.value,shown:!document.getElementById('reality-start-piste-wrap').hidden};
+  })()`);
+  assert.deepEqual(jandriChosen,{selected:'644393970',shown:true});
+  const jandriButton=await evaluate(`(() => {
+    const b=document.getElementById('reality-enter').getBoundingClientRect();
+    return {x:b.left+b.width/2,y:b.top+b.height/2};
+  })()`);
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',
+    x:jandriButton.x,y:jandriButton.y,button:'left',clickCount:1});
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',
+    x:jandriButton.x,y:jandriButton.y,button:'left',clickCount:1});
+  let jandriStarted=false;
+  for(let i=0;i<200;i++){
+    jandriStarted=await evaluate(`(() => {
+      const k=window.__ski,t=k?.m?.Course?.reality;
+      return k?.ui()?.state==='run'&&k?.game()?.mode==='run'&&
+        t?.id==='les-deux-alpes' && t.selectedPiste?.osmWay===644393970 &&
+        t.selectedPiste?.name.includes('下部实测片段') &&
+        location.search.includes('piste=644393970') &&
+        window.__jandriPisteSentinel==='jandri-2-lower-IGN-preview';
+    })()`).catch(()=>false);
+    if(jandriStarted)break;
+    await delay(200);
+  }
+  assert.equal(jandriStarted,true,'Jandri 2 lower OSM segment must start on real IGN terrain');
+  const jandriMoving=await evaluate(`(() => {
+    const k=window.__ski,t=k.m.Course.reality,p=t.selectedSpawn;
+    const h=t.height(...p);
+    return {inDEM:t.withinDEM(...p),height:h,
+      changed:k.sim(1,k.pilot()).p[2]!==p[1],mode:k.game().mode};
+  })()`);
+  assert.equal(jandriMoving.inDEM,true);
+  assert.ok(Number.isFinite(jandriMoving.height));
+  assert.equal(jandriMoving.changed,true);
+  console.log('Real IGN/OSM Jandri 2 lower segment skiing passed');
   }
 
   if (p3) {
