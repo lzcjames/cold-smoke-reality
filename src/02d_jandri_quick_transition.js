@@ -23,7 +23,7 @@ const JandriQuickTransition = (() => {
   async function run(plan, hooks) {
     if (busy) throw new Error('Jandri quick travel is already in progress');
     checkPlan(plan);
-    const required = ['loadDestination', 'validateArrival', 'cover',
+    const required = ['authorizePlan', 'loadDestination', 'validateArrival', 'cover',
       'placePlayer', 'reveal', 'rollback'];
     if (!hooks || required.some(k => typeof hooks[k] !== 'function'))
       throw new Error('Jandri quick travel needs a complete safe transition adapter');
@@ -33,6 +33,11 @@ const JandriQuickTransition = (() => {
     let covered = false;
     let attemptedPlacement = false;
     try {
+      // Shape checks are not provenance. An independent source-backed
+      // authorization gate must approve this exact plan before any download,
+      // visual transition or mutation of the skier position.
+      if (await hooks.authorizePlan(plan) !== true)
+        throw new Error('Jandri quick travel plan is not source-authorized');
       // Loading and verifying happen BEFORE the player's position changes.
       const terrain = await hooks.loadDestination(plan);
       if (await hooks.validateArrival(plan, terrain) !== true)
