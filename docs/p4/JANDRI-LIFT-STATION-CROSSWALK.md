@@ -5,7 +5,7 @@ snapshot** to the pinned Jandri OpenStreetMap 37-way source. It does
 not redownload worldwide data, authorize a boarding zone, or publish
 a transport pack.
 
-The audited upstream OSM lift keys are:
+GitHub Actions [actual source-linked crosswalk run 44741458581](https://github.com/lzcjames/cold-smoke-reality/actions/runs/44741458581) verified **4** associated station records for **Jandri I** and **2** for **Jandri II**. These are linked **source records**, not a guarantee of six distinct public boarding platforms. Each link retains its source position/entry/exit tags and a distance-to-nearest-pinned-piste metric; **none** is approved for physical transfer.\n\nThe audited upstream OSM lift keys are:
 
 - **Jandri I** — `way/1229057878`
 - **Jandri II** — `way/1361005452`
