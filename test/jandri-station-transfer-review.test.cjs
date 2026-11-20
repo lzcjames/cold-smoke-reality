@@ -51,8 +51,26 @@ test('six original station identities and eight crosslift candidates never auto-
   assert.equal(r.approvedDirectToTerminal,0);
   assert.equal(r.sourceRoleCount.bottom,2);
   assert.equal(r.sourceRoleCount.top,2);
+  assert.equal(r.sourceRolesByLift['Jandri I'].bottom,1);
+  assert.equal(r.sourceRolesByLift['Jandri II'].bottom,1);
+  assert.equal(r.operatorInterchangeStationConfirmed,false);
   assert.ok(r.stations.every(x=>!x.boardingApproved && !x.directToTerminalApproved));
   assert.ok(r.transferCandidates.every(x=>!x.traversable && x.sourceOnly));
+});
+test('missing lower Jandri II tag and coincident station positions stay unapproved',()=>{
+  const [a,b]=fixture();
+  for(const station of a.lifts[1].stations) station.positionTag='top';
+  for(const measurement of b.stationMeasurements.filter(x=>x.lift==='Jandri II'))
+    measurement.sourcePositionTag='top';
+  // Source IDs remain distinct but geometry/ground position coincide.
+  a.lifts[1].stations[1].coordinatesWGS84=[...a.lifts[1].stations[0].coordinatesWGS84];
+  b.stationMeasurements[5].originalWGS84=[...b.stationMeasurements[4].originalWGS84];
+  const r=review(a,b);
+  assert.equal(r.sourceRolesByLift['Jandri II'].bottom,0);
+  assert.equal(r.sourceRolesByLift['Jandri II'].top,2);
+  assert.equal(r.nearCoincidentStationRecordPairs.length,1);
+  assert.equal(r.approvedDirectToTerminal,0);
+  assert.equal(r.operatorInterchangeStationConfirmed,false);
 });
 test('crosslift distance uses geographic meters and geodesic coordinates',()=>{
   assert.equal(horizontalDistanceM([6.15,45],[6.15,45]),0);
