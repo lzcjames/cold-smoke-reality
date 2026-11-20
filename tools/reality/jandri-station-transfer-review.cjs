@@ -120,6 +120,33 @@ function review(crosswalk, ground) {
   const second=inventory.filter(s=>s.upstreamLiftOSMId==='way/1361005452');
   if (first.length!==4 || second.length!==2)
     throw new Error('Original Jandri station counts changed');
+  const sourceRolesByLift=Object.fromEntries(
+    [...LIFTS].map(([id,name])=>{
+      const rows=inventory.filter(s=>s.upstreamLiftOSMId===id);
+      return [name,{
+        bottom:rows.filter(s=>s.sourcePositionTag==='bottom').length,
+        mid:rows.filter(s=>s.sourcePositionTag==='mid').length,
+        top:rows.filter(s=>s.sourcePositionTag==='top').length,
+        unclassified:rows.filter(s=>!['bottom','mid','top'].includes(s.sourcePositionTag)).length,
+        hasSourceLabelledBottom:rows.some(s=>s.sourcePositionTag==='bottom'),
+        hasSourceLabelledTop:rows.some(s=>s.sourcePositionTag==='top')
+      }];
+    })
+  );
+  // Near-coincident original source *records* may be variants/duplicates,
+  // not additional independent physical passenger platforms.
+  const nearCoincidentSourcePairs=[];
+  for(const rows of [first,second]){
+    for(let i=0;i<rows.length;i++) for(let j=i+1;j<rows.length;j++){
+      const d=horizontalDistanceM(rows[i].coordinatesWGS84,rows[j].coordinatesWGS84);
+      if(d<3){
+        nearCoincidentSourcePairs.push({
+          lift:rows[i].lift,sourceStationIds:[rows[i].stationSourceId,rows[j].stationSourceId],
+          horizontalDistanceMeters:+d.toFixed(2),distinctPlatformsVerified:false
+        });
+      }
+    }
+  }
   const transfers=[];
   for (const a of first) for (const b of second) {
     transfers.push({
@@ -145,6 +172,9 @@ function review(crosswalk, ground) {
       unclassified:inventory.filter(s=>!['bottom','mid','top'].includes(s.sourcePositionTag)).length,
     },
     groundHeightCoverageCount:6,
+    sourceRolesByLift,
+    nearCoincidentStationRecordPairs:nearCoincidentSourcePairs,
+    operatorInterchangeStationConfirmed:false,
     crossLiftCandidatePairs:transfers.length,
     stations:inventory,
     transferCandidates:transfers,
