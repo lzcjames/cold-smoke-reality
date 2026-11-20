@@ -1,0 +1,52 @@
+name: P4 Jandri measured route safety audit (non-publishing)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/audit-jandri-measured-routes.cjs'
+      - 'test/jandri-measured-routes.test.cjs'
+      - '.github/workflows/p4-jandri-measured-route-gates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  measured-direction-and-shared-node-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fail-closed measured route and node tests
+        run: node --test test/jandri-measured-routes.test.cjs
+      - name: Recover measured REAL original IGN 24-tile mosaic report
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-full-measured-mnt-gate
+          run-id: 44724943428
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-full-real-measured
+      - name: Audit the 37 authentic OSM profiles and 8 shared-node candidates
+        run: |
+          set -eu
+          mkdir -p p4-evidence
+          node tools/reality/audit-jandri-measured-routes.cjs \
+            docs/p4/JANDRI-OSM-INDEX.json \
+            /tmp/jandri-full-real-measured/jandri-full-measured-mosaic-report.json \
+            > p4-evidence/jandri-measured-route-review.json
+          node -e '
+            const a=require("./p4-evidence/jandri-measured-route-review.json");
+            if (a.measuredOSMWayCount !== 37 || a.sharedNodeCandidates !== 8
+                || a.approvedJunctions !== 0 || a.approvedPlayableWays !== 0)
+              process.exit(1);
+            console.log("Reviewed",a.measuredOSMWayCount,"real measured OSM segments,",
+                        a.sharedNodeCandidates,"candidate joins; no unsafe auto-approvals.");
+          '
+      - name: Store compact numerical review only
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-real-measured-route-review
+          path: p4-evidence/
+          if-no-files-found: error
+          retention-days: 30
