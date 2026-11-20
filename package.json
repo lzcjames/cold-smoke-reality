@@ -4,8 +4,8 @@
   "description": "雪迹 Cold Smoke: an endless, chill downhill ski game in one HTML file. Every picture and sound is made by code.",
   "license": "MIT",
   "private": true,
-  "homepage": "https://huisky.xyz/cold-smoke/play",
-  "repository": { "type": "git", "url": "https://github.com/huiskylabs/cold-smoke.git" },
+  "homepage": "https://github.com/lzcjames/cold-smoke-reality",
+  "repository": { "type": "git", "url": "https://github.com/lzcjames/cold-smoke-reality.git" },
   "scripts": {
     "build": "node build.js",
     "test": "node --test test/*.test.cjs",
