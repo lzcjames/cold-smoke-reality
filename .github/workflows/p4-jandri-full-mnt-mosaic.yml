@@ -1,0 +1,60 @@
+name: P4 full measured Jandri IGN ground mosaic gate (non-publishing)
+
+on:
+  push:
+    branches:
+      - audit/jandri-full-mnt-mosaic-gate
+    paths:
+      - 'tools/reality/jandri_full_mnt_mosaic.py'
+      - 'test/jandri_full_mnt_mosaic_test.py'
+      - '.github/workflows/p4-jandri-full-mnt-mosaic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-full-real-ground:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GDAL_CACHEMAX: '128'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve archived official IGN WFS source (metadata only)
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          run-id: 44635187118
+          github-token: ${{ github.token }}
+          path: /tmp/p4-jandri-official
+      - name: Install actual GDAL/NumPy
+        timeout-minutes: 10
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if sudo apt-get update -o Acquire::Retries=3 &&
+              sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin; then exit 0; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 6
+          done
+      - name: Test measured centreline sampling and fail-closed grades
+        run: /usr/bin/python3 -m unittest discover -s test -p 'jandri_full_mnt_mosaic_test.py' -v
+      - name: Download all 24 original MNT tiles, audit all seams and 37 OSM ways
+        timeout-minutes: 46
+        run: |
+          mkdir -p p4-evidence /tmp/jandri-measured-mnt
+          /usr/bin/python3 tools/reality/jandri_full_mnt_mosaic.py \
+            --wfs /tmp/p4-jandri-official/jandri-ign-wfs-original.geojson \
+            --metadata /tmp/p4-jandri-official/jandri-mnt-metadata-coverage.json \
+            --work /tmp/jandri-measured-mnt \
+            --out p4-evidence/jandri-full-measured-mosaic-report.json
+      - name: Archive numeric source hashes and profiles ONLY — never the 24 raw rasters
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-full-measured-mnt-gate
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
