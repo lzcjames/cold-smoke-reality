@@ -503,6 +503,12 @@ else {
     const picker = document.getElementById('reality-picker');
     const select = document.getElementById('reality-select');
     const enter = document.getElementById('reality-enter');
+    const startPisteWrap = document.getElementById('reality-start-piste-wrap');
+    const startPiste = document.getElementById('reality-start-piste');
+    const updatePisteChoice = () => {
+      startPisteWrap.hidden = select.value !== 'les-deux-alpes';
+    };
+    select.addEventListener('change', updatePisteChoice);
     for (const resort of resorts) {
       const option = document.createElement('option');
       option.value = resort.id;
@@ -510,6 +516,7 @@ else {
       select.appendChild(option);
     }
     select.value = chosen.id;
+    updatePisteChoice();
     picker.hidden = false;
     const enterSelectedResort = async () => {
       const selected = Reality.get(select.value);
@@ -523,6 +530,23 @@ else {
       const originalNote = note?.textContent;
       try {
         const terrain = await Reality.load(selected.id, !!selected.network);
+        // A title-page entry must honor the selected *measured* piste,
+        // not silently start a black run and label it a green run. Fetch
+        // and validate the actual network before choosing a spawn point.
+        if (selected.id === 'les-deux-alpes') {
+          const id = Number(startPiste.value);
+          const expected = new Set([643745486, 643786947, 219409078]);
+          if (!expected.has(id) || !terrain.network)
+            throw Error('所选真实雪道尚未通过网络验证');
+          const point = terrain.network.spawnFor(id);
+          const nearest = {};
+          if (!point || !terrain.withinDEM(...point) ||
+              !terrain.network.lookup(point[0], point[1], nearest) ||
+              nearest.piste?.osmWay !== id)
+            throw Error('所选雪道缺少已核对的地形起点');
+          terrain.selectedSpawn = point;
+          terrain.selectedPiste = nearest.piste;
+        }
         const installSigns = await App.prepareRealitySigns(terrain);
         Course.setReality(terrain);
         if (Trees.reset) Trees.reset();
@@ -555,6 +579,9 @@ else {
         url.searchParams.set('reality', selected.id);
         if (selected.network) url.searchParams.set('network', '1');
         else url.searchParams.delete('network');
+        if (selected.id === 'les-deux-alpes' && terrain.selectedPiste)
+          url.searchParams.set('piste', String(terrain.selectedPiste.osmWay));
+        else url.searchParams.delete('piste');
         history.replaceState(history.state, '', url);
         await UI.go();
       } catch (error) {
