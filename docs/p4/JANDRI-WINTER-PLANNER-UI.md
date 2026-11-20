@@ -60,3 +60,22 @@ spawn/collision envelope against that terrain, show the short transition,
 then place the player at the confirmed exit. It must fail closed if any step
 is missing and must never fall back to a guessed station or procedural run.
 The published timetable is information only, not a live boarding permit.
+
+## Browser transition adapter (not enabled)
+
+`src/02d_jandri_quick_transition.js` provides `JandriQuickTransition.run(plan, hooks)`
+for a future **quick arrival** UI. No cable-car physics, vehicle models,
+moving lift geometry or second game loop are created.
+
+The adapter loads destination terrain and requires an independent
+`validateArrival` success **before** covering the view or moving the player.
+Its caller must provide the actual approved game-world terrain and collision
+proof, plus `cover`, `placePlayer`, `reveal` and `rollback` callbacks.
+The supplied plan must match the authenticated quick-arrival contract.
+A validation failure keeps the current player position unchanged; a partial
+placement failure calls rollback, and duplicate concurrent rides are rejected.
+
+The suggested 1800 ms is an animation parameter, not a measured load time.
+The hooks are intentionally unwired: the home-page buttons remain disabled
+until measured Jandri destination packs, safe exits, and a reliable rollback
+implementation exist. See `test/jandri-quick-transition.test.cjs`.
