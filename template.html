@@ -494,10 +494,13 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-picker .jandri-map-link { display: block; width: fit-content; max-width: 100%; margin: 0; font-size: 11px; line-height: 1.4; color: #b9dbec; text-decoration: underline; text-underline-offset: 2px; white-space: normal; }
 /* Compact landscape phone and 320x180 automated browser: preserve clickable menu. */
 @media (max-height: 280px) {
-  #title.on { padding: 4px 8px; overflow-y: auto; justify-content: flex-start; gap: 0; }
-  #title.on > .mark, #title.on .cta .act, #title.on .cta .how,
-  #title.on .cta > p, #title.on #jandri-winter-preview { display: none !important; }
-  #title.on .cta { margin: 0; width: 100%; }
+  #title.on:has(#reality-picker:not([hidden])) { padding: 4px 8px; overflow-y: auto; justify-content: flex-start; gap: 0; }
+  #title.on:has(#reality-picker:not([hidden])) > .mark,
+  #title.on:has(#reality-picker:not([hidden])) .cta .act,
+  #title.on:has(#reality-picker:not([hidden])) .cta .how,
+  #title.on:has(#reality-picker:not([hidden])) .cta > p,
+  #title.on:has(#reality-picker:not([hidden])) #jandri-winter-preview { display: none !important; }
+  #title.on:has(#reality-picker:not([hidden])) .cta { margin: 0; width: 100%; }
   #title.on #reality-picker { margin: 0; padding: 5px 8px; gap: 3px; }
   #title.on #reality-picker .resort-note,
   #title.on #reality-picker .jandri-map-link { display: none; }
