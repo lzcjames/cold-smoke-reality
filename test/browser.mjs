@@ -447,6 +447,31 @@ try {
     .replace(/&#39;/g, "'").replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>').replace(/&amp;/g, '&')).map(x => x.id);
   assert.deepEqual(resortPicker.options, [...officialIds, 'test-only-resort']);
+  // P4: ensure the real 3-piste launch menu only shows for Les Deux Alpes,
+  // defaults to its measured green run, and never auto-starts on selection.
+  const startingPisteUI = await evaluate(`(() => {
+    const r=document.getElementById('reality-select');
+    const w=document.getElementById('reality-start-piste-wrap');
+    const p=document.getElementById('reality-start-piste');
+    const hiddenForAlpe=w.hidden;
+    r.value='les-deux-alpes';r.dispatchEvent(new Event('change',{bubbles:true}));
+    const options=[...p.options].map(o=>o.value);
+    const state={hiddenForAlpe,visibleForLes2:!w.hidden,
+      selected:p.value,options,
+      title:document.getElementById('title').classList.contains('on'),
+      href:location.search};
+    r.value='alpe-dhuez';r.dispatchEvent(new Event('change',{bubbles:true}));
+    state.hiddenAgain=w.hidden;
+    return state;
+  })()`);
+  assert.equal(startingPisteUI.hiddenForAlpe,true);
+  assert.equal(startingPisteUI.visibleForLes2,true);
+  assert.equal(startingPisteUI.hiddenAgain,true);
+  assert.equal(startingPisteUI.selected,'643745486');
+  assert.deepEqual(startingPisteUI.options,['643745486','643786947','219409078']);
+  assert.equal(startingPisteUI.title,true);
+  assert.doesNotMatch(startingPisteUI.href,/piste=/);
+  console.log('Real Les Deux Alpes piste selector displays correctly without auto-loading');
   // Selecting an item must not fetch a second terrain pack. Only the
   // separate homepage Enter button may load and start that resort in-place.
   const requestsBeforePick = alternateRequests;
