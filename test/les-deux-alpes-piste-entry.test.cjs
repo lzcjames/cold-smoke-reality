@@ -21,7 +21,7 @@ test('menu offers only the three existing separately measured Les Deux Alpes pis
   for(const [id,name] of expected) {
     assert.match(tpl,new RegExp('<option value="'+id+'">'+name));
   }
-  assert.match(tpl,/id="reality-start-piste-wrap" hidden/);
+  assert.match(tpl,/id="reality-start-piste-wrap"[^>]*\bhidden\b/);
   assert.match(main,/select\.addEventListener\('change', updatePisteChoice\)/);
   assert.match(main,/startPisteWrap\.hidden = select\.value !== 'les-deux-alpes'/);
   assert.match(main,/terrain\.selectedSpawn = point/);
