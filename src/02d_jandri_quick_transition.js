@@ -29,6 +29,7 @@ const JandriQuickTransition = (() => {
       throw new Error('Jandri quick travel needs a complete safe transition adapter');
 
     busy = true;
+    let coverAttempted = false;
     let covered = false;
     let attemptedPlacement = false;
     try {
@@ -36,6 +37,7 @@ const JandriQuickTransition = (() => {
       const terrain = await hooks.loadDestination(plan);
       if (await hooks.validateArrival(plan, terrain) !== true)
         throw new Error('Jandri destination terrain/spawn is not verified');
+      coverAttempted = true;
       await hooks.cover(plan.transitionMs);
       covered = true;
       attemptedPlacement = true;
@@ -46,13 +48,13 @@ const JandriQuickTransition = (() => {
         stationId:plan.arrival.stationId});
     } catch (error) {
       // If placement may have partially changed game state, restore it.
-      try {
-        if (attemptedPlacement) await hooks.rollback();
-      } finally {
-        if (covered) {
-          try { await hooks.reveal(plan.transitionMs); }
-          catch { /* preserve original transition failure */ }
-        }
+      if (attemptedPlacement) {
+        try { await hooks.rollback(); }
+        catch { /* preserve original failure, but never claim success */ }
+      }
+      if (coverAttempted) {
+        try { await hooks.reveal(plan.transitionMs); }
+        catch { /* preserve original failure */ }
       }
       throw error;
     } finally {
