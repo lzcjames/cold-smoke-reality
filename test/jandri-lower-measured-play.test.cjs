@@ -69,7 +69,7 @@ test('source gates reject another raster or OSM snapshot',()=>{
 });
 
 test('only two lower fragments are playable, no fake 2600/3200 DEM or cleared tunnel',()=>{
-  assert.deepEqual(segments.map(s=>s.osmWay),ids);
+  assert.deepEqual(Array.from(segments,s=>s.osmWay),ids);
   assert.ok(Math.max(...asset.grid.heights)<2600);
   assert.ok(!segments.some(s=>s.osmWay===660937155),'Jandri 3 tunnel excluded');
   assert.ok(segments.every(s=>s.name.includes('下部实测片段')));
