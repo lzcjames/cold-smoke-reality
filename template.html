@@ -527,11 +527,14 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
             <option value="jandri-3200">Jandri 3200 · 终点站</option>
           </select>
           <div id="jandri-winter-path" class="jp-path" role="status" aria-live="polite"></div>
+          <label for="jandri-winter-date">2026/27 冬季计划日期</label>
+          <input type="date" id="jandri-winter-date" value="2026-11-28" min="2026-11-28" max="2027-05-02" style="width:100%;max-width:100%;box-sizing:border-box;padding:.4rem;color:var(--snow);background:#17232d;border:1px solid #8198a6;border-radius:6px;font:inherit">
+          <div id="jandri-winter-hours" class="jp-path" role="status" aria-live="polite">计划班次待加载</div>
           <div class="jp-actions">
             <button type="button" id="jandri-winter-normal" disabled title="乘降站和安全通道尚未完成验证">正常乘坐 · 待开放</button>
             <button type="button" id="jandri-winter-express" disabled title="乘降站和安全通道尚未完成验证">直达终点站 · 待开放</button>
           </div>
-          <small class="jp-note">仅展示经官方资料确认的站区和两段线路，不会加载缆车资产，也不会传送玩家。当前冬季乘降与2600换乘通道仍待核验。</small>
+          <small class="jp-note">2026/27 计划时段，非实时开通情况。<a href="https://www.alpes-isere.com/sit/jandri-troncon-1-acces-2600m-5671467/" target="_blank" rel="noopener noreferrer">Les 2 Alpes 旅游局来源（2026-10-01 更新）</a>。不加载缆车资产、不传送玩家；乘降与安全通道待核验。</small>
         </div>
       </details>
       <p id="reality-resorts" hidden></p>
