@@ -35,6 +35,23 @@ to produce the compact archival evidence
 `p4-jandri-real-station-boarding-transfer-evidence`.
 Neither raw LiDAR files nor gameplay lift assets are committed.
 
+## Measured findings (2026-11-20)
+
+The real archived-source [audit run 44746683510](https://github.com/lzcjames/cold-smoke-reality/actions/runs/44746683510) yielded the following **OpenSkiData source labels**, not confirmed physical boarding platforms:
+
+| Lift | `bottom` records | `mid` | `top` records |
+| --- | ---: | ---: | ---: |
+| Jandri I | 2 | 0 | 2 |
+| Jandri II | **0** | 0 | 2 |
+
+Measured source records:
+
+- Jandri I lower-labelled records: **1658.32 m** and **1658.20 m** IGN ground, **76.9 m** and **76.6 m** horizontally from the nearest pinned Jandri 1 piste centreline.
+- Jandri I upper-labelled records: **2576.92 m** and **2576.83 m** IGN ground, **65.9 m** and **70.5 m** from the nearest pinned Jandri 3 centreline.
+- Jandri II has **two upper-labelled source records**, both at **3154.23 m** IGN ground and **40.8 m** from the nearest pinned Jandri 4 centreline. **No linked station was labelled `bottom`.**
+
+The source `entry` and `exit` values for these six records are unknown in this archive. At least some records are close in space; two source records must never be automatically interpreted as two independent boarding platforms. The shortest *cross-lift* station-record distance in the report is approximately **2562.6 m**, but this coarse record pairing does **not** describe an operator-sanctioned real interchange. In particular, the Jandri II lower terminal may be missing or represented differently in this dataset. Obtain dated operator station schematics / entrance locations before specifying its ride start or exit.
+
 ## Next decision gates
 
 To turn source candidates into real playable lift service, collect
