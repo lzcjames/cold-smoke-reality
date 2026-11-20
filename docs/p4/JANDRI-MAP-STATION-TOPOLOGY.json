@@ -1,0 +1,101 @@
+{
+  "stage": "human_reviewed_schematic_map_station_topology_only",
+  "source": {
+    "kind": "user_supplied_resort_piste_map_pdf",
+    "filename": "plan_hiver_les2alpes_aeon.pdf",
+    "page": 1,
+    "sha256": "7be8b77bea5806654918c2007cdd363a3477fb21f2d23b46ad03a0f352e96252",
+    "pdfCreatedLocal": "2026-11-09T07:58:27+01:00",
+    "officialSourceURLVerified": false,
+    "georeferenced": false
+  },
+  "illustratedStationSectors": [
+    {
+      "id": "les-deux-alpes-1650",
+      "label": "LES DEUX ALPES 1650 M",
+      "elevationPrintedM": 1650,
+      "operatorPlatformConfirmed": false,
+      "operatorStationSectorConfirmed": true
+    },
+    {
+      "id": "jandri-2600",
+      "label": "JANDRI 2600",
+      "elevationPrintedM": 2600,
+      "operatorPlatformConfirmed": false,
+      "operatorStationSectorConfirmed": true
+    },
+    {
+      "id": "jandri-3200",
+      "label": "JANDRI 3200",
+      "elevationPrintedM": 3200,
+      "operatorPlatformConfirmed": false,
+      "operatorStationSectorConfirmed": true
+    }
+  ],
+  "cartographicLiftAlignment": [
+    {
+      "from": "les-deux-alpes-1650",
+      "to": "jandri-2600",
+      "depictedInMap": true,
+      "confirmedPassengerService": false,
+      "operatorRouteSectorsConfirmed": true
+    },
+    {
+      "from": "jandri-2600",
+      "to": "jandri-3200",
+      "depictedInMap": true,
+      "confirmedPassengerService": false,
+      "operatorRouteSectorsConfirmed": true
+    }
+  ],
+  "openskidataStationAudit": {
+    "jandriI": {
+      "bottomSourceRecords": 2,
+      "topSourceRecords": 2
+    },
+    "jandriII": {
+      "bottomSourceRecords": 0,
+      "topSourceRecords": 2
+    },
+    "interpretation": "missing_bottom_tag_is_not_proof_of_absent_real_lower_station"
+  },
+  "requestedExpressRide": {
+    "enabled": false,
+    "verifiedUpperTerminal": false,
+    "verifiedIntermediateTransfer": false,
+    "verifiedThroughRide": false,
+    "approvedBoardingSites": 0,
+    "approvedDisembarkSites": 0
+  },
+  "limitations": [
+    "Schematic illustration is not exact GNSS geometry",
+    "Operator through-service vs transfer unverified",
+    "Site entrance, exit, platform floor and piste corridor unverified",
+    "Map printed altitude labels are not a substitute for IGN local measured station ground"
+  ],
+  "operatorDocumentation": {
+    "sourceURLs": [
+      "https://www.skipass-2alpes.com/fr/blog/le-nouveau-jandri",
+      "https://www.aeon-montagnes.com/telepherique-3s-jandri/",
+      "https://www.les2alpes.com/hiver/offres/jandri-troncon-1-acces-2600m-les-deux-alpes-fr-hiver-2959381/"
+    ],
+    "confirmedFacilityName": "Jandri 3S",
+    "replaced": "former Jandri Express",
+    "lowerTerminalSectorMeters": 1650,
+    "intermediateStationSectorMeters": 2600,
+    "upperTerminalSectorMeters": 3200,
+    "firstSectionStationSectors": [
+      "les-deux-alpes-1650",
+      "jandri-2600"
+    ],
+    "secondSectionStationSectors": [
+      "jandri-2600",
+      "jandri-3200"
+    ],
+    "routeLayoutDocumented": true,
+    "boardingPlatformCoordinatesConfirmed": false,
+    "winterMustChangeCabinConfirmedFor2026": false,
+    "summerThroughCabinConfirmedFor2026": false,
+    "sourceEvidence": "Official operator/skipass documentation independently verifies physical station sectors and two sections; does not confirm current-season through-ride policy or access portals."
+  }
+}
