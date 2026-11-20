@@ -1,0 +1,58 @@
+name: P4 Jandri eight measured IGN junction approaches (non-publishing)
+
+on:
+  push:
+    branches:
+      - audit/jandri-local-node-elevation
+    paths:
+      - 'tools/reality/jandri_local_node_probe.py'
+      - 'tools/reality/jandri_full_mnt_mosaic.py'
+      - 'test/jandri_local_node_probe_test.py'
+      - '.github/workflows/p4-jandri-local-node-elevation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-eight-node-local-slopes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GDAL_CACHEMAX: '128'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original official IGN source index (no DEM)
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          run-id: 44635187118
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-real-wfs
+      - name: Install GDAL and NumPy
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin
+      - name: Check shared-node arms, provenance and missing height regression
+        run: |
+          /usr/bin/python3 -m unittest discover -s test -p 'jandri_local_node_probe_test.py' -v
+          /usr/bin/python3 -m unittest discover -s test -p 'jandri_full_mnt_mosaic_test.py' -v
+      - name: Re-acquire original 24 real DEM sources and measure all eight exact shared nodes
+        timeout-minutes: 45
+        run: |
+          mkdir -p p4-evidence /tmp/jandri-local-real-mnt
+          /usr/bin/python3 tools/reality/jandri_full_mnt_mosaic.py \
+            --wfs /tmp/jandri-real-wfs/jandri-ign-wfs-original.geojson \
+            --metadata /tmp/jandri-real-wfs/jandri-mnt-metadata-coverage.json \
+            --work /tmp/jandri-local-real-mnt \
+            --out p4-evidence/jandri-local-shared-node-measurements.json
+      - name: Publish numerical audit only (not raw DEM or gameplay)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-eight-local-ground-junction-measurements
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
