@@ -109,7 +109,7 @@ def stream_candidates(path, kind):
     import ijson
     result, count = [], 0
     with path.open("rb") as source:
-        for feature in ijson.items(source, "features.item"):
+        for feature in ijson.items(source, "features.item", use_float=True):
             count += 1
             candidate = classify_feature(feature, kind)
             if candidate is not None:
