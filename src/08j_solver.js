@@ -113,21 +113,6 @@ const Solver = (() => {
       // before a take-off, 5 mm of foot was more than a degree of knee, frame to frame)
       let h = (f + r) / 2; const h0 = q[30 + k]; h = h0 == null ? h : h > h0 + GIVE ? h - GIVE : h < h0 - GIVE ? h + GIVE : h0; q[30 + k] = h;
       out[k * 2] = h; out[k * 2 + 1] = -Math.atan((r - f) / (2 * HALF)); }
-    // The contact solver can alternate a few degrees as a ski passes over
-    // fine samples and a 15 m DEM cell seam. The collision bar q[0..7]
-    // must react to every bump, but the *drawn* ski pitch can retain a tiny
-    // amount of temporal continuity. Keep at most 0.035 rad (~2 cm at tip)
-    // of visual deviation, and reset immediately for air/landing transitions.
-    for (let k = 0; k < 2; k++) {
-      const index = k * 2 + 1, state = 22 + k, raw = out[index];
-      const previous = q[state];
-      if (!on || !(dt > 0) || previous == null) out[index] = raw;
-      else {
-        const eased = previous + (raw - previous) * (1 - Math.exp(-14 * dt));
-        out[index] = Math.max(raw - 0.035, Math.min(raw + 0.035, eased));
-      }
-      q[state] = out[index];
-    }
     // A leg has only so far to fold (TRAVEL, less what the pose has already folded and a little to spare). Where the snow lifts a foot by more
     // than that, the rest is the body's to go up by (lift takes it, on the same smooth path as the bumps it saw coming), and until the body is
     // there the foot waits: for those frames the ski is in the face of the bump, as the old figure's was all the time, and the knee is not at the chest
