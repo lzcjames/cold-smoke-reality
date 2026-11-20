@@ -1,5 +1,15 @@
 # P4: Jandri I / II OpenSkiData station heights versus genuine IGN ground
 
+**Real audit result (2026-11-20): six of six source-linked station points**
+were inside the already pinned 24-tile ground MNT index and all six had
+finite genuine IGN ground elevations measured. Only **three** original
+official 0.5m GeoTIFFs needed downloading: `0946-6440`,
+`0949-6439` and `0952-6439`. Real-data
+[GitHub Actions run 44745177633](https://github.com/lzcjames/cold-smoke-reality/actions/runs/44745177633)
+completed successfully. The complete per-station numerical report and
+original source checksums are preserved as the
+`p4-jandri-I-II-authentic-IGN-station-ground` workflow artifact.
+
 This is a **non-publishing source-only measurement gate**, not a ride feature.
 It reads the six genuine source-linked OpenSkiData station records matched in
 [PR #49](https://github.com/lzcjames/cold-smoke-reality/pull/49) and the
