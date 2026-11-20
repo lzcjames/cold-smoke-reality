@@ -484,6 +484,17 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-enter[hidden] { display: none; }
 #reality-picker .resort-note { display: block; margin-top: .35rem; font-size: .72em; color: var(--dim); }
 #reality-picker .jandri-map-link { display: inline-block; margin-top: .48rem; font-size: .78em; color: #b9dbec; pointer-events: auto; text-decoration: underline; text-underline-offset: 2px; }
+/* Research preview only: authentic winter Jandri station SECTORS, not ride access. */
+#jandri-winter-preview { margin: .4rem auto 0; max-width: 26rem; pointer-events: auto; position: relative; z-index: 4; text-align: left; font-size: .77rem; color: var(--snow); }
+#jandri-winter-preview summary { cursor: pointer; touch-action: manipulation; color: #b9dbec; }
+#jandri-winter-preview .jp-body { padding: .65rem; margin-top: .4rem; border: 1px solid #8198a680; background: #101820ed; border-radius: 8px; }
+#jandri-winter-preview label { display: block; margin-bottom: .3rem; }
+#jandri-winter-destination { width: 100%; max-width: 100%; font: inherit; padding: .45rem; border-radius: 6px; color: var(--snow); background: #17232d; border: 1px solid #8198a6; }
+#jandri-winter-preview .jp-path { margin: .5rem 0; line-height: 1.4; }
+#jandri-winter-preview .jp-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+#jandri-winter-preview button { font: inherit; border: 1px solid #8198a6; border-radius: 6px; padding: .35rem .6rem; }
+#jandri-winter-preview button:disabled { opacity: .58; cursor: not-allowed; }
+#jandri-winter-preview .jp-note { display: block; margin-top: .4rem; color: #c6d7e0; line-height: 1.5; }
 #reality-back { position: absolute; z-index: 100; top: 1rem; left: 1rem; }
 #reality-credits { position: absolute; z-index: 2; bottom: .5rem; right: .75rem; padding: .25rem .5rem; background: #101820cc; font-size: 11px; pointer-events: auto; }
 </style>
@@ -507,6 +518,22 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <p><a id="reality-mode" data-reality-asset="missing" href="?reality=alpe-dhuez" hidden>Reality Mode · Alpe d’Huez</a></p>
       <p><a id="reality-network" data-network-asset="missing" href="?reality=alpe-dhuez&amp;network=1" hidden></a></p>
       <p id="reality-picker" hidden><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select><button id="reality-enter" type="button">进入雪场</button><small class="resort-note">选择后点击进入，才会加载所选雪场的真实地形</small><a class="jandri-map-link" href="reality/jandri-osm-map.svg" target="_blank" rel="noopener noreferrer">查看 Jandri 真实雪道线路图（暂非 3D 可滑）</a></p>
+      <details id="jandri-winter-preview" hidden>
+        <summary>Jandri 3S · 冬季路线预览（暂不可乘坐）</summary>
+        <div class="jp-body">
+          <label for="jandri-winter-destination">计划目的地</label>
+          <select id="jandri-winter-destination" aria-label="Jandri 3S winter destination">
+            <option value="jandri-2600">Jandri 2600 · 中间站</option>
+            <option value="jandri-3200">Jandri 3200 · 终点站</option>
+          </select>
+          <div id="jandri-winter-path" class="jp-path" role="status" aria-live="polite"></div>
+          <div class="jp-actions">
+            <button type="button" id="jandri-winter-normal" disabled title="乘降站和安全通道尚未完成验证">正常乘坐 · 待开放</button>
+            <button type="button" id="jandri-winter-express" disabled title="乘降站和安全通道尚未完成验证">直达终点站 · 待开放</button>
+          </div>
+          <small class="jp-note">仅展示经官方资料确认的站区和两段线路，不会加载缆车资产，也不会传送玩家。当前冬季乘降与2600换乘通道仍待核验。</small>
+        </div>
+      </details>
       <p id="reality-resorts" hidden></p>
       <p class="fine">画面和声音全部由代码实时生成，没有一张贴图、一段录音。戴上耳机更好。</p>
       <p class="keys"><b>回车</b>出发<b>H</b>操作<b>M</b>静音<b>F</b>全屏</p>

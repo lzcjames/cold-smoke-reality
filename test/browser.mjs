@@ -343,6 +343,31 @@ try {
   })`);
   assert.equal(resortPicker.hidden, false);
   assert.equal(resortPicker.selected, 'alpe-dhuez');
+  // P4: exercise the source-backed, read-only winter Jandri trip preview
+  // in actual headless Chromium before the native resort-picker hit test.
+  const winterPreview = await evaluate(`(() => {
+    const p=document.getElementById('jandri-winter-preview');
+    const d=document.getElementById('jandri-winter-destination');
+    if (!p || p.hidden) return {missing:true};
+    p.open=true;
+    d.value='jandri-3200'; d.dispatchEvent(new Event('change',{bubbles:true}));
+    const summit=document.getElementById('jandri-winter-path').textContent;
+    d.value='jandri-2600'; d.dispatchEvent(new Event('change',{bubbles:true}));
+    const mid=document.getElementById('jandri-winter-path').textContent;
+    const disabled=document.getElementById('jandri-winter-normal').disabled &&
+      document.getElementById('jandri-winter-express').disabled;
+    const title=document.getElementById('title').classList.contains('on');
+    p.open=false;
+    return {summit,mid,disabled,title,url:location.href};
+  })()`);
+  assert.equal(winterPreview.missing,undefined,'Jandri planner present on title');
+  assert.match(winterPreview.summit,/1650.*2600.*3200/);
+  assert.match(winterPreview.mid,/1650.*2600/);
+  assert.doesNotMatch(winterPreview.mid,/3200/);
+  assert.equal(winterPreview.disabled,true);
+  assert.equal(winterPreview.title,true);
+  assert.match(winterPreview.url,/backend=webgl2/);
+  console.log('Actual Chromium winter planner destination and disabled boarding passed');
   // Hit-test the *actual* homepage controls. Previously .layer inherited
   // pointer-events:none; the JS-driven selection tests missed a dead dropdown.
   const pointerCheck = await evaluate(`(() => {

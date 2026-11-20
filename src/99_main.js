@@ -470,6 +470,25 @@ else {
     }
     select.value = chosen.id;
     picker.hidden = false;
+    // Visible, read-only winter Jandri 3S travel-plan preview.
+    // Only officially documented 1650/2600/3200 sectors; no fabricated
+    // station coordinates, passable corridors, or ride/teleport interaction.
+    const jandriPreview = document.getElementById('jandri-winter-preview');
+    const jandriDestination = document.getElementById('jandri-winter-destination');
+    const jandriPath = document.getElementById('jandri-winter-path');
+    if (jandriPreview && jandriDestination && jandriPath) {
+      jandriPreview.hidden = false;
+      const paintJandriPreview = () => {
+        const toSummit = jandriDestination.value === 'jandri-3200';
+        jandriPath.textContent = toSummit ?
+          '冬季 · 1650 → 2600（中间换乘）→ 3200 · 两段缆车' :
+          '冬季 · 1650 → 2600 · 第一段缆车';
+      };
+      jandriDestination.addEventListener('change', paintJandriPreview);
+      // Do not propagate clicks to the title screen's tap-anywhere-to-ski shortcut.
+      jandriPreview.addEventListener('click', event => event.stopPropagation());
+      paintJandriPreview();
+    }
     const enterSelectedResort = () => {
       const selected = Reality.get(select.value);
       if (!selected) return;
