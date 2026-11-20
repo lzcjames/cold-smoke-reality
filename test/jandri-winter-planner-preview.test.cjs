@@ -16,10 +16,15 @@ test('winter preview offers real 2600 and 3200 destinations but no boarding cont
   for(const id of ['jandri-winter-normal','jandri-winter-express']){
     assert.match(tpl,new RegExp('<button[^>]+id="'+id+'"[^>]+disabled'));
   }
-  assert.match(tpl,/当前冬季乘降与2600换乘通道仍待核验/);
+  assert.match(tpl,/乘降与安全通道待核验/);
+  assert.match(tpl, /id="jandri-winter-date"/);
+  assert.match(tpl, /id="jandri-winter-hours"/);
 });
 test('preview is only a route guide and updates after explicit destination selection',()=>{
   assert.match(boot,/jandriDestination\.addEventListener\('change', paintJandriPreview\)/);
+  assert.match(boot,/jandriDate\.addEventListener\('change', paintJandriPreview\)/);
+  assert.match(boot,/JandriWinterSchedule\.lookup\(jandriDate\.value, jandriDestination\.value\)/);
+  assert.ok(boot.indexOf('const jandriPreview =') < boot.indexOf('if ((REALITY_MODE ||'), 'preview must display even without optional 3D resort packs');
   assert.match(boot,/1650 → 2600（中间换乘）→ 3200/);
   assert.match(boot,/1650 → 2600 · 第一段缆车/);
   assert.doesNotMatch(boot,/jandriDestination\.addEventListener\('change',\s*enterSelectedResort\)/);
