@@ -867,6 +867,16 @@ const Game = (() => {
       fl[key] = want > cur ? cur + (want - cur) * (1 - Math.exp(-dt / 0.03)) : cur + (want - cur) * (1 - Math.exp(-dt / 0.25));
     }
   }
+  // The measured height remains authoritative for snow collision. On
+  // ground contact only, filter sub-decimetre visual bob with a velocity
+  // prediction so a steady downhill descent is not delayed or flattened.
+  // Clamping to +/-7 cm prevents visible floating away from the skis.
+  function stabilizeSkierVisualY(previous, target, vy, dt) {
+    if (!Number.isFinite(previous) || !Number.isFinite(vy) || dt <= 0) return target;
+    const predicted = previous + vy * dt;
+    const corrected = predicted + (target - predicted) * (1 - Math.exp(-14 * dt));
+    return clamp(corrected, target - 0.07, target + 0.07);
+  }
   function updatePose(dt) {
     const first = !pose.init, k = first ? 1e6 : 1, kd = dt * k; pose.init = true;
     const FB = typeof Variants !== 'undefined' && Variants.val.feel === 'b', MO4 = typeof Variants !== 'undefined' && Variants.val.mo4 === 'b';
@@ -1160,7 +1170,10 @@ const Game = (() => {
     }
     pose.mogK = S.mogKe == null ? 1 : S.mogKe;      // (新求解器: how much of a mogul's height the physics rides, the rest the legs are to take)
     pose.sink = S.contact ? fl.L - S.e : 0;      // (新求解器: how far under the physics' own snow the figure's skis are put: soft snow, a landing)
-    root.pos[0] = P[0] + ox; root.pos[1] = fy + oy; root.pos[2] = P[2] + oz; root.fwd[0] = fx; root.fwd[1] = fyv; root.fwd[2] = fz; root.nrm[0] = nx; root.nrm[1] = ny; root.nrm[2] = nz;
+    const bodyY = fy + oy;
+    fl.visY = first || !S.contact || S.crash > 0
+      ? bodyY : stabilizeSkierVisualY(fl.visY, bodyY, v[1], dt);
+    root.pos[0] = P[0] + ox; root.pos[1] = fl.visY; root.pos[2] = P[2] + oz; root.fwd[0] = fx; root.fwd[1] = fyv; root.fwd[2] = fz; root.nrm[0] = nx; root.nrm[1] = ny; root.nrm[2] = nz;
     // (what the lens frames by: the feet on the snow; in the air the level the feet would hang at, which does not bob as the knees come up)
     fl.fr = lerp(fy, P[1] + 0.03 - 0.38 * Xs, fl.kc);
     // (...and the snow the lens goes by cannot stay above them: coming down on that line faster than it sinks, the skier takes it along,
@@ -1170,6 +1183,14 @@ const Game = (() => {
 
   // ---- chase camera: behind and above, looking down the mountain past the skier
   const _ca = {}, _cb = {};
+  // A camera clearance rule must raise the lens immediately to avoid
+  // clipping the snow, but lowering it instantly on the next frame makes
+  // small near-plane/DEM changes look like a sharp vertical screen judder.
+  // Follow a decreasing clearance exponentially: stable at varied FPS.
+  function settleCameraClearance(previous, needed, dt) {
+    if (!Number.isFinite(previous) || needed >= previous) return needed;
+    return needed + (previous - needed) * Math.exp(-8 * Math.max(0, dt));
+  }
   function updateCamera(dt) {
     const p = fl.P, v = S.v, aspect = Render.W / Math.max(1, Render.H), portrait = aspect < 1, first = !cam.init; cam.init = true; const q = first ? 1e6 : 1;
     // (the speed the lens goes by is the body's own. S.speed, the speed along the snow under the skis, collapses for a few steps over a
@@ -1371,7 +1392,9 @@ const Game = (() => {
     const fe = typeof Feel !== 'undefined' ? Feel : null, pos = [cam.pos[0] + rx * ox, cam.pos[1] + oy - (fe && fe.dip || 0), cam.pos[2] + rz * ox];
     // (the last word, the same for every lens (Course.nearLift): whatever moved it - a jolt, the flinch past a tree, the floor above taken
     // without the bumps of a mogul field - the corners of the picture stay out of the snow. It only ever lifts, never turns the lens)
-    pos[1] += Course.nearLift(pos, f, cam.fov, aspect, Render.cam.near || CAM_NEAR, 0.05, cam.roll);
+    const clearance = Course.nearLift(pos, f, cam.fov, aspect, Render.cam.near || CAM_NEAR, 0.05, cam.roll);
+    cam.nearRaise = first ? clearance : settleCameraClearance(cam.nearRaise, clearance, dt);
+    pos[1] += cam.nearRaise;
     // other viewpoints (07b_views.js) take the lens over here; the chase camera above keeps running underneath, so switching back is seamless
     const viewOver = G.viewCam && G.viewCam(dt, cam, pos, f);
     /*native{*/G.hasViewOverride = viewOver;/*}native*/
