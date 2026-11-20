@@ -1,0 +1,62 @@
+name: P4 Jandri final twelve authentic IGN MNT tiles (non-publishing)
+
+on:
+  push:
+    branches:
+      - audit/jandri-mnt-final-twelve
+    paths:
+      - 'tools/reality/jandri_mnt_final_twelve.py'
+      - 'test/jandri_mnt_final_twelve_test.py'
+      - '.github/workflows/p4-jandri-mnt-final-twelve.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-disjoint-six-tile-batches:
+    name: Official IGN ground MNT batch ${{ matrix.batch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 38
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        batch: [0, 1]
+    env:
+      GDAL_CACHEMAX: '128'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore authentic archived official IGN WFS index
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-mnt-metadata-only
+          run-id: 44635187118
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-original-wfs
+      - name: Install GDAL and NumPy
+        timeout-minutes: 9
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y -o Acquire::Retries=3 --no-install-recommends python3-gdal python3-numpy gdal-bin
+      - name: Check exactly disjoint source tile inventory
+        run: /usr/bin/python3 -m unittest discover -s test -p 'jandri_mnt_final_twelve_test.py' -v
+      - name: Fetch and independently validate six official IGN 0.5m MNT tiles
+        timeout-minutes: 23
+        run: |
+          mkdir -p p4-evidence /tmp/jandri-ground-six
+          /usr/bin/python3 tools/reality/jandri_mnt_final_twelve.py \
+            --wfs /tmp/jandri-original-wfs/jandri-ign-wfs-original.geojson \
+            --metadata /tmp/jandri-original-wfs/jandri-mnt-metadata-coverage.json \
+            --batch ${{ matrix.batch }} \
+            --work /tmp/jandri-ground-six \
+            --out p4-evidence/jandri-mnt-final-batch-${{ matrix.batch }}.json
+      - name: Retain only numerical raster provenance (no original DEM)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-final-mnt-audit-${{ matrix.batch }}
+          path: p4-evidence/
+          if-no-files-found: warn
+          retention-days: 30
