@@ -26,6 +26,9 @@ const realityAsset = process.argv.includes('--release')
   : fixture();
 // Inject a SECOND SYNTHETIC resort only into this test server's HTML. Never
 // touch dist/ or ship these coordinates to production.
+const playableLes2 = JSON.parse(await readFile(
+  new URL('dist/reality/les-deux-alpes.json', root), 'utf8'));
+assert.equal(playableLes2.id,'les-deux-alpes');
 const alternateAsset = fixture();
 alternateAsset.id = 'test-only-resort';
 alternateAsset.piste.name = 'Synthetic Test Ridge';
@@ -61,17 +64,18 @@ const server = createServer((req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   const isPrimary = path === '/reality/alpe-dhuez.json';
   const isSecondary = path === '/reality/test-only-resort.json';
+  const isLes2 = path === '/reality/les-deux-alpes.json';
   const p3Id = path.startsWith('/reality/p3-synthetic-') ?
     path.slice('/reality/'.length).replace(/\.json$/, '') : null;
   const isP3 = p3Id && p3Assets.has(p3Id);
-  const isReality = isPrimary || isSecondary || isP3;
+  const isReality = isPrimary || isSecondary || isLes2 || isP3;
   if (isPrimary) realityRequests++;
   if (isSecondary) alternateRequests++;
   if (isPrimary && serveReality) successfulRealityRequests++;
   if (isSecondary && serveReality) successfulAlternateRequests++;
   const page = isReality && serveReality
     ? [JSON.stringify(isPrimary ? realityAsset : isSecondary ? alternateAsset :
-      p3Assets.get(p3Id)), 'application/json']
+      isLes2 ? playableLes2 : p3Assets.get(p3Id)), 'application/json']
     : pages.get(path);
   if (!page) return res.writeHead(404, { 'Cache-Control': 'no-store' }).end();
   res.writeHead(200, { 'Content-Type': page[1],
@@ -522,6 +526,51 @@ try {
   assert.equal(successfulAlternateRequests, 1, 'menu selection must reuse cached second DEM');
   console.log('Multi-resort in-place entry, zero reloads, credits and terrain cache passed');
   await capture('secondary-menu-reentry-webgl2');
+
+  // End-to-end real ski launch: select Les Deux Alpes and its green piste
+  // in the actual home UI, then enter in place using the published IGN/OSM
+  // resort pack (never substitute a synthetic or Jandri 3200 terrain).
+  await navigate('/?' + options + '&ui&lang=zh&backend=webgl2',
+    'Boolean(window.__ski?.app()?.ready && document.getElementById("reality-select"))');
+  const selectedRealPiste = await evaluate(`(() => {
+    const r=document.getElementById('reality-select');
+    const p=document.getElementById('reality-start-piste');
+    r.value='les-deux-alpes';
+    r.dispatchEvent(new Event('change',{bubbles:true}));
+    p.value='643745486';
+    p.dispatchEvent(new Event('change',{bubbles:true}));
+    window.__realPistePageSentinel='single-page-green-run';
+    return {resort:r.value,piste:p.value,
+      visible:!document.getElementById('reality-start-piste-wrap').hidden,
+      title:window.__ski.ui().state,timeOrigin:performance.timeOrigin};
+  })()`);
+  assert.equal(selectedRealPiste.resort,'les-deux-alpes');
+  assert.equal(selectedRealPiste.piste,'643745486');
+  assert.equal(selectedRealPiste.visible,true);
+  assert.equal(selectedRealPiste.title,'title');
+  const realEnterPoint = await evaluate(`(() => {
+    const b=document.getElementById('reality-enter').getBoundingClientRect();
+    return {x:b.left+b.width/2,y:b.top+b.height/2};
+  })()`);
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',
+    x:realEnterPoint.x,y:realEnterPoint.y,button:'left',clickCount:1});
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',
+    x:realEnterPoint.x,y:realEnterPoint.y,button:'left',clickCount:1});
+  let realStarted=false;
+  for(let i=0;i<200;i++){
+    realStarted=await evaluate(`(() => {
+      const k=window.__ski, t=k?.m?.Course?.reality;
+      return k?.ui()?.state==='run' && k?.game()?.mode==='run' &&
+        t?.id==='les-deux-alpes' && t.selectedPiste?.osmWay===643745486 &&
+        Boolean(t.selectedSpawn) && location.search.includes('piste=643745486') &&
+        window.__realPistePageSentinel==='single-page-green-run';
+    })()`).catch(()=>false);
+    if(realStarted)break;
+    await delay(200);
+  }
+  assert.equal(realStarted,true,'real Petites Crêtes must start without reloading or switching to Diable 1');
+  assert.equal(await evaluate('performance.timeOrigin'),selectedRealPiste.timeOrigin);
+  console.log('Real IGN/OSM Petites Crêtes green piste: mouse-enter and active ski run passed');
   }
 
   if (p3) {
