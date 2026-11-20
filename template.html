@@ -482,7 +482,43 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-enter { margin-left: .55rem; padding: .52rem .9rem; border-radius: 6px; color: #13202d; background: var(--sun); font: inherit; font-size: .85em; font-weight: 600; }
 #reality-enter:focus-visible { outline: 2px solid var(--snow); outline-offset: 3px; }
 #reality-enter[hidden] { display: none; }
-#reality-start-piste-wrap { display: block; margin: .5rem auto; max-width: 22rem; }\n#reality-start-piste-wrap[hidden] { display: none; }\n#reality-start-piste-wrap label { display: block; font-size: .75rem; margin-bottom: .25rem; }\n#reality-start-piste { max-width: 100%; padding: .4rem; color: var(--snow); background: #17232d; border: 1px solid #8198a6; border-radius: 6px; }\n#reality-picker .resort-note { display: block; margin-top: .35rem; font-size: .72em; color: var(--dim); }
+/* Responsive resort picker: clean grouped controls, no floating labels. */
+#title.on #reality-picker { box-sizing: border-box; display: grid; grid-template-columns: minmax(0,1fr); gap: 9px; width: min(420px, 94vw); max-width: 100%; margin: 10px 0; padding: 13px; border: 1px solid rgba(195,217,234,.34); border-radius: 12px; background: rgba(10,21,33,.91); text-align: left; overflow: visible; }
+#title.on #reality-picker[hidden] { display: none; }
+#reality-picker .resort-field { display: grid; grid-template-columns: 1fr; gap: 5px; min-width: 0; }
+#reality-picker label { display: block; margin: 0; font-size: 12px; color: #d4e4ee; line-height: 1.4; }
+#reality-picker select { box-sizing: border-box; display: block; width: 100%; max-width: 100%; min-width: 0; padding: 9px 10px; min-height: 39px; color: var(--snow); background: #17232d; border: 1px solid #7c909f; border-radius: 7px; font: inherit; font-size: 13px; }
+#reality-picker .resort-field[hidden], #reality-start-piste-wrap[hidden] { display: none !important; }
+#reality-picker #reality-enter { box-sizing: border-box; width: 100%; margin: 2px 0 0; min-height: 42px; padding: 9px 14px; border-radius: 7px; }
+#reality-picker .resort-note { display: block; margin: 0; font-size: 11px; line-height: 1.45; color: var(--dim); }
+#reality-picker .jandri-map-link { display: block; width: fit-content; max-width: 100%; margin: 0; font-size: 11px; line-height: 1.4; color: #b9dbec; text-decoration: underline; text-underline-offset: 2px; white-space: normal; }
+/* Compact landscape phone and 320x180 automated browser: preserve clickable menu. */
+@media (max-height: 280px) {
+  #title.on:has(#reality-picker:not([hidden])) { padding: 4px 8px; overflow-y: auto; justify-content: flex-start; gap: 0; }
+  #title.on:has(#reality-picker:not([hidden])) > .mark,
+  #title.on:has(#reality-picker:not([hidden])) .cta .act,
+  #title.on:has(#reality-picker:not([hidden])) .cta .how,
+  #title.on:has(#reality-picker:not([hidden])) .cta > p,
+  #title.on:has(#reality-picker:not([hidden])) #jandri-winter-preview { display: none !important; }
+  #title.on:has(#reality-picker:not([hidden])) .cta { margin: 0; width: 100%; }
+  #title.on #reality-picker { margin: 0; padding: 5px 8px; gap: 3px; }
+  #title.on #reality-picker .resort-note,
+  #title.on #reality-picker .jandri-map-link { display: none; }
+  #title.on #reality-picker select { min-height: 29px; padding: 3px 7px; }
+  #title.on #reality-picker #reality-enter { min-height: 30px; padding: 3px 7px; }
+  #title.on #reality-picker label { font-size: 11px; }
+}
+#title.on:has(#reality-picker:not([hidden])) #reality-mode,
+#title.on:has(#reality-picker:not([hidden])) #reality-network { display: none; }
+@media (max-height: 590px) {
+  #title.on { overflow-y: auto; justify-content: flex-start; gap: 10px; }
+  #title.on .mark { flex: 0 0 auto; }
+  #title.on .cta { flex: 0 0 auto; }
+  #title.on #reality-picker { padding: 9px; gap: 6px; margin: 4px 0; }
+  #title.on #reality-picker select { min-height: 34px; padding: 5px 8px; }
+  #title.on #reality-picker #reality-enter { min-height: 34px; padding: 6px 12px; }
+}
+
 #reality-picker .jandri-map-link { display: inline-block; margin-top: .48rem; font-size: .78em; color: #b9dbec; pointer-events: auto; text-decoration: underline; text-underline-offset: 2px; }
 /* Research preview only: authentic winter Jandri station SECTORS, not ride access. */
 #jandri-winter-preview { margin: .4rem auto 0; max-width: 26rem; pointer-events: auto; position: relative; z-index: 4; text-align: left; font-size: .77rem; color: var(--snow); }
@@ -520,7 +556,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <p class="how" id="how">倾斜手机转弯，或按住屏幕左右拖动</p>
       <p><a id="reality-mode" data-reality-asset="missing" href="?reality=alpe-dhuez" hidden>Reality Mode · Alpe d’Huez</a></p>
       <p><a id="reality-network" data-network-asset="missing" href="?reality=alpe-dhuez&amp;network=1" hidden></a></p>
-      <p id="reality-picker" hidden><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select><span id="reality-start-piste-wrap" hidden><label for="reality-start-piste">雪道 / Piste</label><select id="reality-start-piste" aria-label="Choose verified Les Deux Alpes piste"><option value="643745486">Petites Crêtes · 绿道</option><option value="643786947">Vallons du Diable · 蓝道</option><option value="219409078">Diable 1 · 黑道</option><option value="644393970">Jandri 2 · 下部实测片段（难度待核实）</option><option value="219275197">Jandri 1 · 下部实测片段（难度待核实）</option></select></span><button id="reality-enter" type="button">进入雪场</button><small class="resort-note">选择后点击进入，才会加载所选雪场的真实地形</small><a class="jandri-map-link" href="reality/jandri-osm-map.svg" target="_blank" rel="noopener noreferrer">查看 Jandri 真实雪道线路图（暂非 3D 可滑）</a></p>
+      <div id="reality-picker" hidden><div class="resort-field"><label for="reality-select">雪场 / Resort</label><select id="reality-select" aria-label="Choose ski resort"></select></div><div id="reality-start-piste-wrap" class="resort-field" hidden><label for="reality-start-piste">雪道 / Piste</label><select id="reality-start-piste" aria-label="Choose verified Les Deux Alpes piste"><option value="643745486">Petites Crêtes · 绿道</option><option value="643786947">Vallons du Diable · 蓝道</option><option value="219409078">Diable 1 · 黑道</option><option value="644393970">Jandri 2 · 下部实测片段（难度待核实）</option><option value="219275197">Jandri 1 · 下部实测片段（难度待核实）</option></select></div><button id="reality-enter" type="button">进入雪场</button><small class="resort-note" role="status">选择后点击进入，才会加载真实地形</small><a class="jandri-map-link" href="reality/jandri-osm-map.svg" target="_blank" rel="noopener noreferrer">Jandri 线路资料（非完整可滑雪场）</a></div>
       <details id="jandri-winter-preview" hidden>
         <summary>Jandri 3S · 冬季路线预览（暂不可乘坐）</summary>
         <div class="jp-body">
