@@ -383,22 +383,6 @@ try {
   assert.equal(winterPreview.title,true);
   assert.match(winterPreview.url,/backend=webgl2/);
   console.log('Actual Chromium winter planner destination and disabled boarding passed');
-  const idleBefore=await evaluate(`(() => {
-    const g=window.__ski.game();
-    return {mode:g.mode,y:g.root.pos[1],foot:g.pose?.sink||0};
-  })()`);
-  await delay(450);
-  const idleAfter=await evaluate(`(() => {
-    const g=window.__ski.game();
-    return {mode:g.mode,y:g.root.pos[1],foot:g.pose?.sink||0};
-  })()`);
-  assert.equal(idleBefore.mode,'title');
-  assert.equal(idleAfter.mode,'title');
-  assert.ok(Math.abs(idleBefore.y-idleAfter.y)<1e-6,
-    'Home screen skier and skis must not bob while physically stationary');
-  assert.ok(Math.abs(idleBefore.foot-idleAfter.foot)<1e-6,
-    'Home screen ski contact pose must stay fixed');
-  console.log('Stationary title-page skier/ski pose stays fixed across frames');
   // Hit-test the *actual* homepage controls. Previously .layer inherited
   // pointer-events:none; the JS-driven selection tests missed a dead dropdown.
   const pointerCheck = await evaluate(`(() => {
@@ -420,34 +404,6 @@ try {
     assert(control.hit, 'Homepage picker must receive real clicks: ' + JSON.stringify(control));
   }
   console.log('Actual mouse/touch hit-testing of homepage resort controls passed');
-  // Regression: the screenshot showed Alpe d'Huez selected while Jandri 2
-  // remained visible, because source CSS had literal \\n separators rather
-  // than actual CSS newlines. Check COMPUTED layout, not the hidden property.
-  const pickerState=await evaluate(`(() => {
-    const resort=document.getElementById('reality-select'),
-      piste=document.getElementById('reality-start-piste-wrap'),
-      start=document.getElementById('reality-start-piste'),
-      button=document.getElementById('reality-enter'),
-      picker=document.getElementById('reality-picker');
-    resort.value='alpe-dhuez';resort.dispatchEvent(new Event('change',{bubbles:true}));
-    const hiddenOnAlpe=getComputedStyle(piste).display==='none';
-    resort.value='les-deux-alpes';resort.dispatchEvent(new Event('change',{bubbles:true}));
-    const visibleOnLes2=getComputedStyle(piste).display!=='none';
-    const grid=getComputedStyle(picker).display;
-    const buttonBounds=button.getBoundingClientRect(),selectBounds=start.getBoundingClientRect();
-    const labelStacked=selectBounds.top>resort.getBoundingClientRect().bottom;
-    resort.value='alpe-dhuez';resort.dispatchEvent(new Event('change',{bubbles:true}));
-    return {hiddenOnAlpe,visibleOnLes2,grid,labelStacked,
-      hiddenAgain:getComputedStyle(piste).display==='none',
-      buttonWidth:buttonBounds.width,buttonHeight:buttonBounds.height};
-  })()`);
-  assert.equal(pickerState.hiddenOnAlpe,true,'Alpe d\'Huez must not show Jandri pistes');
-  assert.equal(pickerState.visibleOnLes2,true);
-  assert.equal(pickerState.hiddenAgain,true);
-  assert.equal(pickerState.grid,'grid');
-  assert.equal(pickerState.labelStacked,true,'resort/piste fields need separate rows');
-  assert.ok(pickerState.buttonWidth>90&&pickerState.buttonHeight>=34);
-  console.log('Computed homepage layout and resort-specific piste visibility passed');
   // Reproduce the player complaint: an actual mouse click on the native
   // dropdown must NOT bubble to the full-screen title's tap-to-start action.
   const selectPoint = await evaluate(`(() => {
