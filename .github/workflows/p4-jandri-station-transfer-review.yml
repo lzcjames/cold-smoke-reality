@@ -1,0 +1,64 @@
+name: P4 Jandri source-backed station roles and interchange review
+
+on:
+  pull_request:
+    paths:
+      - 'tools/reality/jandri-station-transfer-review.cjs'
+      - 'test/jandri-station-transfer-review.test.cjs'
+      - '.github/workflows/p4-jandri-station-transfer-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  review-real-six-station-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test station role evidence and proximity safety
+        run: node --test test/jandri-station-transfer-review.test.cjs
+      - name: Recover original Jandri lift-to-OSM station crosswalk
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-source-linked-lift-station-crosswalk
+          run-id: 44741585451
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-station-crosswalk
+      - name: Recover independently measured IGN LiDAR station heights
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-I-II-authentic-IGN-station-ground
+          run-id: 44745406528
+          github-token: ${{ github.token }}
+          path: /tmp/jandri-ign-measured
+      - name: Join actual station positions, IGN terrain and nearest pinned OSM pistes
+        run: |
+          set -euo pipefail
+          mkdir -p p4-evidence
+          node tools/reality/jandri-station-transfer-review.cjs \
+            /tmp/jandri-station-crosswalk/jandri-lift-station-crosswalk.json \
+            /tmp/jandri-ign-measured/jandri-station-real-ign-ground.json \
+            > p4-evidence/jandri-boarding-transfer-evidence.json
+          node -e '
+            const r=require("./p4-evidence/jandri-boarding-transfer-evidence.json");
+            if(r.stationCount!==6 || r.crossLiftCandidatePairs!==8 ||
+               r.groundHeightCoverageCount!==6 || r.approvedDirectToTerminal!==0 ||
+               r.authorizedTransfers!==0 || r.readyForGame!==false) process.exit(1);
+            console.log("REAL station source labels",JSON.stringify(r.sourceRoleCount));
+            for(const s of r.stations) console.log("REAL",s.lift,s.sourcePositionTag,s.sourceEntryTag,
+              s.sourceExitTag,"IGN ground",s.stationGroundIGNMeters,
+              "nearest piste",s.nearestPinnedPiste.name,s.nearestPinnedPiste.horizontalDistanceM);
+            console.log("Closest Jandri I/II station candidate distance",
+              r.transferCandidates[0].horizontalDistanceMeters,
+              "m (NOT verified ski/walk passage)");
+          '
+      - name: Save numerical audit only; no original ground rasters or playable transports
+        uses: actions/upload-artifact@v4
+        with:
+          name: p4-jandri-real-station-boarding-transfer-evidence
+          path: p4-evidence/
+          if-no-files-found: error
+          retention-days: 30
