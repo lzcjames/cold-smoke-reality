@@ -43,3 +43,20 @@ lift transport pack.
 Les 2 Alpes tourist office / Alpes Isère [Jandri first section](https://www.alpes-isere.com/sit/jandri-troncon-1-acces-2600m-5671467/) was updated **2026-10-01**, and expressly lists **distinct first- and second-section hours** for five ranges from **2026-11-28 to 2027-05-02**. The tiny offline `src/02c_jandri_winter_schedule.js` holds those dated public hours and their source URL, allowing user-selected dates without any live API request or resort geometry downloads. `test/jandri-winter-schedule.test.cjs` checks every source boundary and negative date case. The rendered UI discloses that these are **published planned times, not real-time operation**, so weather closures, wind shutdowns and queue/access rules may differ. On dates outside the published range, it says there is no verified published schedule, **not** that the lift is closed.
 
 The [2025 technical survey in Quota Neve](https://www.quotaneve.it/en/3s-jandri-in-les-2-alpes/) reports winter separate section operation with alighting/requeueing at 2600, and [April 2025 SATA staff visit notes](https://passion2alpes.com/medias/les-coulisses-du-jandri-3s) independently describe winter separate and summer through-running. This substantiates the winter game design, but is **not official dated confirmation of every 2026/27 passenger platform or passage**. Do not unlock boarding until current floor/exit geometry, protected transfer and piste corridor are independently verified.
+
+## Lightweight quick ride (proposed game integration)
+
+The source-audited winter transport module exports `planQuickWinterArrival`.
+It is a pure, physics-free planning helper: after the existing boarding,
+two-section transfer, and verified arrival gates pass, it returns the exact
+verified destination position and an **1800 ms suggested UI transition**.
+No cable line, moving cabin, lift mechanics, camera path, or physics update
+is required. Both 2600 and 3200 destinations remain supported; quick travel
+to 3200 is not permission to bypass the evidence requirements at 2600.
+
+**Not yet a playable lift.** The home-screen ride controls remain disabled.
+A later UI PR must load authenticated destination terrain, verify the player
+spawn/collision envelope against that terrain, show the short transition,
+then place the player at the confirmed exit. It must fail closed if any step
+is missing and must never fall back to a guessed station or procedural run.
+The published timetable is information only, not a live boarding permit.
