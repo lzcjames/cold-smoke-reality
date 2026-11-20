@@ -436,7 +436,7 @@ else {
     const paintJandriPreview = () => {
       const toSummit = jandriDestination.value === 'jandri-3200';
       jandriPath.textContent = toSummit ?
-        '冬季 · 1650 → 2600（中间换乘）→ 3200 · 两段缆车' :
+        '冬季 · 1650 → 2600（中间站，换乘方式待核实）→ 3200 · 两段缆车' :
         '冬季 · 1650 → 2600 · 第一段缆车';
       const published = JandriWinterSchedule.lookup(jandriDate.value, jandriDestination.value);
       const hours = published.schedule;
