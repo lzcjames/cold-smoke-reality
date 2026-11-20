@@ -1217,6 +1217,10 @@ fn hdBuff(p: vec3f) -> f32 { return skMin(skMin(skEll(p, ${E3(H.face, 0)}, ${E3(
     for (const k in P0) cur[k] = P0[k]; Object.assign(cur, pose);
     const now = typeof App !== 'undefined' && App.t === App.t ? App.t : 0, sec = st.sec; let f = clamp(cur.dp || 0, 0, 1);
     let dt = now - st.t;
+    // Even when the game's physics is idle, the skier renderer used to
+    // advance its own snow-contact bars, weight shifts and stance springs.
+    // Keep the title pose truly still; regular ski motion resumes at launch.
+    if (typeof Game !== 'undefined' && Game.mode === 'title') dt = 0;
     // a new pose object, a new place or a gap in time: nothing to carry over
     const cut = st.pose !== pose || st.root !== root || !(dt >= 0) || dt > 0.25 || v3.len(v3.sub(root.pos, st.pos)) > 6;
     const Y = v3.norm(root.nrm), Z0 = v3.mul(root.fwd, -1), X = v3.norm(v3.cross(Y, Z0)), Z = v3.cross(X, Y);
