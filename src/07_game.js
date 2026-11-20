@@ -1170,6 +1170,14 @@ const Game = (() => {
 
   // ---- chase camera: behind and above, looking down the mountain past the skier
   const _ca = {}, _cb = {};
+  // A camera clearance rule must raise the lens immediately to avoid
+  // clipping the snow, but lowering it instantly on the next frame makes
+  // small near-plane/DEM changes look like a sharp vertical screen judder.
+  // Follow a decreasing clearance exponentially: stable at varied FPS.
+  function settleCameraClearance(previous, needed, dt) {
+    if (!Number.isFinite(previous) || needed >= previous) return needed;
+    return needed + (previous - needed) * Math.exp(-8 * Math.max(0, dt));
+  }
   function updateCamera(dt) {
     const p = fl.P, v = S.v, aspect = Render.W / Math.max(1, Render.H), portrait = aspect < 1, first = !cam.init; cam.init = true; const q = first ? 1e6 : 1;
     // (the speed the lens goes by is the body's own. S.speed, the speed along the snow under the skis, collapses for a few steps over a
@@ -1371,7 +1379,9 @@ const Game = (() => {
     const fe = typeof Feel !== 'undefined' ? Feel : null, pos = [cam.pos[0] + rx * ox, cam.pos[1] + oy - (fe && fe.dip || 0), cam.pos[2] + rz * ox];
     // (the last word, the same for every lens (Course.nearLift): whatever moved it - a jolt, the flinch past a tree, the floor above taken
     // without the bumps of a mogul field - the corners of the picture stay out of the snow. It only ever lifts, never turns the lens)
-    pos[1] += Course.nearLift(pos, f, cam.fov, aspect, Render.cam.near || CAM_NEAR, 0.05, cam.roll);
+    const clearance = Course.nearLift(pos, f, cam.fov, aspect, Render.cam.near || CAM_NEAR, 0.05, cam.roll);
+    cam.nearRaise = first ? clearance : settleCameraClearance(cam.nearRaise, clearance, dt);
+    pos[1] += cam.nearRaise;
     // other viewpoints (07b_views.js) take the lens over here; the chase camera above keeps running underneath, so switching back is seamless
     const viewOver = G.viewCam && G.viewCam(dt, cam, pos, f);
     /*native{*/G.hasViewOverride = viewOver;/*}native*/
