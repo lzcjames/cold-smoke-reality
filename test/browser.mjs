@@ -354,16 +354,27 @@ try {
     const summit=document.getElementById('jandri-winter-path').textContent;
     d.value='jandri-2600'; d.dispatchEvent(new Event('change',{bubbles:true}));
     const mid=document.getElementById('jandri-winter-path').textContent;
+    const day=document.getElementById('jandri-winter-date');
+    day.value='2027-02-10'; day.dispatchEvent(new Event('change',{bubbles:true}));
+    const midHours=document.getElementById('jandri-winter-hours').textContent;
+    d.value='jandri-3200'; d.dispatchEvent(new Event('change',{bubbles:true}));
+    const summitHours=document.getElementById('jandri-winter-hours').textContent;
+    day.value='2027-05-03'; day.dispatchEvent(new Event('change',{bubbles:true}));
+    const unsourced=document.getElementById('jandri-winter-hours').textContent;
     const disabled=document.getElementById('jandri-winter-normal').disabled &&
       document.getElementById('jandri-winter-express').disabled;
     const title=document.getElementById('title').classList.contains('on');
     p.open=false;
-    return {summit,mid,disabled,title,url:location.href};
+    return {summit,mid,midHours,summitHours,unsourced,disabled,title,url:location.href};
   })()`);
   assert.equal(winterPreview.missing,undefined,'Jandri planner present on title');
   assert.match(winterPreview.summit,/1650.*2600.*3200/);
   assert.match(winterPreview.mid,/1650.*2600/);
   assert.doesNotMatch(winterPreview.mid,/3200/);
+  assert.match(winterPreview.midHours,/08:45.*16:45/);
+  assert.doesNotMatch(winterPreview.midHours,/第二段/);
+  assert.match(winterPreview.summitHours,/第二段 08:55.*16:30/);
+  assert.match(winterPreview.unsourced,/无已核对的冬季时刻表/);
   assert.equal(winterPreview.disabled,true);
   assert.equal(winterPreview.title,true);
   assert.match(winterPreview.url,/backend=webgl2/);
