@@ -33,8 +33,7 @@ record. Each feature must carry `sourceFeatureId` and `osmWayIds`
 that match the actual pinned OSM ways. The source record must contain
 `sourceURL` (HTTPS), `sourceDate` (YYYY-MM-DD), `license`
 (`ODbL-1.0` or `Licence-Ouverte-2.0`) and the **original
-GeoJSON file's SHA-256**. The tool verifies format, closed WGS84
-polygon rings, ID references and OSM vertex-in-polygon overlap.
+GeoJSON file's SHA-256**. The tool verifies the original file SHA-256 and requires the audited GeoJSON object to match the decoded authenticated file bytes exactly; it then checks format, closed WGS84 polygon rings, ID references and OSM vertex-in-polygon overlap. A separately edited in-memory object is rejected even if its supplied file hash is valid.
 
 ```sh
 node tools/reality/audit-jandri-boundary-intake.cjs \
