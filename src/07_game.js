@@ -1433,7 +1433,20 @@ const Game = (() => {
       if (n === 10) acc = 0;
       G.dist = -S.p[2]; G.drop = G.y0 - S.p[1]; if (S.speed > G.topSpeed) G.topSpeed = S.speed;
     }
-    Course.rockCap = ROCK_CAP; G.nSteps = n; updateFlight(dt, n); Course.rockCap = 0; updatePose(dt); updateCamera(dt);
+    Course.rockCap = ROCK_CAP; G.nSteps = n;
+    // On the title screen the skier is a still figure, not a simulated
+    // descent. Updating springs/pose with an advancing clock in title mode
+    // makes the ski tips and boots tremble while the player is stationary.
+    // Initialize once after reset, then keep the pose fixed until skiing.
+    if (G.mode === 'run') {
+      updateFlight(dt, n);
+      Course.rockCap = 0;
+      updatePose(dt);
+    } else {
+      if (!pose.init) { updateFlight(0, 0); Course.rockCap = 0; updatePose(0); }
+      else Course.rockCap = 0;
+    }
+    updateCamera(dt);
   };
   G.step = step;
   return G;
