@@ -38,6 +38,11 @@ test('telemetry is absent by default and never modifies ski solver output',()=>{
   assert.equal(summary.pairs,239);
   assert.ok(Number.isFinite(summary.maxFrameSeconds));
   assert.ok(Number.isFinite(summary.maxDelta.leftPitchRad));
+  for (const side of ['left','right']) {
+    const p=summary.pitchReversals[side];
+    assert.ok(p.reversals>=0 && p.compared>=0 && p.reversals<=p.compared);
+    assert.ok(p.ratio>=0 && p.ratio<=1);
+  }
 });
 test('snapshot rows are copied and only latest 240 entries retained',()=>{
   const traced=instantiate('?skiDiag=1&backend=webgl2');

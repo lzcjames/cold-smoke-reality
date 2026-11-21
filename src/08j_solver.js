@@ -34,12 +34,33 @@ const Solver = (() => {
               rootY: Math.abs(b.rootY - a.rootY),
               dt: b.dt});
           }
+          // Count fast alternating *pitch corrections* rather than equating a
+          // single large (possibly legitimate) turn or landing with jitter.
+          // Reject large frame gaps and contact transitions first.
+          const reversals = (field, minStep = 0.008) => {
+            let n = 0, compared = 0, previous = 0;
+            for (let i = 1; i < active.length; i++) {
+              const a = active[i - 1], b = active[i];
+              if (b.frame !== a.frame + 1 || b.dt > 0.05 ||
+                  a.dt > 0.05) {previous = 0;continue;}
+              const step = b[field] - a[field];
+              const sign = Math.abs(step) >= minStep ? Math.sign(step) : 0;
+              if (sign && previous) {
+                compared++;
+                if (sign !== previous) n++;
+              }
+              if (sign) previous = sign;
+            }
+            return {reversals:n,compared,ratio:compared ? n / compared : 0};
+          };
           const max = key => diffs.reduce((v,x) => Math.max(v,x[key]),0);
           return {frames:items.length,contactFrames:active.length,pairs:diffs.length,
             maxDelta: {leftHeightM:max('hL'),rightHeightM:max('hR'),
               leftPitchRad:max('pitchL'),rightPitchRad:max('pitchR'),
               rootHeightM:max('rootY')},
-            maxFrameSeconds:max('dt')};
+            maxFrameSeconds:max('dt'),
+            pitchReversals: {left:reversals('leftPitch'),
+              right:reversals('rightPitch')} };
         },
         clear() {head = length = 0;}
       });
