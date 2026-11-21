@@ -604,8 +604,8 @@ try {
   assert.equal(await evaluate('performance.timeOrigin'),beforeReturn.timeOrigin,'quick return must not reload');
   console.log('Measured piste quick return: actual click, same terrain and active replay passed');
   // Jandri 2 lower segment is an authentic July-2026 OSM way clipped to the
-  // currently measured lower IGN DEM. Test actual skiing, not only an atlas.
-  await navigate('/?' + options + '&ui&lang=zh&backend=webgl2',
+  // currently measured lower IGN DEM. Also exercise opt-in contact telemetry.
+  await navigate('/?' + options + '&ui&lang=zh&backend=webgl2&skiDiag=1',
     'Boolean(window.__ski?.app()?.ready && document.getElementById("reality-select"))');
   const jandriChosen=await evaluate(`(() => {
     const r=document.getElementById('reality-select'),p=document.getElementById('reality-start-piste');
@@ -646,6 +646,15 @@ try {
   assert.equal(jandriMoving.inDEM,true);
   assert.ok(Number.isFinite(jandriMoving.height));
   assert.equal(jandriMoving.changed,true);
+  const jandriTrace=await evaluate(`(() => {
+    const diag=window.__skiSkiDiag;
+    if(!diag)return null;
+    return diag.summary();
+  })()`);
+  assert.ok(jandriTrace && jandriTrace.frames>0,
+    'actual Chromium Jandri ski run must produce opt-in contact samples');
+  assert.ok(Number.isFinite(jandriTrace.maxDelta.leftPitchRad));
+  console.log('Real IGN/OSM Jandri 2 contact trace captured', jandriTrace);
   console.log('Real IGN/OSM Jandri 2 lower segment skiing passed');
   }
 
