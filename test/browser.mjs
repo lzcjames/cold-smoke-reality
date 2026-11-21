@@ -655,6 +655,14 @@ try {
     'actual Chromium Jandri ski run must produce opt-in contact samples');
   assert.ok(Number.isFinite(jandriTrace.maxDelta.leftPitchRad));
   console.log('Real IGN/OSM Jandri 2 contact trace captured', jandriTrace);
+  const skiSamples = await evaluate(`(() => {
+    const rows=window.__skiSkiDiag.snapshot();
+    return rows.slice(-28).map(({frame,dt,on,leftPitch,rightPitch,
+      leftY,rightY,rootY})=>({frame,dt,on,leftPitch,rightPitch,leftY,rightY,rootY}));
+  })()`);
+  console.log('Jandri 2 final contact samples', JSON.stringify(skiSamples));
+  assert.ok(jandriTrace.pitchReversals.left.reversals <=
+    jandriTrace.pitchReversals.left.compared);
   console.log('Real IGN/OSM Jandri 2 lower segment skiing passed');
   }
 
