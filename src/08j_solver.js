@@ -6,6 +6,50 @@
 //   frames on snow, up to 37 cm). Here the snow is read under each ski along its length and the ski lies on it as a stiff bar (see lay).
 const Solver = (() => {
   const K = Skier, sat = x => Math.max(0, Math.min(1, x));
+  // Explicit opt-in only: ?skiDiag=1. Zero per-frame sampling work otherwise.
+  // This records contact solver outputs, not rendered GPU vertices, and must
+  // not alter ski positions, the solver state, or source terrain.
+  const trace = typeof location !== 'undefined' &&
+    /(?:^|[?&])skiDiag=1(?:&|$)/.test(location.search || '') &&
+    typeof globalThis !== 'undefined' ? (() => {
+      const capacity = 240, samples = new Array(capacity);
+      let head = 0, length = 0;
+      const api = Object.freeze({
+        snapshot() {
+          const out = [];
+          for (let i = 0; i < length; i++) out.push({...samples[(head - length + i + capacity) % capacity]});
+          return out;
+        },
+        summary() {
+          const items = this.snapshot(), active = items.filter(x => x.on && x.dt > 0);
+          const diffs = [];
+          for (let i = 1; i < active.length; i++) {
+            const a = active[i - 1], b = active[i];
+            // Avoid comparing across flight, restart, or frame-time gaps.
+            if (b.frame !== a.frame + 1 || b.dt > 0.05) continue;
+            diffs.push({hL: Math.abs(b.leftY - a.leftY),
+              hR: Math.abs(b.rightY - a.rightY),
+              pitchL: Math.abs(b.leftPitch - a.leftPitch),
+              pitchR: Math.abs(b.rightPitch - a.rightPitch),
+              rootY: Math.abs(b.rootY - a.rootY),
+              dt: b.dt});
+          }
+          const max = key => diffs.reduce((v,x) => Math.max(v,x[key]),0);
+          return {frames:items.length,contactFrames:active.length,pairs:diffs.length,
+            maxDelta: {leftHeightM:max('hL'),rightHeightM:max('hR'),
+              leftPitchRad:max('pitchL'),rightPitchRad:max('pitchR'),
+              rootHeightM:max('rootY')},
+            maxFrameSeconds:max('dt')};
+        },
+        clear() {head = length = 0;}
+      });
+      globalThis.__skiSkiDiag = api;
+      return row => {
+        samples[head] = row; head = (head + 1) % capacity;
+        length = Math.min(length + 1, capacity);
+      };
+    })() : null;
+  let traceFrame = 0;
   Variants.def('solver', '新求解器', [['a', '关'], ['b', '雪板贴真实雪面']], 'b');      // (default on, owner 2026-11-18: "有v8就merge v8")
   const ZS = [-0.75, -0.5625, -0.375, -0.1875, 0, 0.1875, 0.375, 0.5625, 0.75], EL = new Array(ZS.length), ER = new Array(ZS.length), EC = new Array(ZS.length), HALF = 0.6, DROP = 60, PUSH = 120, UPK = 40, PK = 20, GIVE = 0.004;
   // One ski, standing at (x0, z0) in the figure's frame, as what it is: a stiff bar that the snow can push up anywhere along its length but cannot pull
@@ -120,6 +164,11 @@ const Solver = (() => {
     const room = TRAVEL * (1 - sat(cur.crouch == null ? 0.21 : cur.crouch)) - SPARE;
     out[4] = lift(q, cur, root, dt, on, Math.max(out[0], out[2]) - room);
     out[0] = Math.min(out[0], room + out[4]); out[2] = Math.min(out[2], room + out[4]);
+    if (trace) trace({frame:++traceFrame,dt,on:!!on,
+      leftY:out[0],rightY:out[2],leftPitch:out[1],rightPitch:out[3],
+      rootY:root.pos[1],snowSink:cur.sink || 0,
+      leftContactFront:q[0],leftContactRear:q[2],
+      rightContactFront:q[4],rightContactRear:q[6]});
     return out;
   };
   return {};
