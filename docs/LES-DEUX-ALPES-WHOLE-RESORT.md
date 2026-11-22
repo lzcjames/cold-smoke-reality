@@ -147,3 +147,14 @@ Chromium tests exercise movement, cache pressure, corrupted sources and
 out-of-order network replies. **Passing the trial is not yet an endorsement
 to switch moving ski contact to streaming**; coverage beyond the original
 measured crop still requires licensed source data and gameplay tests.
+
+### Shadow preload invalidation and retry policy
+
+When the skier leaves the source-backed tile catalog, any pending audit
+comparison is invalidated. A download that finishes late may populate only
+the non-authoritative shadow cache; its stale height sample is **not** accepted
+as current terrain. After returning to the measured area a fresh observation
+can request the proper footprint. A tile checksum or network failure is
+reported and the same destination may retry on its **next scheduled
+observation**, rather than issuing unbounded immediate retry requests. No
+behavior of the main renderer, skier pose or measured collision grid changes.
