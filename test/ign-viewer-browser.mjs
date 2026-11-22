@@ -115,6 +115,26 @@ try{
  assert.equal(rider.after.approvedForGameplay,false,'Unreviewed real terrain was marked playable');
  assert(rider.after.speed>0 && rider.after.frames>500,'Real measured contact ride did not move');
  assert(rider.after.altitudeM<rider.before.altitudeM,'Rider did not descend on real measured DEM');
+ const visibleMarker=await evaluate(`(()=>{
+   document.getElementById('ride-start').disabled=true;
+   window.__ignLab.render();
+   const canvas=document.getElementById('scene');
+   const capture=document.createElement('canvas');capture.width=300;capture.height=210;
+   const c=capture.getContext('2d',{willReadFrequently:true});
+   c.drawImage(canvas,0,0,300,210);
+   const pixels=c.getImageData(0,0,300,210).data;
+   let orange=0;
+   for(let i=0;i<pixels.length;i+=4){
+     if(pixels[i]>110 && pixels[i]>pixels[i+1]*1.25 &&
+       pixels[i+1]>pixels[i+2]*1.3)orange++;
+   }
+   return {orange,touchButtons:document.querySelectorAll('#touch-controls button[data-control]').length,
+     touchVisible:!document.getElementById('touch-controls').hidden};
+ })()`);
+ assert.equal(visibleMarker.touchButtons,4,'Mobile controls missing from source-only IGN lab');
+ assert.equal(visibleMarker.touchVisible,true,'Mobile ride controls must appear after start');
+ assert(visibleMarker.orange>1,'No orange contact marker pixels in real IGN ride view: '+JSON.stringify(visibleMarker));
+ console.log('Measured IGN rider visible pixels:',visibleMarker);
  console.log('Real IGN browser contact test:',rider.after.speed,rider.after.altitudeM,
    'standing height delta',rider.still.altitudeM-rider.before.altitudeM);
 

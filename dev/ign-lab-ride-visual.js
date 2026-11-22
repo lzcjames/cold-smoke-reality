@@ -8,6 +8,7 @@ const IgnLabRideVisual = (() => {
    const reset=document.getElementById('ride-reset');
    const readout=document.getElementById('ride-readout');
    const keys=new Set();
+   const touch=document.getElementById('touch-controls');
    let active=false,running=false,last=0,carry=0;
    const vb=gl.createBuffer(),ib=gl.createBuffer();
    const pos=new Float32Array(11*6);
@@ -36,6 +37,10 @@ const IgnLabRideVisual = (() => {
      }
      if(!vertex(8,s.x,s.z,1.6)||!vertex(9,s.x+dx*.7,s.z+dz*.7,1)||
         !vertex(10,s.x-dx*.7,s.z-dz*.7,1))return;
+     // The diagnostic ski marker is sub-metre thin: at shallow viewing
+     // angles the measured ground can win the same depth pixel. Draw it as
+     // a source-positioned overlay, restoring terrain depth immediately.
+     gl.disable(gl.DEPTH_TEST);
      gl.uniform1f(uniformMarker,1);
      gl.bindBuffer(gl.ARRAY_BUFFER,vb);
      gl.bufferData(gl.ARRAY_BUFFER,pos,gl.DYNAMIC_DRAW);
@@ -45,6 +50,7 @@ const IgnLabRideVisual = (() => {
      gl.vertexAttribPointer(attrNormal,3,gl.FLOAT,false,24,12);
      gl.drawElements(gl.TRIANGLES,indices.length,gl.UNSIGNED_SHORT,0);
      gl.uniform1f(uniformMarker,0);
+     gl.enable(gl.DEPTH_TEST);
    }
    function cameraCenter(){
      if(!active)return null;
@@ -78,11 +84,13 @@ const IgnLabRideVisual = (() => {
    start.addEventListener('click',()=>{
      if(running)return;
      ride.start();active=true;running=true;carry=0;last=performance.now();
-     setCamera(220);start.disabled=true;reset.disabled=false;
+     setCamera(100);start.disabled=true;reset.disabled=false;
+     if(touch)touch.hidden=false;
      requestAnimationFrame(frame);
    });
    reset.addEventListener('click',()=>{
      running=false;active=false;ride.reset();keys.clear();setCamera(3300);
+     if(touch)touch.hidden=true;
      start.disabled=false;reset.disabled=true;
      readout.textContent='仅地形接触实验 · W 加速、A/D 转向、S 刹车';
      draw();
@@ -94,6 +102,25 @@ const IgnLabRideVisual = (() => {
    });
    document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
    window.addEventListener('blur',()=>keys.clear());
+   // On-screen controls use the very same state as the keyboard, and
+   // releases are fail-safe on pointer cancellation, blur or reset.
+   if(touch)for(const button of touch.querySelectorAll('button[data-control]')){
+     const key=button.dataset.control;
+     if(!['w','a','s','d'].includes(key))continue;
+     const release=e=>{
+       keys.delete(key);
+       if(e && button.hasPointerCapture?.(e.pointerId))
+         button.releasePointerCapture(e.pointerId);
+     };
+     button.addEventListener('pointerdown',e=>{
+       if(!active)return;
+       e.preventDefault();keys.add(key);
+       button.setPointerCapture(e.pointerId);
+     });
+     button.addEventListener('pointerup',release);
+     button.addEventListener('pointercancel',release);
+     button.addEventListener('lostpointercapture',()=>keys.delete(key));
+   }
    // Browser test hook exposes only a source-only, isolated numeric proxy.
    return Object.freeze({drawMarker:marker,cameraCenter,
      ride:Object.freeze({start:()=>ride.start(),step:(dt,c)=>ride.step(dt,c),
