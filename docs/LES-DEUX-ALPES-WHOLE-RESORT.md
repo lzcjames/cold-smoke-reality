@@ -79,3 +79,28 @@ collision validation are ready.
 **Source data and use:** preserve the original licensed DEM provenance
 from the Reality asset; the tile manifest hash alone does not establish
 provenance or legal rights to new datasets.
+
+## A/B measured tile collision experiment
+
+The current real Les Deux Alpes crop can be tested through the new
+tile-height adapter **without turning it on for ordinary players**:
+
+```
+?reality=les-deux-alpes&network=1&tileCollision=1
+```
+
+The `tileCollision=1` developer flag partitions the already loaded,
+source-verified lower-sector grid into overlapping measured 41-sample
+tiles in memory **before** the first camera or physics query. The live
+`Reality.height` and `Reality.altitude` functions then query those
+tiles, so skier collision and terrain rendering share the same heights.
+Outside the original DEM grid, the renderer retains the prior clamped
+edge behavior. The skier cannot unlock any new unmeasured terrain.
+No async tile swapping occurs during skiing in this experiment.
+
+The automated `test/reality-tile-preview.test.cjs` probes real sampled
+and sub-cell heights against the original single-grid sampler (when the
+optional licensed asset exists), including multiple tile seams, and
+checks Alpe d'Huez does not opt into this flag. This is a preparatory
+A/B gate, **not** full streaming, new piste coverage or proof of smooth
+physical gameplay on real hardware.
