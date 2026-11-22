@@ -53,3 +53,29 @@ The legacy `Reality.create` accepts one dense grid with dimensions capped at 120
 ## Immediate next engineering task
 
 Review the current pinned region source, identify uncovered official sectors and required DEM extent, then implement the smallest verified adjacent-tile prototype with seam and skiing-contact tests. Only after tile continuity is established should the full piste/lift network be wired in.
+
+## Current measured DEM tile export prototype
+
+The existing shipped Les Deux Alpes Reality asset has a **124 × 126**
+height sample grid at 15 m spacing, covering approximately 1,845 ×
+1,875 metres of ground (not the whole ski resort). The exporter uses
+the existing values exactly, including partial east/south edge tiles.
+
+```sh
+node tools/reality/export_dem_tiles.cjs \
+  data/reality/les-deux-alpes.json /tmp/les2alpes-dem-tiles 41
+node --test test/export-dem-tiles.test.cjs test/tiled-dem.test.cjs \
+  test/tile-stream.test.cjs
+```
+
+The CLI creates `manifest.json` and source-exact JSON tiles with
+SHA-256 hashes. With a 41-sample nominal side, the current crop becomes
+16 overlapping tiles. No additional GIS coverage has been added, and
+the file output is intentionally not automatically shipped by the
+website build. The active 3-piste mode stays on the previous verified
+single-grid loader until real multi-sector coverage, camera, and
+collision validation are ready.
+
+**Source data and use:** preserve the original licensed DEM provenance
+from the Reality asset; the tile manifest hash alone does not establish
+provenance or legal rights to new datasets.
