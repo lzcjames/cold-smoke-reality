@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - audit/jandri-full-mnt-mosaic-gate
+      - main
     paths:
       - 'tools/reality/jandri_full_mnt_mosaic.py'
+      - 'tools/reality/export_measured_resort_grid.py'
       - 'test/jandri_full_mnt_mosaic_test.py'
       - '.github/workflows/p4-jandri-full-mnt-mosaic.yml'
   workflow_dispatch:
@@ -50,7 +52,17 @@ jobs:
             --metadata /tmp/p4-jandri-official/jandri-mnt-metadata-coverage.json \
             --work /tmp/jandri-measured-mnt \
             --out p4-evidence/jandri-full-measured-mosaic-report.json
-      - name: Archive numeric source hashes and profiles ONLY — never the 24 raw rasters
+      - name: Export small measured Jandri 2 DEM staging grid (not published)
+        timeout-minutes: 8
+        run: |
+          /usr/bin/python3 tools/reality/export_measured_resort_grid.py \
+            --index docs/p4/JANDRI-OSM-INDEX.json \
+            --report p4-evidence/jandri-full-measured-mosaic-report.json \
+            --mosaic /tmp/jandri-measured-mnt/measured-jandri-source-only.vrt \
+            --tiles-dir /tmp/jandri-measured-mnt \
+            --name 'Jandri 2' --step 15 \
+            --out p4-evidence/jandri2-measured-grid-staging.json
+      - name: Archive source hashes, source profiles and unpublished DEM candidate — no raw rasters
         if: always()
         uses: actions/upload-artifact@v4
         with:
