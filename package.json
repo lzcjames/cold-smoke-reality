@@ -18,7 +18,9 @@
     "start": "node build.js && node tools/serve.js",
     "build:xhs": "node tools/build-xhs.js",
     "resort:import": "node tools/reality/import_portable_resort.cjs",
-    "resort:osm-import": "node tools/reality/import_osm_survey.cjs"
+    "resort:osm-import": "node tools/reality/import_osm_survey.cjs",
+    "resort:inventory": "node tools/reality/report_resort_inventory.cjs",
+    "resort:regional-index": "node tools/reality/index_regional_overpass.cjs"
   },
   "engines": {
     "node": ">=18"
