@@ -53,16 +53,19 @@ function normalize(world,options={}) {
   const lifts=world.lifts.map(l=>{
     const points=clonePoints(l.points,'lift');
     if(!Array.isArray(l.stationIds)||l.stationIds.length!==2||
-       l.stationIds.some(id=>!stationIds.has(String(id))))
+       (l.type==='magic_carpet' ? l.stationIds.some(id=>id!==null) :
+         l.stationIds.some(id=>id==null||!stationIds.has(String(id)))))
       throw Error('Lift needs two existing source stations');
     return {sourceId:String(l.id),name:l.name||String(l.id),
       kind:l.type||'unspecified',points,lengthM:length(points),
-      stationIds:l.stationIds.map(String),approvedForBoarding:false};
+      stationIds:l.stationIds.map(id=>id===null?null:String(id)),
+      unstationedSurfaceLift:l.type==='magic_carpet',approvedForBoarding:false};
   });
   for(const station of stations)for(const t of station.terminals)
     if(!liftIds.has(t.liftId)||!['lower','upper'].includes(t.end))
       throw Error('Invalid station terminal lift reference');
   for(const lift of lifts) {
+    if(lift.unstationedSurfaceLift)continue;
     for(let i=0;i<2;i++) {
       const s=stations.find(s=>s.sourceId===lift.stationIds[i]);
       if(!s.terminals.some(t=>t.liftId===lift.sourceId))
