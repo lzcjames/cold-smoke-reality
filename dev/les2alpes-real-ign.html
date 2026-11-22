@@ -39,7 +39,7 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
   float z=sy*v.x+cy*v.z;
   float y=cp*v.y-sp*z,depth=sp*v.y+cp*z;
   float perspective=2.5/(uDistance+depth);
-  gl_Position=vec4(x*perspective/uAspect,y*perspective,0.2,1.);
+  gl_Position=vec4(x*perspective/uAspect,y*perspective,clamp(depth/2500.,-0.9,0.9),1.);
   vElevation=aPos.y;
   vLight=clamp(dot(normalize(aNormal),normalize(vec3(0.3,1.0,-0.4))),0.35,1.0);
  }`));
