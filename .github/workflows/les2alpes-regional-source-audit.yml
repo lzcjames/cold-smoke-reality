@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'tools/reality/les2alpes_sharded_osm.py'
       - 'tools/reality/overpass_region_source.cjs'
       - 'tools/reality/index_regional_overpass.cjs'
       - 'data/reality/les-deux-alpes-sectors.json'
@@ -16,30 +17,36 @@ permissions:
 jobs:
   survey:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Fetch approximate regional OSM candidates (not resort boundary)
+      - name: Collect independent WGS84 source quadrants, keeping failures explicit
         run: |
-          mkdir -p regional-evidence
-          python3 tools/reality/p4_osm.py \
-            --bbox 44.97 6.05 45.09 6.23 \
-            --out regional-evidence/overpass-raw.json \
-            --review regional-evidence/overpass-review.json
-      - name: Convert original byte-pinned response and report incomplete sectors
+          python3 tools/reality/les2alpes_sharded_osm.py --out-dir regional-evidence
+      - name: Build per-response attributed candidate indexes (never synthesize combined snapshot)
         run: |
-          node tools/reality/index_regional_overpass.cjs \
-            regional-evidence/overpass-raw.json \
-            regional-evidence/overpass-source-index.json \
-            44.97 6.05 45.09 6.23
-          node tools/reality/report_resort_inventory.cjs \
-            data/reality/les-deux-alpes-sectors.json \
-            regional-evidence/overpass-source-index.json \
-            regional-evidence/resort-gap-report.json
-          node -e "const a=require('./regional-evidence/resort-gap-report.json'); if(a.wholeResortSurveyComplete || a.approvedForGameplay) process.exit(1);"
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          d=Path("regional-evidence")
+          status=json.loads((d/"status.json").read_text())
+          for item in status["shards"]:
+              if item["status"]!="source_candidates_unreviewed" or item.get("namedDownhillWays",0)==0: continue
+              out=d/(item["id"]+"-source-index.json")
+              subprocess.run(["node","tools/reality/index_regional_overpass.cjs",
+                  str(d/item["file"]),str(out),
+                  *map(str,item["bboxWGS84"])],check=True)
+              report=d/(item["id"]+"-gap-report.json")
+              subprocess.run(["node","tools/reality/report_resort_inventory.cjs",
+                  "data/reality/les-deux-alpes-sectors.json",str(out),str(report)],check=True)
+              candidates=json.loads(report.read_text())
+              if candidates["wholeResortSurveyComplete"] or candidates["approvedForGameplay"]:
+                  raise RuntimeError("Unreviewed regional source falsely approved")
+          print("Captured source quadrants:",status["numberOfIndependentResponses"],"/4")
+          PY
       - name: Archive raw OSM, attributed candidates and unresolved gaps only
         if: always()
         uses: actions/upload-artifact@v4
