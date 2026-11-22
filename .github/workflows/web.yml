@@ -206,6 +206,8 @@ jobs:
               /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles
             mkdir -p site/ign-lab/data
             cp dev/les2alpes-real-ign.html site/ign-lab/index.html
+            cp src/02l_terrain_height_snapshot.js site/ign-lab/terrain-height-snapshot.js
+            cp dev/ign-lab-ride.js dev/ign-lab-ride-visual.js site/ign-lab/
             cp /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles/{manifest.json,tile-*.json} site/ign-lab/data/
             echo 'Published verified developer-only IGN terrain preview (no ski gameplay)'
           else
