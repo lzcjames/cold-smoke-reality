@@ -88,8 +88,11 @@ def survey(out, query_fn=query_for_bbox, fetch_fn=fetch_raw, bbox=DEFAULT_BBOX):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out-dir",type=Path,required=True)
+    p.add_argument("--bbox",type=float,nargs=4,metavar=("SOUTH","WEST","NORTH","EAST"),
+                   default=DEFAULT_BBOX,
+                   help="Subset of WGS84 survey area; still split into four smaller squares")
     args=p.parse_args()
-    result=survey(args.out_dir)
+    result=survey(args.out_dir,bbox=tuple(args.bbox))
     if not result["allShardsDownloaded"]:
         print("Incomplete Overpass source survey. Inspect status.json; never infer a full resort.")
     print("Captured",result["numberOfIndependentResponses"],"/4 source quadrants")
