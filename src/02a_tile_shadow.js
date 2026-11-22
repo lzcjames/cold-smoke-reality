@@ -89,13 +89,20 @@ const TerrainTileShadow = (() => {
         signature='';
         return false;
       } // outside the sourced resort crop
-      const sig=choice.ids.join(',');
-      if(sig===signature)return true; // bound network work by tile changes
-      signature=sig;
-      // Sample both ski edges and the center along the future path;
-      // only six very cheap height lookups at the scheduled 4 Hz audit
-      // frequency, completely outside the physics/render height path.
+      // Keep checking while skiing inside a large tile, not only when the
+      // neighborhood changes. Quantize contact and ahead positions to
+      // 10 m cells; the real tick already bounds calls to 4 per second.
+      // Repeated stationary frames cost no further cache transactions.
       const dx=velocity[0]*lookaheadSeconds,dy=velocity[1]*lookaheadSeconds;
+      const quantize=(v,origin)=>Math.floor((v-origin)/10);
+      const sig=choice.ids.join(',')+'|'+
+        quantize(position[0],g.east)+':'+quantize(position[1],g.north)+'|'+
+        quantize(position[0]+dx,g.east)+':'+
+        quantize(position[1]+dy,g.north);
+      if(sig===signature)return true;
+      signature=sig;
+      // Sample both ski edges and the center at three positions along
+      // the future path; all lookups stay outside physics/render collision.
       const mag=Math.hypot(dx,dy),nx=mag>1e-9?-dy/mag:1,
         ny=mag>1e-9?dx/mag:0;
       const projected=[];
