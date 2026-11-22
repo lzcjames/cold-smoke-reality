@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - audit/jandri-full-mnt-mosaic-gate
+      - main
     paths:
       - 'tools/reality/jandri_full_mnt_mosaic.py'
+      - 'tools/reality/export_measured_resort_grid.py'
       - 'test/jandri_full_mnt_mosaic_test.py'
       - '.github/workflows/p4-jandri-full-mnt-mosaic.yml'
   workflow_dispatch:
