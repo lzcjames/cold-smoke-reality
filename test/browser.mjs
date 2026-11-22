@@ -324,6 +324,35 @@ try {
     }
   }
 
+  // Real IGN DEM tile A/B: browser-rendered, shared skier collision path.
+  // All measured tiles are already present before boot; no async swapping.
+  for (const backend of ['webgl2', 'webgpu']) {
+    await navigate('/?' + options + '&reality=les-deux-alpes&network=1&tileCollision=1&backend=' + backend,
+      'Boolean(window.__ski)');
+    const audit = await evaluate(`(async () => {
+      const k = window.__ski;
+      const boot = await k.boot();
+      if (!boot.startsWith('ok')) return {boot};
+      const t = k.m.Course.reality;
+      const before = k.sim(0);
+      const after = k.sim(2, k.pilot());
+      const surface = k.height(after.p[0], after.p[2]);
+      return {boot,tiles:t.tilePreviewCount,enabled:t.tilePreviewEnabled,
+        inDEM:t.withinDEM(after.p[0],after.p[2]),
+        groundGap:Math.abs(after.p[1]-surface),
+        progressed:after.p[2]<before.p[2],gfxAlive:!k.app().gfx.lost,
+        error:k.err()};
+    })()`);
+    assert.equal(audit.boot,'ok '+backend,JSON.stringify(audit));
+    assert.equal(audit.enabled,true,JSON.stringify(audit));
+    assert.equal(audit.tiles,16,JSON.stringify(audit));
+    assert.equal(audit.gfxAlive,true,JSON.stringify(audit));
+    assert.equal(audit.progressed,true,JSON.stringify(audit));
+    assert.ok(audit.groundGap<0.5,JSON.stringify(audit));
+    assert.equal(audit.error,null,JSON.stringify(audit));
+    console.log('Real Les Deux Alpes tileCollision A/B browser skier render passed', backend, audit);
+  }
+
   // Also exercise the generated menu link, not only direct ?reality= URLs.
   await navigate('/?' + options + '&ui&lang=en&backend=webgl2',
     'Boolean(document.querySelector("#reality-resorts a"))');
