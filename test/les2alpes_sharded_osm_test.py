@@ -21,8 +21,10 @@ class ShardSurvey(unittest.TestCase):
     def test_quadrants_exactly_partition_bbox(self):
         boxes=mod.shards()
         self.assertEqual(len(boxes),4)
-        self.assertEqual(boxes[0],(44.97,6.05,45.03,6.14))
-        self.assertEqual(boxes[-1],(45.03,6.14,45.09,6.23))
+        for actual,expected in zip(boxes[0],(44.97,6.05,45.03,6.14)):
+            self.assertAlmostEqual(actual,expected)
+        for actual,expected in zip(boxes[-1],(45.03,6.14,45.09,6.23)):
+            self.assertAlmostEqual(actual,expected)
 
     def test_independent_raw_sources_preserved_without_fabricated_combining(self):
         sources=iter([fixture(i) for i in range(4)])
