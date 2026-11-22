@@ -1,0 +1,70 @@
+{
+  "schema": "cold-smoke-les2alpes-regional-survey-ledger/v1",
+  "resortId": "les-deux-alpes",
+  "sourceRunId": 45050848311,
+  "sourceArtifactId": 14766200760,
+  "sourceArtifactName": "les2alpes-regional-osm-candidates-not-approved",
+  "auditedUTC": "2026-11-22",
+  "surveyBBoxWGS84": [
+    44.97,
+    6.05,
+    45.09,
+    6.23
+  ],
+  "independentSourceResponses": 3,
+  "plannedResponses": 4,
+  "sourceWayOccurrences": 278,
+  "uniqueOsmWayIdsAcrossSuccessfulShards": 272,
+  "duplicateOsmWayIdsAcrossShards": 6,
+  "uniqueRouteNameStrings": 93,
+  "unavailableQuadrants": [
+    "quadrant-3"
+  ],
+  "responseSnapshots": [
+    {
+      "id": "quadrant-1",
+      "timestampUTC": "2026-11-22T17:41:36Z",
+      "originalResponseSHA256": "f9a4dfc8ee7c4f49e114d44ac13e3801abc512581ece2f2efacd3afdd86be425",
+      "sourceWayOccurrences": 69
+    },
+    {
+      "id": "quadrant-2",
+      "timestampUTC": "2026-11-22T17:44:35Z",
+      "originalResponseSHA256": "e3c3847944c8b78192444fc9920d6828f5840932dbfc496bffcf911ccbb04627",
+      "sourceWayOccurrences": 208
+    },
+    {
+      "id": "quadrant-4",
+      "timestampUTC": "2026-11-22T17:47:42Z",
+      "originalResponseSHA256": "4fa07bc17034c2dadffa5baef8225900d13bc66b10bccacf47e5aaa82faca82f",
+      "sourceWayOccurrences": 1
+    }
+  ],
+  "examplesOfSourceRouteLabels": [
+    "Jandri 5",
+    "Pierre Grosse 1",
+    "Accès Toura 2600",
+    "Fée 2",
+    "Diable 2",
+    "Petites Crêtes",
+    "Accès Vallée Blanche",
+    "Puy Salié 1",
+    "Lauze 1",
+    "Bellecombe 5",
+    "Valentin",
+    "Crêtes"
+  ],
+  "coverageClaims": {
+    "officialResortMembershipReviewed": false,
+    "entireResortSurveyed": false,
+    "completeContinuousRouteNetwork": false,
+    "terrainDEMForNewWaysComplete": false,
+    "approvedForGameplay": false
+  },
+  "warnings": [
+    "A geographic query box is not the official ski resort boundary; nearby resort ways may be present",
+    "Six OSM way IDs occur in multiple source responses and must not be counted as new pistes",
+    "Each quadrant has its own OSM snapshot timestamp; no atomic merged OSM survey exists",
+    "Quadrant 3 source timed out; no routes or terrain were invented for its missing area"
+  ]
+}
