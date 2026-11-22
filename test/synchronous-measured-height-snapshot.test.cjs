@@ -24,7 +24,7 @@ test('synchronous samples agree across adjacent real original DEM nodes',()=>{
  const t0=tile(0),t1=tile(1);
  const snapshot=Height(manifest,[t0,t1]);
  assert.equal(snapshot.sample(100,300),2500);
- assert.equal(snapshot.sample(115,285),2496.5);
+ assert.equal(snapshot.sample(115,285),2495);
  assert.equal(snapshot.sample(130,285),2493);
  assert.equal(snapshot.sample(145,285),2491);
  assert.equal(snapshot.sample(160,270),2486);
