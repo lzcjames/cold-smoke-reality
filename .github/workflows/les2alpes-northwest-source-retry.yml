@@ -1,0 +1,52 @@
+name: Les Deux Alpes missing northwest OSM source retry (source only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/reality/les2alpes_sharded_osm.py'
+      - '.github/workflows/les2alpes-northwest-source-retry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-only-retry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Retrieve only the missing northwest region as four smaller independent snapshots
+        run: |
+          python3 tools/reality/les2alpes_sharded_osm.py \
+            --bbox 45.03 6.05 45.09 6.14 \
+            --out-dir northwest-evidence
+      - name: Verify exact original OSM bytes and independently inventory successful subregions
+        run: |
+          python3 - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          d=Path('northwest-evidence')
+          s=json.loads((d/'status.json').read_text())
+          assert s['requestedBBoxWGS84']==[45.03,6.05,45.09,6.14]
+          assert s['approvedForGameplay'] is False
+          assert s['combinedAtomicSnapshot'] is False
+          for part in s['shards']:
+              if part['status']!='source_candidates_unreviewed' or part.get('namedDownhillWays',0)==0:
+                  continue
+              index=d/(part['id']+'-source-index.json')
+              subprocess.run(['node','tools/reality/index_regional_overpass.cjs',
+                  str(d/part['file']),str(index),*map(str,part['bboxWGS84'])],check=True)
+          PY
+      - name: Archive genuine NW source data with failures explicitly retained
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: les2alpes-northwest-osm-subregions-unreviewed
+          path: northwest-evidence/
+          if-no-files-found: warn
+          retention-days: 30
