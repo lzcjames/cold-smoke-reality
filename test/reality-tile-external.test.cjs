@@ -38,8 +38,7 @@ async function run(asset,files) {
       arrayBuffer:async()=>{const b=files.get(url)||Buffer.alloc(0);
         return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}
     })});
-  return await vm.runInContext(source+\`\nRealityTileExternal.load(asset,
-    'reality/les-deux-alpes-tiles/manifest.json');\`,Object.assign(ctx,{asset}));
+  return await vm.runInContext(source+"\nRealityTileExternal.load(asset, 'reality/les-deux-alpes-tiles/manifest.json');",Object.assign(ctx,{asset}));
 }
 test('external verified tiles reconstruct source heights at all sample points',async()=>{
   const {asset,files}=fixture(),ground=await run(asset,files),g=asset.grid;
