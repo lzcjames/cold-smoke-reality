@@ -5,7 +5,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
-const {verify}=require('./tile_measured_dem.cjs');
+const {verify,gridHash}=require('./tile_measured_dem.cjs');
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 function check(original,folder){
  const manifest=JSON.parse(fs.readFileSync(path.join(folder,'manifest.json'),'utf8'));
@@ -14,7 +14,7 @@ function check(original,folder){
     original.resortId!==manifest.resortId||
     original.routeName!==manifest.routeName||
     original.sourceOSMSHA256!==manifest.sourceOSMSHA256||
-    sha(JSON.stringify(original.grid))!==manifest.originalGridSHA256)
+    gridHash(original.grid)!==manifest.originalGridSHA256)
    throw Error('Source tile manifest does not match original measured staging DEM');
  const result=verify(manifest,name=>fs.readFileSync(path.join(folder,name),'utf8'));
  return {schema:'cold-smoke-dem-tile-evidence/v1',resortId:original.resortId,
