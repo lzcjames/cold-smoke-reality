@@ -15,10 +15,18 @@ const TerrainTileShadow = (() => {
       !Array.isArray(manifest.tiles)||!manifest.tiles.length||
       !Number.isInteger(capacity)||capacity<1||capacity>32)
       throw Error('Verified measured DEM manifest required for shadow audit');
-    const dem=TiledDEM.create(m);
-    const stream=TerrainTileStream.create({dem,manifest,fetchTile,hashBytes,
+    // Browser scripts share top-level declarations; standalone Node unit
+    // tests instead resolve these dependencies from CommonJS modules.
+    const DEM=typeof TiledDEM!=='undefined' ? TiledDEM :
+      require('./02a_tiled_dem.js');
+    const Stream=typeof TerrainTileStream!=='undefined' ? TerrainTileStream :
+      require('./02a_tile_stream.js');
+    const Neighborhood=typeof TerrainTileNeighborhood!=='undefined' ?
+      TerrainTileNeighborhood : require('./02a_tile_neighborhood.js');
+    const dem=DEM.create(m);
+    const stream=Stream.create({dem,manifest,fetchTile,hashBytes,
       concurrency:2,capacity});
-    const neighborhood=TerrainTileNeighborhood.create({
+    const neighborhood=Neighborhood.create({
       scheme:{east:m.east,north:m.north,span:(m.cells-1)*m.step},
       tileIds:stream.catalogIds(),radius:1,lookaheadSeconds,
       budget:capacity});
