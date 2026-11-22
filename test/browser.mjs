@@ -661,6 +661,29 @@ try {
       leftY,rightY,rootY})=>({frame,dt,on,leftPitch,rightPitch,leftY,rightY,rootY}));
   })()`);
   console.log('Jandri 2 final contact samples', JSON.stringify(skiSamples));
+  const skiStartup=await evaluate(`(() => {
+    const rows=window.__skiSkiDiag.snapshot();
+    const early=rows.slice(0,40);
+    const transitions=[];
+    for(let i=1;i<rows.length;i++){
+      const a=rows[i-1],b=rows[i];
+      if(a.on!==b.on || Math.abs(b.leftPitch-a.leftPitch)>0.02 ||
+        Math.abs(b.rightPitch-a.rightPitch)>0.02 ||
+        Math.abs(b.leftY-a.leftY)>0.025 ||
+        Math.abs(b.rightY-a.rightY)>0.025){
+        transitions.push({frame:b.frame,prevOn:a.on,on:b.on,
+          dLeftPitch:b.leftPitch-a.leftPitch,
+          dRightPitch:b.rightPitch-a.rightPitch,
+          dLeftY:b.leftY-a.leftY,dRightY:b.rightY-a.rightY,dt:b.dt});
+      }
+    }
+    return {early:early.map(({frame,dt,on,leftPitch,rightPitch,leftY,rightY,rootY,
+      snowSink})=>({frame,dt,on,leftPitch,rightPitch,leftY,rightY,rootY,snowSink})),
+      transitions:transitions.slice(0,24)};
+  })()`);
+  console.log('Jandri 2 contact startup / exceptional transitions', JSON.stringify(skiStartup));
+  assert.ok(skiStartup.early.length>=2);
+  assert.ok(skiStartup.transitions.length<=24);
   assert.ok(jandriTrace.pitchReversals.left.reversals <=
     jandriTrace.pitchReversals.left.compared);
   console.log('Real IGN/OSM Jandri 2 lower segment skiing passed');
