@@ -400,6 +400,29 @@ try {
     if(!boot.startsWith('ok'))return {boot,error:k.err()};
     const terrain=k.m.Course.reality;
     if(!terrain.tileShadow)return {boot,shadowMissing:true};
+    // Title-state ski geometry: isolate animation from physics while the
+    // skier is stationary. Measure left/right ski tail/tip motion relative
+    // to the unchanged player root; benign idle weight shifts are allowed.
+    const G=k.game(),skier=k.m.Skier,origin=k.m.Render.origin;
+    let idleDelta=0,idleRange=0,idleSamples=0,previousSkis=null,firstSkis=null;
+    if(G.mode!=='title')throw Error('Expected idle title state');
+    for(let t=0;t<120;t++) {
+      G.update(1/60);
+      skier.update(G.root,G.pose,origin);
+      const pts=skier.world.seg?.slice(0,2).flatMap(pair=>pair.flatMap(p=>[
+        p[0]-G.root.pos[0]+origin[0],p[1]-G.root.pos[1]+origin[1],
+        p[2]-G.root.pos[2]+origin[2]]));
+      if(!pts||pts.length!==12||!pts.every(Number.isFinite))
+        throw Error('Nonfinite or missing idle ski endpoints');
+      if(!firstSkis)firstSkis=pts;
+      if(previousSkis)for(let n=0;n<pts.length;n++)
+        idleDelta=Math.max(idleDelta,Math.abs(pts[n]-previousSkis[n]));
+      for(let n=0;n<pts.length;n++)
+        idleRange=Math.max(idleRange,Math.abs(pts[n]-firstSkis[n]));
+      previousSkis=pts;idleSamples++;
+    }
+    const idle={observations:idleSamples,maxEndpointStep:idleDelta,
+      maxEndpointRange:idleRange};
     // Run the actual ski solver at 60 Hz and collect finite, per-step
     // contact evidence. This reports frame-to-frame discontinuity rather
     // than hiding occasional jitter behind a final position average.
@@ -424,6 +447,7 @@ try {
     await new Promise(resolve=>setTimeout(resolve,500));
     return {boot,terrain:terrain.id,shadow:terrain.tileShadow.status(),
       contact:{observations,maxContactGap,maxGapStep,maxSurfaceStep,maxRootSurfaceGap},
+      idle,
       graphicsAlive:!k.app().gfx.lost,error:k.err()};
   })()`);
   assert.equal(auditBoot.boot,'ok webgl2',JSON.stringify(auditBoot));
@@ -433,6 +457,10 @@ try {
     JSON.stringify(auditBoot));
   assert(auditBoot.shadow.loaded<=6 && auditBoot.graphicsAlive && !auditBoot.error,
     JSON.stringify(auditBoot));
+  assert.equal(auditBoot.idle.observations,120,JSON.stringify(auditBoot));
+  assert(auditBoot.idle.maxEndpointStep<0.30,
+    'Large idle ski-geometry single-frame jump: '+JSON.stringify(auditBoot.idle));
+  console.log('Idle ski endpoint continuity (animation diagnostic)',auditBoot.idle);
   assert.equal(auditBoot.contact.observations,180,JSON.stringify(auditBoot));
   assert(Object.values(auditBoot.contact).every(Number.isFinite),
     'Each 60 Hz skier/terrain contact metric must remain finite');
