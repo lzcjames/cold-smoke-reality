@@ -68,6 +68,18 @@ jobs:
         run: |
           /usr/bin/python3 -B test/reality-import.py
           /usr/bin/python3 -B test/p4-geodata.py
+      - name: Audit shipped Jandri 2 line coverage on genuine game DEM (source-only)
+        run: |
+          /usr/bin/python3 -B -m unittest discover -s test -p 'shipped_osm_dem_test.py' -v
+          /usr/bin/python3 -B tools/reality/audit_shipped_osm_dem.py \
+            --out /tmp/jandri2-shipped-dem-coverage.json
+          /usr/bin/python3 - <<'PY'
+          import json
+          r=json.load(open('/tmp/jandri2-shipped-dem-coverage.json'))
+          assert r['sourceWayCount']==11
+          assert r['noGameplayAuthorization'] is True
+          print('Measured Jandri 2 complete detailed-ground ways:',r['fullyDetailedWayCount'],'/11')
+          PY
 
   validate:
     runs-on: ubuntu-24.04
