@@ -50,7 +50,7 @@ def fixture(folder, *, conflict=False, tamper=False):
 
 
 def project(lon,lat):
-    return (950900+(lon-6.1)*20000,6440500+(lat-45)*20000)
+    return (950900+(lon-6.1)*20000,6440980+(lat-45)*20000)
 
 
 class RealSourceRegionalTerrainPlan(unittest.TestCase):
