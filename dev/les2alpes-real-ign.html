@@ -11,6 +11,10 @@ h1{font-size:20px;margin:4px 0 6px}p{margin:5px 0;color:#b6cbd9;font-size:13px;l
 #ride-ui button{background:#15516b;color:#eef7ff;border:1px solid #8eb6cb;border-radius:9px;padding:9px 12px;cursor:pointer;font-weight:600}
 #ride-ui button:disabled{opacity:.45;cursor:default}
 #ride-readout{font-size:12px;color:#d5ebf7;background:#071b2bd9;padding:5px 9px;border-radius:7px;line-height:1.5}
+#touch-controls{position:absolute;z-index:5;bottom:120px;right:18px;display:flex;gap:10px;align-items:center;touch-action:none}
+#touch-controls[hidden]{display:none}
+#touch-controls button{min-width:54px;min-height:54px;border-radius:12px;background:#144b66dc;color:#f6fbff;border:1px solid #90c4e3;font-size:15px;font-weight:700;touch-action:none;user-select:none}
+@media(pointer:fine){#touch-controls{display:none}}
 #legend{position:absolute;z-index:3;right:20px;top:110px;text-align:right;color:#bfd1de;font-size:12px}
 a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8px;border-radius:20px;font-size:11px}
 @media(max-width:600px){h1{font-size:17px}#legend{top:105px;right:15px}#status{bottom:10px;left:10px;right:10px}}
@@ -19,6 +23,7 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
 <p>IGN LiDAR HD / MNT · EPSG:2154 · 15m 采样 · 鼠标拖动旋转，滚轮缩放；手机触摸拖动旋转</p>
 <p><a href="../">返回 Cold Smoke Reality</a> · <a href="https://www.data.gouv.fr/datasets/mnt-lidar-hd" target="_blank" rel="noopener noreferrer">数据来源 © IGN — Licence Ouverte 2.0</a></p></header>
 <div id="ride-ui"><button id="ride-start" disabled>开始实测接触实验</button><button id="ride-reset" disabled>重置</button><span id="ride-readout">仅地形接触实验 · W 加速、A/D 转向、S 刹车</span></div>
+<div id="touch-controls" hidden aria-label="实测地形滑行触摸操作"><button data-control="a" aria-label="左转">◀</button><button data-control="w" aria-label="加速">前进</button><button data-control="s" aria-label="刹车">刹车</button><button data-control="d" aria-label="右转">▶</button></div>
 <canvas id="scene" aria-label="实测 Jandri 2 山体三维旋转预览"></canvas>
 <div id="legend">灰白：高海拔<br>深青：低海拔<br>6 块真实地形 · 不是正式雪道</div>
 <div id="status" role="status" aria-live="polite">正在校验真实 IGN 数据与原始地形分块…</div>
@@ -126,7 +131,7 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
   canvas.addEventListener('pointermove',e=>{if(!dragging)return;
    yaw+=(e.clientX-lastX)*0.008;pitch=Math.max(0.15,Math.min(1.38,pitch+(e.clientY-lastY)*0.006));
    lastX=e.clientX;lastY=e.clientY;draw();});
-  canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(1800,Math.min(10000,distance*Math.exp(e.deltaY*.001)));draw();},{passive:false});
+  canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(rideView.cameraCenter()?90:1800,Math.min(rideView.cameraCenter()?1600:10000,distance*Math.exp(e.deltaY*.001)));draw();},{passive:false});
   function draw(){
    const w=Math.round(canvas.clientWidth*devicePixelRatio),h=Math.round(canvas.clientHeight*devicePixelRatio);
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
