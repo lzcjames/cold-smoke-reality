@@ -37,6 +37,10 @@ const IgnLabRideVisual = (() => {
      }
      if(!vertex(8,s.x,s.z,1.6)||!vertex(9,s.x+dx*.7,s.z+dz*.7,1)||
         !vertex(10,s.x-dx*.7,s.z-dz*.7,1))return;
+     // The diagnostic ski marker is sub-metre thin: at shallow viewing
+     // angles the measured ground can win the same depth pixel. Draw it as
+     // a source-positioned overlay, restoring terrain depth immediately.
+     gl.disable(gl.DEPTH_TEST);
      gl.uniform1f(uniformMarker,1);
      gl.bindBuffer(gl.ARRAY_BUFFER,vb);
      gl.bufferData(gl.ARRAY_BUFFER,pos,gl.DYNAMIC_DRAW);
@@ -46,6 +50,7 @@ const IgnLabRideVisual = (() => {
      gl.vertexAttribPointer(attrNormal,3,gl.FLOAT,false,24,12);
      gl.drawElements(gl.TRIANGLES,indices.length,gl.UNSIGNED_SHORT,0);
      gl.uniform1f(uniformMarker,0);
+     gl.enable(gl.DEPTH_TEST);
    }
    function cameraCenter(){
      if(!active)return null;
@@ -79,7 +84,7 @@ const IgnLabRideVisual = (() => {
    start.addEventListener('click',()=>{
      if(running)return;
      ride.start();active=true;running=true;carry=0;last=performance.now();
-     setCamera(220);start.disabled=true;reset.disabled=false;
+     setCamera(100);start.disabled=true;reset.disabled=false;
      if(touch)touch.hidden=false;
      requestAnimationFrame(frame);
    });
