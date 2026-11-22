@@ -29,6 +29,18 @@ const realityAsset = process.argv.includes('--release')
 const playableLes2 = JSON.parse(await readFile(
   new URL('dist/reality/les-deux-alpes.json', root), 'utf8'));
 assert.equal(playableLes2.id,'les-deux-alpes');
+// Experimental real-source tile files are produced by build.js. Serve them
+// verbatim in this private browser harness, never as synthetic resort terrain.
+const tileDir=new URL('dist/reality/les-deux-alpes-tiles/',root);
+const tileManifest=JSON.parse(await readFile(new URL('manifest.json',tileDir),'utf8'));
+pages.set('/reality/les-deux-alpes-tiles/manifest.json',
+  [JSON.stringify(tileManifest),'application/json']);
+for(const entry of tileManifest.tiles) {
+  const name=entry.url;
+  assert(/^[a-zA-Z0-9_.-]+\.json$/.test(name),'Unsafe tile path in manifest');
+  pages.set('/reality/les-deux-alpes-tiles/'+name,
+    [await readFile(new URL(name,tileDir)), 'application/json']);
+}
 const alternateAsset = fixture();
 alternateAsset.id = 'test-only-resort';
 alternateAsset.piste.name = 'Synthetic Test Ridge';
@@ -352,6 +364,25 @@ try {
     assert(!audit.error,JSON.stringify(audit));
     console.log('Real Les Deux Alpes tileCollision A/B browser skier render passed', backend, audit);
   }
+
+  // Separate-file real DEM path: fetch 16 independently verified tile files,
+  // make them collision-ready before skiing, then render in actual Chromium.
+  await navigate('/?' + options + '&reality=les-deux-alpes&network=1&tileStream=1&backend=webgl2',
+    'Boolean(window.__ski)');
+  const diskTiles = await evaluate(`(async () => {
+    const k=window.__ski, boot=await k.boot();
+    if(!boot.startsWith('ok'))return {boot,error:k.err()};
+    const t=k.m.Course.reality, start=k.sim(0), end=k.sim(1,k.pilot());
+    return {boot,enabled:t.tilePreviewEnabled,tiles:t.tilePreviewCount,
+      moved:end.p[2]<start.p[2],gap:Math.abs(end.p[1]-k.height(end.p[0],end.p[2])),
+      error:k.err(),alive:!k.app().gfx.lost};
+  })()`);
+  assert.equal(diskTiles.boot,'ok webgl2',JSON.stringify(diskTiles));
+  assert.equal(diskTiles.enabled,true,JSON.stringify(diskTiles));
+  assert.equal(diskTiles.tiles,tileManifest.tiles.length,JSON.stringify(diskTiles));
+  assert(diskTiles.moved && diskTiles.gap<0.5 && !diskTiles.error && diskTiles.alive,
+    JSON.stringify(diskTiles));
+  console.log('Separate-file SHA verified real DEM collision & WebGL2 skiing passed',diskTiles);
 
   // Also exercise the generated menu link, not only direct ?reality= URLs.
   await navigate('/?' + options + '&ui&lang=en&backend=webgl2',
