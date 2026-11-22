@@ -48,8 +48,10 @@ test('invalid source or datum is rejected and no-data cannot turn into a height'
 });
 
 test('sparse OSM segment cannot bridge missing detail DEM even with covered endpoints',()=>{
- const g=createMultiResSampler({detail:grid(5,10,200),backdrop:grid(11,20,100)});
- const report=g.coverage([[10,10],[70,10],[10,10]]);
+ const detail=grid(7,10,200);
+ detail.heights[3*7+3]=NaN;
+ const g=createMultiResSampler({detail,backdrop:grid(11,20,100)});
+ const report=g.coverage([[10,30],[50,30],[10,30]]);
  assert.equal(report.detailVertices,3);
  assert.equal(report.backdropOnlyVertices,0);
  assert.equal(report.detailOnlyReady,false);
