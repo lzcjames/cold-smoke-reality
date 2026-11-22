@@ -73,3 +73,26 @@ test('fetch count respects bounded concurrency',async()=>{
   assert.equal(max,2);
   assert.equal(api.status().loaded.length,4);
 });
+
+test('overlapping retention requests settle in invocation order, keeping newest ground',async()=>{
+  let releaseFirst;
+  const gate=new Promise(resolve=>{releaseFirst=resolve;});
+  const {api,dem}=fixture({capacity:1,fetchTile:async url=>{
+    if(url.includes('t0_0')) await gate;
+    const [x,y]=url.match(/t(\d+)_(\d+)/).slice(1).map(Number);
+    return {ok:true,arrayBuffer:async()=>encoder.encode(JSON.stringify(mk(x,y))).buffer};
+  }});
+  const old=api.retain(['0:0']);
+  const newer=api.retain(['1:0']);
+  releaseFirst();
+  await Promise.all([old,newer]);
+  assert.deepEqual(api.status().protected,['1:0']);
+  assert.deepEqual(api.status().loaded,['1:0']);
+  assert.equal(dem.has(900025,6499990),true);
+  assert.equal(dem.has(900005,6499990),false);
+});
+test('retention cannot exceed the configured tile budget',async()=>{
+  const {api}=fixture({capacity:1});
+  await assert.rejects(api.retain(['0:0','1:0']),/Invalid DEM retention set/);
+  assert.equal(api.status().loaded.length,0);
+});
