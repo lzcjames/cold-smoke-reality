@@ -55,6 +55,8 @@ function validate(staging, report, index, {expectedName='Jandri 2', maxJsonBytes
      staging.approxUncompressedHeightBytes!==g.heights.length*4)
     throw Error('Staged geometry missing source-line coverage samples');
   const heights=g.heights;
+  let low=Infinity,high=-Infinity;
+  for(const h of heights){if(h<low)low=h;if(h>high)high=h;}
   return Object.freeze({
     schema:'cold-smoke-measured-dem-check/v1',resortId:staging.resortId,
     sourceOSMSHA256:staging.sourceOSMSHA256,
@@ -64,7 +66,7 @@ function validate(staging, report, index, {expectedName='Jandri 2', maxJsonBytes
     gridHeightSamples:heights.length,
     boundsLambert93:[g.east,g.north-(g.rows-1)*g.step,
       g.east+(g.cols-1)*g.step,g.north],
-    minElevationM:Math.min(...heights),maxElevationM:Math.max(...heights),
+    minElevationM:low,maxElevationM:high,
     stagingJsonBytes:actualBytes,verifiedSourceLineSamples:staging.verifiedSourceLineSamples,
     playable:false,readyToDeploy:false
   });
