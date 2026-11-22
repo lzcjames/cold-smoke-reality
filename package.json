@@ -17,7 +17,8 @@
     "motion": "node tools/motion/run.js",
     "start": "node build.js && node tools/serve.js",
     "build:xhs": "node tools/build-xhs.js",
-    "resort:import": "node tools/reality/import_portable_resort.cjs"
+    "resort:import": "node tools/reality/import_portable_resort.cjs",
+    "resort:osm-import": "node tools/reality/import_osm_survey.cjs"
   },
   "engines": {
     "node": ">=18"
