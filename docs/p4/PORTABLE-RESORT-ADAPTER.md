@@ -5,7 +5,7 @@ The user-provided Hemu 1.4.0 ZIP contains `world.js`, an application bundle,
 and two compressed height-grid scripts. Its world descriptor contains a local
 metre coordinate system, elevation origin, separate `detail` and `backdrop`
 height grids, `pistes[]`, `lifts[]` and `stations[]`. In the supplied
-archive there are 87 piste records, 10 lift records and 13 station records.
+archive there are 87 piste records, 10 lift records and 13 station records (including three\nstationless magic carpets).
 Its compact lift implementation derives track positions and carrier phase
 from line length and clock time; boarding and unloading are state changes,
 not a rope-force solver.
@@ -55,3 +55,22 @@ verified data preparation and the existing Reality asset format for shipping.
 
 The existing skiing, scenery, homepage, and resort data are intentionally
 unchanged in this PR. No speedup or complete Jandri 2 is claimed.
+
+## Quick use
+
+Export the source world's JSON (do not execute untrusted JavaScript) then run:
+
+```sh
+node tools/reality/import_portable_resort.cjs world.json my-next-resort /tmp/my-next-resort.manifest.json
+node --test test/portable-resort-adapter.test.cjs test/portable-lift-motion.test.cjs
+```
+
+For a schematic cabin preview, the separate `portable_lift_motion.cjs`
+calculates cabin positions on a source polyline from a clock and an altitude
+sampler. It intentionally does **not** implement verified cable sag, carriage
+physics, boarding or disembarkation. A visual lift cannot approve itself as a
+real in-game destination.
+
+The shipped `Reality.load` path and existing resort catalog remain unchanged.
+Integration of new verified DEM packs into the live renderer is a separate
+step, not something this manifest alone can accomplish.
