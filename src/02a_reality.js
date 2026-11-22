@@ -19,7 +19,7 @@ const Reality = (() => {
   const defaultId = () => catalog()[0]?.id || id;
   const clampTo = (n, max) => Math.max(0, Math.min(max, n));
   const mix = (a, b, t) => a + (b - a) * t;
-  function create(data) {
+  function create(data, suppliedTilePreview = null) {
     const { grid, piste, elevationSource } = data || {};
     const valid = (grid && piste && data.version === 1 &&
       typeof data.id === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.id) &&
@@ -59,11 +59,11 @@ const Reality = (() => {
     // tile samples before any camera or skier query; never async-swap ground.
     // Render and collision use the same elevation() path, so the experiment
     // measures seam continuity without altering skier contact code.
-    const tilePreview = data.id === 'les-deux-alpes' &&
+    const tilePreview = suppliedTilePreview || (data.id === 'les-deux-alpes' &&
       typeof location !== 'undefined' &&
       /(?:^|[?&])tileCollision=1(?:&|$)/.test(location.search || '') &&
       typeof RealityTilePreview !== 'undefined'
-      ? RealityTilePreview.fromGrid(grid) : null;
+      ? RealityTilePreview.fromGrid(grid) : null);
     function elevation(x, z) {
       const e=e0-x*dn-z*de, n=n0+x*de-z*dn;
       if (tilePreview && tilePreview.covers(e,n))
@@ -158,7 +158,16 @@ const Reality = (() => {
         data = await response.json();
       }
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
-      const terrain = cachedTerrain || create(data);
+      // External tiles are verified and fully loaded before the first physics
+      // or camera height query. Normal player boot remains unchanged.
+      const externalTiles = resort.id === 'les-deux-alpes' &&
+        typeof location !== 'undefined' &&
+        /(?:^|[?&])tileStream=1(?:&|$)/.test(location.search || '');
+      const externalPreview = externalTiles
+        ? await RealityTileExternal.load(data,'reality/les-deux-alpes-tiles/manifest.json')
+        : null;
+      const terrain = externalPreview ? create(data,externalPreview) :
+        cachedTerrain || create(data);
       terrain.resortName = resort.name;
       if (network && !cachedTerrain) terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(data, terrain));
       if (store && (responseForStore || reusedResponse)) {
