@@ -5,7 +5,8 @@ The user-provided Hemu 1.4.0 ZIP contains `world.js`, an application bundle,
 and two compressed height-grid scripts. Its world descriptor contains a local
 metre coordinate system, elevation origin, separate `detail` and `backdrop`
 height grids, `pistes[]`, `lifts[]` and `stations[]`. In the supplied
-archive there are 87 piste records, 10 lift records and 13 station records (including three\nstationless magic carpets).
+archive there are 87 piste records, 10 lift records and 13 station records (including three
+stationless magic carpets).
 Its compact lift implementation derives track positions and carrier phase
 from line length and clock time; boarding and unloading are state changes,
 not a rope-force solver.
@@ -42,7 +43,17 @@ verified data preparation and the existing Reality asset format for shipping.
 
 ## Runtime loading integration (first phase complete)
 
-The game and build now call `ResortRoutes.current(...)` in\n`src/02i_resort_routes.js`. This shared provider pipeline checks that\nimported route providers preserve the original resort's verified grid,\nprimary route, existing piste records and unique way IDs. The existing\nJandri lower clip is its first provider; both a fresh fetch and CacheStorage\ncache hit use exactly the same entry point. No new resort pack is enabled\nby this integration, and future sources still require independent review.\n\n## Remaining steps for a new playable mountain\n\n1. Prepare the new resort's genuine local DEM grids and explicit CRS
+The game and build now call `ResortRoutes.current(...)` in
+`src/02i_resort_routes.js`. This shared provider pipeline checks that
+imported route providers preserve the original resort's verified grid,
+primary route, existing piste records and unique way IDs. The existing
+Jandri lower clip is its first provider; both a fresh fetch and CacheStorage
+cache hit use exactly the same entry point. No new resort pack is enabled
+by this integration, and future sources still require independent review.
+
+## Remaining steps for a new playable mountain
+
+1. Prepare the new resort's genuine local DEM grids and explicit CRS
    transform. Keep near/far grids as separate lazy-loaded resources.
 2. Convert routes through this importer with real source IDs and measured
    coverage; verify downhill direction, widths and crossings independently.
@@ -71,6 +82,12 @@ sampler. It intentionally does **not** implement verified cable sag, carriage
 physics, boarding or disembarkation. A visual lift cannot approve itself as a
 real in-game destination.
 
-The shipped `Reality.load` path and existing resort catalog remain unchanged.
-Integration of new verified DEM packs into the live renderer is a separate
-step, not something this manifest alone can accomplish.
+The existing `Reality.load` path now calls the shared `ResortRoutes.current` adapter.
+The current production resort data is unchanged. Integration of new verified
+DEM packs into the live renderer is a separate step, not something this
+manifest alone can accomplish.
+
+For an actual **OSM source index** rather than a Hemu-shaped world JSON,
+see [OSM-SURVEY-ADAPTER.md](OSM-SURVEY-ADAPTER.md). The two adapters preserve
+their respective coordinate systems; a source index is never silently
+accepted as a ready-to-ski terrain pack.
