@@ -96,3 +96,16 @@ test('retention cannot exceed the configured tile budget',async()=>{
   await assert.rejects(api.retain(['0:0','1:0']),/Invalid DEM retention set/);
   assert.equal(api.status().loaded.length,0);
 });
+
+test('speculative tile cannot report success when collision cache is full of protected ground',async()=>{
+  const {api,dem}=fixture({capacity:1});
+  await api.retain(['0:0']);
+  await assert.rejects(api.load('1:0'),/cannot be retained within protected cache budget/);
+  assert.deepEqual(api.status().protected,['0:0']);
+  assert.deepEqual(api.status().loaded,['0:0']);
+  assert.equal(dem.has(900005,6499995),true);
+  assert.equal(dem.has(900025,6499995),false);
+  await api.retain(['1:0']);
+  assert.equal(dem.has(900025,6499995),true);
+  assert.deepEqual(api.status().loaded,['1:0']);
+});
