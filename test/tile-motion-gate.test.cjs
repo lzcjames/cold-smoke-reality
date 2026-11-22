@@ -6,7 +6,9 @@ function fixture(){
   let accepted=true,active=true,retains=0,capacity=3;
   const dem={has:(x,y)=>active&&x>=0&&x<=40&&y>=-15&&y<=15};
   const neighborhood={select:(p)=>({ready:accepted&&p[0]>=0&&p[0]<=40,
-    ids:p[0]<20?['0:0']:['1:0']})};
+    ids:p[0]<20?['0:0']:['1:0']}),
+    tileIdAt:p=> (p[0]<20?'0:0':'1:0'),
+    known:id=>id==='0:0'||id==='1:0'};
   const stream={retain:async(ids)=>{retains++;assert(ids.length<=capacity);},
     status:()=>({capacity})};
   const gate=Gate.create({neighborhood,stream,dem,footprintM:1,sampleStepM:2});
@@ -46,4 +48,32 @@ test('unsafe capacity, invalid positions and missing measured footprint fail clo
   assert.equal(await f.gate.prepare([18,0],[22,0]),null);
   await assert.rejects(f.gate.prepare([NaN,0],[20,0]),/Invalid projected/);
   await assert.rejects(f.gate.prepare([0,0],[2500,0]),/Unbounded/);
+});
+
+test('ski edges crossing an unlisted surveyed tile fail closed, even if center is listed',async()=>{
+  let loads=0;
+  const neighborhood={
+    select:p=>({ready:true,ids:['0:0']}),
+    tileIdAt:p=>p[1]>0.5?'0:-1':'0:0',
+    known:id=>id==='0:0'
+  };
+  const stream={retain:async()=>{loads++;},status:()=>({capacity:3})};
+  const gate=Gate.create({neighborhood,stream,dem:{has:()=>true},footprintM:1});
+  assert.equal(await gate.prepare([1,0],[2,0]),null);
+  assert.equal(loads,0,'unknown side-contact data must not be fetched or authorized');
+});
+test('footprint tiles must be pinned even when lookahead prioritization omits them',async()=>{
+  let retained=[];
+  const neighborhood={
+    select:p=>({ready:true,ids:['0:0']}),
+    tileIdAt:p=>p[0]>=2?'1:0':'0:0',
+    known:id=>['0:0','1:0'].includes(id)
+  };
+  const stream={retain:async ids=>{retained=ids;},status:()=>({capacity:2})};
+  const gate=Gate.create({neighborhood,stream,dem:{has:()=>true},
+    footprintM:0,sampleStepM:0.5});
+  const ticket=await gate.prepare([1,0],[3,0]);
+  assert.ok(ticket);
+  assert.deepEqual(retained,['0:0','1:0']);
+  assert.equal(gate.permit(ticket,[1,0],[3,0]),true);
 });
