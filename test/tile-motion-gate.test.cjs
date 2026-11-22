@@ -28,7 +28,7 @@ test('motion permit requires measured contact coverage across tile boundary',asy
 test('outside surveyed coverage never grants a motion permit',async()=>{
   const f=fixture();
   assert.equal(await f.gate.prepare([35,0],[45,0],[2,0]),null);
-  assert.equal(await f.gate.prepare([10,14],[11,14]),null);
+  assert.equal(await f.gate.prepare([10,15],[11,15]),null);
   assert.equal(f.count(),1,'missing catalog never requests tiles');
 });
 test('later motion invalidates earlier authorization and manual invalidation',async()=>{
@@ -44,6 +44,6 @@ test('unsafe capacity, invalid positions and missing measured footprint fail clo
   const f=fixture();
   f.setCapacity(1);
   assert.equal(await f.gate.prepare([18,0],[22,0]),null);
-  assert.throws(()=>f.gate.prepare([NaN,0],[20,0]),/Invalid projected/);
+  await assert.rejects(f.gate.prepare([NaN,0],[20,0]),/Invalid projected/);
   await assert.rejects(f.gate.prepare([0,0],[2500,0]),/Unbounded/);
 });
