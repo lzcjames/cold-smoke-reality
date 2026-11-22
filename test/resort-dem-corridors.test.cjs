@@ -31,7 +31,7 @@ test('covered real DEM centrelines receive measured profiles but never ski appro
 });
 test('nodata in a sparse segment is rejected despite both endpoints existing',()=>{
  const detail=grid(9,210);
- detail.heights[4]=NaN;
+ detail.heights[2]=NaN;
  const sampler=createMultiResSampler({detail,backdrop:grid(15,180)});
  const result=auditTerrainCorridors(survey(),sampler,proj);
  assert.equal(result.detailedCentrelineCoveredWays,0);
