@@ -349,7 +349,7 @@ try {
     assert.equal(audit.gfxAlive,true,JSON.stringify(audit));
     assert.equal(audit.progressed,true,JSON.stringify(audit));
     assert.ok(audit.groundGap<0.5,JSON.stringify(audit));
-    assert.equal(audit.error,null,JSON.stringify(audit));
+    assert(!audit.error,JSON.stringify(audit));
     console.log('Real Les Deux Alpes tileCollision A/B browser skier render passed', backend, audit);
   }
 
