@@ -158,3 +158,15 @@ can request the proper footprint. A tile checksum or network failure is
 reported and the same destination may retry on its **next scheduled
 observation**, rather than issuing unbounded immediate retry requests. No
 behavior of the main renderer, skier pose or measured collision grid changes.
+
+### Chromium skier vertical-continuity evidence
+
+The `tileAudit=1` WebGL2 browser regression now advances the actual skier
+solver through 180 successive fixed 1/60-second steps and records maximum
+skier-to-original-DEM clearance, largest one-frame change in that clearance,
+largest one-frame source-surface height change, and maximum visual root-to-
+surface offset. All samples must be finite, and gross (5 m) contact jumps
+fail CI. These coarse safety checks do **not** establish imperceptible ski
+jitter, stable 60 FPS on customer devices, or correctness across the
+unmeasured resort; the measured metrics are logged for subsequent tighter,
+hardware-informed bounds. The experiment still never changes live physics.
