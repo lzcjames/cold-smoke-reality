@@ -7,7 +7,7 @@ const Stream=require('../src/02a_tile_stream.js');
 const Neighborhood=require('../src/02a_tile_neighborhood.js');
 const Shadow=require('../src/02a_tile_shadow.js');
 const enc=new TextEncoder();
-function fixture({delay=false,corrupt=false}={}){
+function fixture({delay=false,corrupt=false,partial=false}={}){
   const asset={id:'les-deux-alpes',grid:{east:900000,north:6500000,step:10,
     cols:7,rows:3,heights:Array.from({length:21},(_,i)=>
       1800+(i%7)*2+Math.floor(i/7)*3)}};
@@ -20,6 +20,13 @@ function fixture({delay=false,corrupt=false}={}){
     const tile={x,y:0,heights:[]};
     for(let row=0;row<3;row++)for(let col=0;col<3;col++)
       tile.heights.push(asset.grid.heights[row*7+x*2+col]);
+    // Deliberately signed but undersized tile: correct hash must not make
+    // unmeasured ski-contact samples pass the height continuity audit.
+    if(partial&&x===1){
+      tile.cols=2;
+      tile.heights=[tile.heights[0],tile.heights[1],
+        tile.heights[3],tile.heights[4],tile.heights[6],tile.heights[7]];
+    }
     const url='tile_'+x+'.json';
     const bytes=enc.encode(JSON.stringify(tile));
     files.set(url,bytes);
@@ -108,4 +115,13 @@ test('leaving measured coverage invalidates delayed tile responses and permits r
   status=await settle(f.shadow);
   assert.ok(status.checked>0,'returning inside real DEM must allow a new verified audit');
   assert.equal(status.failures,0);
+});
+
+test('validly signed but incomplete tile coverage fails the actual ski-contact audit',async()=>{
+  const f=fixture({partial:true});
+  assert.equal(f.shadow.observe([900035,6499990],[1,0]),true);
+  const status=await settle(f.shadow);
+  assert.equal(status.checked,0);
+  assert.equal(status.failures,1);
+  assert.match(status.lastError,/tile missing at ski contact/);
 });
