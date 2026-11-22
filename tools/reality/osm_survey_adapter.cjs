@@ -52,7 +52,9 @@ function normalizeOsmSurvey(index,{resortId,names=null}={}) {
       sourceApproxLengthM:feature.approxPlanarLengthM,
       approvedForGameplay:false});
   }
-  if(!ways.length)throw Error('No source OSM piste ways match this resort selection');
+  if(!ways.length)throw Error(selected ?
+    'Selected OSM route name not found: '+[...selected].join(', ') :
+    'No source OSM piste ways match this resort selection');
   if(selected)for(const n of selected)
     if(!ways.some(w=>w.names.includes(n)))
       throw Error('Selected OSM route name not found: '+n);
