@@ -144,6 +144,17 @@ function tick(dt, draw) {
   App.t += dt;
   Input.update(real);
   Game.update(dt);
+  // Audit-only real DEM streaming. Dispatch at <=4 Hz, never await a network
+  // request on the rendering/physics frame and never replace contact heights.
+  if (Course.reality?.tileShadow && Game.mode === 'run') {
+    App.tileAuditElapsed = (App.tileAuditElapsed || 0) + dt;
+    if (App.tileAuditElapsed >= 0.25) {
+      App.tileAuditElapsed = 0;
+      const terrain=Course.reality, p=Game.s.p, v=Game.s.v;
+      terrain.tileShadow.observe(terrain.toProjected(p[0],p[2]),
+        terrain.velocityToProjected(v[0],v[2]));
+    }
+  } else App.tileAuditElapsed=0;
   if (App.camHook) App.camHook(dt);                                     // (in the headset the lens is the player's own head, set on the game's camera: 21_xr.js)
   const cp = Render.cam.pos, S = Game.s, st = App.state;
   Tracks.step(Game.root, Game.pose, S);
