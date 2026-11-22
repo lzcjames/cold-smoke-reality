@@ -51,3 +51,15 @@ test('verified export requires real OSM node identity and a complete source-grou
  assert.throws(()=>toVerifiedPisteNetwork(m,{...approval,junctions:[{id:1}]}),/independently/);
  assert.throws(()=>toVerifiedPisteNetwork(m,{}),/georeferencing/);
 });
+
+test('three Hemu-like magic carpets can omit independent station IDs',()=>{
+ const w=world();
+ for(let i=0;i<3;i++)w.lifts.push({id:String(30+i),type:'magic_carpet',
+    name:'Carpet '+i,points:[[0,0],[0,30+i]],stationIds:[null,null]});
+ const m=normalize(w,{resortId:'demo-resort'});
+ assert.equal(m.lifts.filter(l=>l.unstationedSurfaceLift).length,3);
+ assert.deepEqual(m.lifts.at(-1).stationIds,[null,null]);
+ const invalid=world();
+ invalid.lifts[0].stationIds=[null,null];
+ assert.throws(()=>normalize(invalid,{resortId:'demo-resort'}),/existing source stations/);
+});
