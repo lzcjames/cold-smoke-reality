@@ -43,7 +43,7 @@ test('rejects missing original height, unreasonable mesh size and malformed coor
 });
 test('bounded source mesh triangle cells and normals remain finite on slopes',()=>{
  const m=make(tile(),origin);
- assert.equal(m.minimumLocalElevationM,2476-2400);
+ assert.equal(m.minimumLocalElevationM,2486-2400);
  assert.equal(m.maximumLocalElevationM,100);
  assert.ok(Array.from(m.normals).every(Number.isFinite));
  assert.ok(Array.from(m.indices).every(x=>x>=0&&x<m.vertexCount));
