@@ -43,8 +43,11 @@ const TerrainTileMotionGate = (() => {
          from[0]!==ticket.from[0]||from[1]!==ticket.from[1]||
          to[0]!==ticket.to[0]||to[1]!==ticket.to[1])
         return false;
-      // A later eviction invalidates a previously prepared step.
-      return covered(ticket.points);
+      // A later eviction invalidates a previously prepared step. A permit is
+      // single-use: every committed physics step must recheck its own path.
+      if (!covered(ticket.points)) return false;
+      token=null;
+      return true;
     }
     async function prepare(from,to,velocity=[0,0]) {
       const points=samples(from,to);
