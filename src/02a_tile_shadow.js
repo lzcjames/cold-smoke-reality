@@ -55,7 +55,12 @@ const TerrainTileShadow = (() => {
             if(queued||closed||request.generation!==generation)continue;
             for(const [e,n] of request.probes) {
               const h=dem.sample(e,n),original=expected(e,n);
-              if(h===null||original===null)continue;
+              // Off-crop lookahead is not surveyed, but an in-crop
+              // missing tile is a genuine audit failure, not a zero-error
+              // success that conceals the cache's missing ski contact.
+              if(original===null)continue;
+              if(h===null||!Number.isFinite(h))
+                throw Error('Measured DEM shadow tile missing at ski contact');
               const error=Math.abs(h-original);
               peakErrorM=Math.max(peakErrorM,error);
               checked++;
@@ -87,9 +92,16 @@ const TerrainTileShadow = (() => {
       const sig=choice.ids.join(',');
       if(sig===signature)return true; // bound network work by tile changes
       signature=sig;
-      const projected=[position,
-        [position[0]+velocity[0]*lookaheadSeconds,
-          position[1]+velocity[1]*lookaheadSeconds]];
+      // Sample both ski edges and the center along the future path;
+      // only six very cheap height lookups at the scheduled 4 Hz audit
+      // frequency, completely outside the physics/render height path.
+      const dx=velocity[0]*lookaheadSeconds,dy=velocity[1]*lookaheadSeconds;
+      const mag=Math.hypot(dx,dy),nx=mag>1e-9?-dy/mag:1,
+        ny=mag>1e-9?dx/mag:0;
+      const projected=[];
+      for(const fraction of [0,0.5,1])for(const side of [-0.45,0,0.45])
+        projected.push([position[0]+dx*fraction+nx*side,
+          position[1]+dy*fraction+ny*side]);
       queued={ids:choice.ids,probes:projected,generation:++generation};
       void drain();
       return true;
