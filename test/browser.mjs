@@ -391,6 +391,30 @@ try {
     JSON.stringify(diskTiles));
   console.log('Separate-file SHA verified real DEM collision & WebGL2 skiing passed',diskTiles);
 
+  // In-motion verified DEM streaming shadow, on actual moving skier.
+  // Collision stays on the established real source grid during this trial.
+  await navigate('/?' + options + '&reality=les-deux-alpes&network=1&tileAudit=1&backend=webgl2',
+    'Boolean(window.__ski)');
+  const auditBoot=await evaluate(`(async()=>{
+    const k=window.__ski,boot=await k.boot();
+    if(!boot.startsWith('ok'))return {boot,error:k.err()};
+    const terrain=k.m.Course.reality;
+    if(!terrain.tileShadow)return {boot,shadowMissing:true};
+    k.sim(2,k.pilot());
+    await new Promise(resolve=>setTimeout(resolve,500));
+    return {boot,terrain:terrain.id,shadow:terrain.tileShadow.status(),
+      graphicsAlive:!k.app().gfx.lost,error:k.err()};
+  })()`);
+  assert.equal(auditBoot.boot,'ok webgl2',JSON.stringify(auditBoot));
+  assert.equal(auditBoot.terrain,'les-deux-alpes');
+  assert(auditBoot.shadow && auditBoot.shadow.checked>0 &&
+    auditBoot.shadow.peakErrorM<0.002 && auditBoot.shadow.failures===0,
+    JSON.stringify(auditBoot));
+  assert(auditBoot.shadow.loaded<=6 && auditBoot.graphicsAlive && !auditBoot.error,
+    JSON.stringify(auditBoot));
+  console.log('Live verified DEM shadow follows real skier without changing collision',
+    auditBoot.shadow);
+
   // Also exercise the generated menu link, not only direct ?reality= URLs.
   await navigate('/?' + options + '&ui&lang=en&backend=webgl2',
     'Boolean(document.querySelector("#reality-resorts a"))');
