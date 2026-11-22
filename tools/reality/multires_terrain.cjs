@@ -51,6 +51,8 @@ function createMultiResSampler({detail,backdrop,edgeCells=3}) {
     if(!Array.isArray(points)) throw Error('Expected projected way polyline');
     const missing=[],discontinuities=[];
     let nDetail=0,nFallback=0;
+    const uncoveredSegmentIndices=[];
+    let sampledInteriorPoints=0;
     for(let i=0;i<points.length;i++){
       const p=points[i];
       if(!Array.isArray(p)||p.length!==2||!p.every(Number.isFinite))
@@ -64,9 +66,28 @@ function createMultiResSampler({detail,backdrop,edgeCells=3}) {
       if(i>0 && (!near||!sample(detail,...points[i-1])))
         discontinuities.push(i);
     }
+    // Vertex-only coverage misses holes and grid-edge crossings between
+    // sparse OSM nodes. Sample every segment at <= half a detail raster cell.
+    // This is a source-coverage gate, not piste-width or hazard approval.
+    for(let i=1;i<points.length;i++) {
+      const a=points[i-1], b=points[i];
+      const distance=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      const intervals=Math.max(1,Math.ceil(distance/(detail.stepM*0.5)));
+      if(intervals>100000) throw Error('OSM segment exceeds DEM audit sampling limit');
+      let covered=true;
+      for(let j=1;j<intervals;j++) {
+        const t=j/intervals;
+        const x=a[0]+(b[0]-a[0])*t, z=a[1]+(b[1]-a[1])*t;
+        sampledInteriorPoints++;
+        if(!sample(detail,x,z)) {covered=false; break;}
+      }
+      if(!covered) uncoveredSegmentIndices.push(i);
+    }
     return Object.freeze({total:points.length,detailVertices:nDetail,
       backdropOnlyVertices:nFallback,missingIndices:Object.freeze(missing),
-      detailOnlyReady:missing.length===0&&nFallback===0&&nDetail===points.length,
+      detailOnlyReady:missing.length===0&&nFallback===0&&nDetail===points.length&&uncoveredSegmentIndices.length===0,
+      uncoveredSegmentIndices:Object.freeze(uncoveredSegmentIndices),
+      sampledInteriorPoints,
       highDetailCoverageMarginM:null,  // must be checked against piste width separately
       requiresHazardAndPisteAreaReview:true});
   }
