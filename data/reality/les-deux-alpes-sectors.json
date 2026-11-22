@@ -1,0 +1,125 @@
+{
+  "schema": "cold-smoke-official-resort-sectors/v1",
+  "resortId": "les-deux-alpes",
+  "source": {
+    "kind": "user-supplied official winter piste plan",
+    "filename": "plan_hiver_les2alpes_aeon(1).pdf",
+    "page": 1,
+    "role": "names and qualitative connections, not georeferenced piste boundaries",
+    "verifiedBy": "visual inspection"
+  },
+  "sectors": [
+    {
+      "id": "lauze",
+      "mapLabel": "LAUZE 3600",
+      "altitudeLabelM": 3600,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "puy-salie",
+      "mapLabel": "PUY SALIÉ 3400",
+      "altitudeLabelM": 3400,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "jandri-3200",
+      "mapLabel": "JANDRI 3200",
+      "altitudeLabelM": 3200,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "toura",
+      "mapLabel": "TOURA 2900",
+      "altitudeLabelM": 2900,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "jandri-2600",
+      "mapLabel": "JANDRI 2600",
+      "altitudeLabelM": 2600,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "pierre-grosse",
+      "mapLabel": "PIERRE GROSSE",
+      "altitudeLabelM": null,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "fee",
+      "mapLabel": "FÉE 2100",
+      "altitudeLabelM": 2100,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "diable",
+      "mapLabel": "DIABLE 2400",
+      "altitudeLabelM": 2400,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "cretes",
+      "mapLabel": "CRÊTES",
+      "altitudeLabelM": null,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "belle-etoile",
+      "mapLabel": "BELLE ÉTOILE 2100",
+      "altitudeLabelM": 2100,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "vallee-blanche",
+      "mapLabel": "VALLÉE BLANCHE 2100",
+      "altitudeLabelM": 2100,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    },
+    {
+      "id": "village",
+      "mapLabel": "LES DEUX ALPES 1650",
+      "altitudeLabelM": 1650,
+      "osmWayIds": [],
+      "sourceBoundsLambert93": null,
+      "approvedForGameplay": false
+    }
+  ],
+  "accessAreas": [
+    {
+      "id": "mont-de-lans",
+      "mapLabel": "MONT DE LANS VILLAGE 1300"
+    },
+    {
+      "id": "venosc",
+      "mapLabel": "VENOSC VILLAGE 960"
+    }
+  ],
+  "mapNotices": [
+    "The map distinguishes marked pistes from off-piste and closed/no-entry areas.",
+    "Sector labels and displayed altitudes are not terrain contours or survey coordinates.",
+    "Resort-return slopes have special difficulty advisories on the map."
+  ],
+  "status": "map-index-only-not-complete-gis-survey"
+}
