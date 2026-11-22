@@ -8,8 +8,8 @@ const grid=(n,step,base,change={})=>({
  heights:Float32Array.from({length:n*n},()=>base),...change
 });
 test('source-bound dual resolution uses exact sampled terrain and no extrapolation',()=>{
- const g=createMultiResSampler({detail:grid(5,10,200),backdrop:grid(11,20,100)});
- assert.equal(g.height(20,20),200);
+ const g=createMultiResSampler({detail:grid(9,10,200),backdrop:grid(11,20,100)});
+ assert.equal(g.height(40,40),200);
  assert.equal(g.height(85,85),100);
  assert.equal(g.height(-1,4),null);
  assert.equal(g.height(201,201),null);
