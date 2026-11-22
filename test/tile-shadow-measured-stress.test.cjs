@@ -67,6 +67,22 @@ test('real IGN crop: repeated complete tile-grid traversal stays bounded and mat
       previous=state.checked;
     }
   }
+  // Continuous measured-grid sweeps cross the three east/west 600 m
+  // seams at multiple latitudes. This tests moving-cache behavior at
+  // intermediate positions rather than only jumping between tile centers.
+  for(let y=0;y<4;y++){
+    const n=g.north-(y*40+Math.min(12,g.rows-2-y*40))*g.step;
+    const increments=[];
+    for(let x=5;x<g.cols-3;x+=5)increments.push(x);
+    if(y%2)increments.reverse();
+    for(const x of increments){
+      assert.equal(shadow.observe([g.east+x*g.step,n],[4,0]),true);
+      const state=await settled(shadow);
+      assert.equal(state.failures,0,state.lastError);
+      assert.ok(state.loaded<=6);
+      assert.ok(state.peakErrorM<0.002);
+    }
+  }
   const state=shadow.status();
   assert.ok(state.checked>20,'too few measured height comparisons');
   assert.ok(state.updates>=20,'did not traverse the measured crop');
