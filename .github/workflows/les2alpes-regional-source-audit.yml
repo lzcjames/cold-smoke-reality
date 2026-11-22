@@ -1,6 +1,13 @@
 name: Les Deux Alpes regional OSM candidate survey (source only)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/reality/overpass_region_source.cjs'
+      - 'tools/reality/index_regional_overpass.cjs'
+      - 'data/reality/les-deux-alpes-sectors.json'
+      - '.github/workflows/les2alpes-regional-source-audit.yml'
   workflow_dispatch:
 
 permissions:
