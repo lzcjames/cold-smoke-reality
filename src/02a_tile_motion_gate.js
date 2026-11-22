@@ -5,6 +5,8 @@ const TerrainTileMotionGate = (() => {
   const pair=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite);
   function create({neighborhood,stream,dem,footprintM=1,sampleStepM=2.5}) {
     if(typeof neighborhood?.select!=='function' ||
+       typeof neighborhood?.tileIdAt!=='function' ||
+       typeof neighborhood?.known!=='function' ||
        typeof stream?.retain!=='function' ||
        typeof stream?.status!=='function' ||
        typeof dem?.has!=='function' ||
@@ -52,7 +54,20 @@ const TerrainTileMotionGate = (() => {
       const first=neighborhood.select(from,velocity);
       const second=neighborhood.select(to,velocity);
       if(!first.ready || !second.ready) return null;
-      const ids=[...new Set([...first.ids,...second.ids])];
+      // Neighborhood prioritization alone can omit a ski-edge tile when
+      // the lookahead budget is tight. Demand EVERY exact footprint tile.
+      const required = new Set();
+      for (const point of points) {
+        const id = neighborhood.tileIdAt(point);
+        if (!neighborhood.known(id)) return null;
+        required.add(id);
+      }
+      const ids=[...required];
+      for (const id of [...first.ids,...second.ids])
+        if (!required.has(id) && ids.length < stream.status().capacity) {
+          ids.push(id);
+          required.add(id);
+        }
       if(ids.length>stream.status().capacity) return null;
       await stream.retain(ids);
       if(current!==revision || !covered(points)) return null;
