@@ -104,3 +104,27 @@ optional licensed asset exists), including multiple tile seams, and
 checks Alpe d'Huez does not opt into this flag. This is a preparatory
 A/B gate, **not** full streaming, new piste coverage or proof of smooth
 physical gameplay on real hardware.
+
+## Separate published DEM file preload (developer option)
+
+When the licensed Les Deux Alpes source asset is present, `node build.js`
+now also exports a **source-identical experimental pack** to
+`dist/reality/les-deux-alpes-tiles/`. Normal resort play still uses the
+original single JSON pack. The opt-in URL is:
+
+```text
+?reality=les-deux-alpes&network=1&tileStream=1
+```
+
+At boot, the external experiment fetches the manifest and each of the
+measured tiles (maximum three in flight), verifies SHA-256 against the
+manifest, cross-checks the original source grid checksum, checks seam
+compatibility and every original height sample, and only **then** allows
+the terrain to serve shared render/physics height queries. A missing,
+modified, incomplete or mismatched pack fails startup rather than falling
+back to fabricated slopes.
+
+This demonstrates separate-file loading into a live Reality height
+provider. **It does not yet stream/unload tiles while moving**, and does
+not increase the geographic extent beyond the lower measured crop.
+Use `tileCollision=1` for the older in-memory A/B control experiment.
