@@ -464,8 +464,14 @@ try {
   assert.equal(auditBoot.contact.observations,180,JSON.stringify(auditBoot));
   assert(Object.values(auditBoot.contact).every(Number.isFinite),
     'Each 60 Hz skier/terrain contact metric must remain finite');
-  assert(auditBoot.contact.maxContactGap<5 && auditBoot.contact.maxGapStep<5,
-    'Extreme skier/terrain contact jump: '+JSON.stringify(auditBoot.contact));
+  // Initial 180-frame run observed 17.7 mm max separation and 12.3 mm
+  // max frame change. These tighter regression ceilings catch material
+  // worsening without claiming every perceptible animation wobble is solved.
+  assert(auditBoot.contact.maxContactGap<0.12 &&
+    auditBoot.contact.maxGapStep<0.08 &&
+    auditBoot.contact.maxRootSurfaceGap<0.08 &&
+    auditBoot.contact.maxSurfaceStep<0.5,
+    'Skier/terrain continuity regression: '+JSON.stringify(auditBoot.contact));
   console.log('Measured 60Hz skier/surface continuity (diagnostic, not proof of zero jitter)',
     auditBoot.contact);
   console.log('Live verified DEM shadow follows real skier without changing collision',
