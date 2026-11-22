@@ -59,10 +59,16 @@ const TerrainTileStream = (() => {
           loaded.set(job.id, tile);
           evict();
           return tile;
-        })().then(job.resolve, job.reject).finally(() => {
+        })().then(value => {
           pending.delete(job.id);
           active--;
           schedule();
+          job.resolve(value);
+        }, error => {
+          pending.delete(job.id);
+          active--;
+          schedule();
+          job.reject(error);
         });
       }
     }
