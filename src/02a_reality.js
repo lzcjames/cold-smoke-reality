@@ -105,6 +105,12 @@ const Reality = (() => {
       project(e, n) {
         return [(n - n0) * de - (e - e0) * dn, -(e - e0) * de - (n - n0) * dn];
       },
+      toProjected(x, z) {
+        return [e0 - x * dn - z * de, n0 + x * de - z * dn];
+      },
+      velocityToProjected(vx, vz) {
+        return [-vx * dn - vz * de, vx * de - vz * dn];
+      },
       withinDEM,
       contains(x, z) {
         return -z < length && withinDEM(x, z);
@@ -169,6 +175,25 @@ const Reality = (() => {
       const terrain = externalPreview ? create(data,externalPreview) :
         cachedTerrain || create(data);
       terrain.resortName = resort.name;
+      // Shadow-audit true network streaming while skiing, with the original
+      // already measured grid remaining the sole physics/render authority.
+      // No extra requests or per-frame allocations in default gameplay.
+      const auditTiles = resort.id === 'les-deux-alpes' &&
+        typeof location !== 'undefined' &&
+        /(?:^|[?&])tileAudit=1(?:&|$)/.test(location.search || '');
+      if (auditTiles) {
+        const manifestUrl='reality/les-deux-alpes-tiles/manifest.json';
+        const response=await fetch(manifestUrl,{cache:'force-cache'});
+        if(!response.ok)throw Error('Measured shadow DEM manifest unavailable');
+        const manifest=await response.json();
+        const digest=await TerrainTileStream.sha256(
+          new TextEncoder().encode(JSON.stringify(data.grid.heights)));
+        if(digest!==manifest.sourceHeightSHA256)
+          throw Error('Shadow DEM source checksum mismatch');
+        const directory=manifestUrl.slice(0,manifestUrl.lastIndexOf('/')+1);
+        terrain.tileShadow=TerrainTileShadow.create({asset:data,manifest,
+          fetchTile:url=>fetch(directory+url,{cache:'force-cache'})});
+      }
       // A cached single-grid Reality object cannot supply the network of a
       // newly created tiled terrain: its slope/coordinates belong to the old
       // object. Always construct the selected network on the returned terrain.
