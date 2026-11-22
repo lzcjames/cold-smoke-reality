@@ -55,9 +55,22 @@ const Reality = (() => {
     if (route.some((p, i) => (i > 0 && p[1] <= route[i - 1][1]) || !inside(...piste.points[i]))) {
       throw new Error('Alpe d’Huez piste must run downhill through the DEM coverage.');
     }
+    // Developer-only A/B audit on the EXISTING real source. Preload all
+    // tile samples before any camera or skier query; never async-swap ground.
+    // Render and collision use the same elevation() path, so the experiment
+    // measures seam continuity without altering skier contact code.
+    const tilePreview = data.id === 'les-deux-alpes' &&
+      typeof location !== 'undefined' &&
+      /(?:^|[?&])tileCollision=1(?:&|$)/.test(location.search || '') &&
+      typeof RealityTilePreview !== 'undefined'
+      ? RealityTilePreview.fromGrid(grid) : null;
     function elevation(x, z) {
-      const u = clampTo((e0 - x * dn - z * de - east) / step, cols - 1);
-      const v = clampTo((north - n0 - x * de + z * dn) / step, rows - 1);
+      const e=e0-x*dn-z*de, n=n0+x*de-z*dn;
+      if (tilePreview && tilePreview.covers(e,n))
+        return tilePreview.height(e,n);
+      // Preserve existing clamped outer-edge rendering beyond DEM coverage.
+      const u = clampTo((e - east) / step, cols - 1);
+      const v = clampTo((north - n) / step, rows - 1);
       const i = Math.min(Math.floor(u), cols - 2), j = Math.min(Math.floor(v), rows - 2);
       const k = j * cols + i;
       return mix(mix(heights[k], heights[k + 1], u - i),
@@ -83,6 +96,7 @@ const Reality = (() => {
     const withinDEM = (x, z) => inside(e0 - x * dn - z * de, n0 + x * de - z * dn);
     return {
       id: data.id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
+      tilePreviewEnabled: !!tilePreview, tilePreviewCount: tilePreview?.tiles || 0,
       difficulty: typeof piste.difficulty === 'string' ? piste.difficulty : null,
       height, centre,
       // Absolute IGN DEM elevation for altitude-aware *procedural* off-piste
