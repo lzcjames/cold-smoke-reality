@@ -82,6 +82,12 @@ for (const entry of registry.resorts) {
   const revision = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
   list.push({ id: entry.id, name: entry.name, network, revision });
   fs.copyFileSync(source, path.join(outDir, entry.id + '.json'));
+  // Source-exact experimental terrain tile pack, never loaded on the ordinary
+  // landing page. Keep the existing licensed source JSON as the authority.
+  if (entry.id === 'les-deux-alpes') {
+    const exporter = require('./tools/reality/export_dem_tiles.cjs');
+    exporter.write(asset, path.join(outDir, 'les-deux-alpes-tiles'), {cells:41});
+  }
 }
 const escapeAttribute = value => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
   .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
