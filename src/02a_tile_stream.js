@@ -86,20 +86,30 @@ const TerrainTileStream = (() => {
       pending.set(id, p);
       return p;
     }
-    async function retain(ids) {
+    // Serialize retention transactions. Otherwise a slower old camera request
+    // can finish after a newer one and incorrectly evict the skier's ground.
+    let retentionTail = Promise.resolve();
+    function retain(ids) {
       if (!Array.isArray(ids) || new Set(ids).size !== ids.length ||
-          ids.some(id => !catalog.has(id))) throw Error('Invalid DEM retention set');
-      const previous = protectedIds;
-      protectedIds = new Set([...previous, ...ids]); // avoid eviction while loading
-      try {
-        await Promise.all(ids.map(load));
-        protectedIds = new Set(ids);
-        evict();
-      } catch (error) {
-        protectedIds = previous;
-        evict();
-        throw error;
-      }
+          ids.some(id => !catalog.has(id)) || ids.length > capacity)
+        return Promise.reject(Error('Invalid DEM retention set'));
+      const requested = ids.slice();
+      const transaction = async () => {
+        const previous = protectedIds;
+        protectedIds = new Set([...previous, ...requested]);
+        try {
+          await Promise.all(requested.map(load));
+          protectedIds = new Set(requested);
+          evict();
+        } catch (error) {
+          protectedIds = previous;
+          evict();
+          throw error;
+        }
+      };
+      const current = retentionTail.then(transaction);
+      retentionTail = current.catch(() => {});
+      return current;
     }
     function status() {
       return Object.freeze({loaded:[...loaded.keys()],pending:[...pending.keys()],
