@@ -46,7 +46,12 @@ const TerrainTileNeighborhood = (() => {
       await stream.retain(choice.ids);
       return choice;
     }
-    return Object.freeze({select,loadFor});
+    function tileIdAt(position) {
+      if (!finitePair(position)) throw Error('Invalid projected tile position');
+      return name(...tile(...position));
+    }
+    const known = id => catalog.has(id);
+    return Object.freeze({select,loadFor,tileIdAt,known});
   }
   return Object.freeze({create});
 })();
