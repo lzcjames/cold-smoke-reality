@@ -42,7 +42,8 @@ test('partial real source is counted as 3 independent snapshots, never complete 
   assert.equal(report.snapshotCount,3);
   assert.deepEqual(report.missingShards,['quadrant-3']);
   assert.equal(report.sourceWayOccurrences,3);
-  assert.equal(report.uniqueOsmWayIds,3);
+  assert.equal(report.uniqueOsmWayIds,2);
+  assert.equal(report.overlappingWayIds,1);
   assert.equal(report.approvedForGameplay,false);
   assert.equal(report.mergedAtomicSnapshot,false);
  });
