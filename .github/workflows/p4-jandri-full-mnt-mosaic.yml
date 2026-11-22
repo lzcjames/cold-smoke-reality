@@ -13,6 +13,7 @@ on:
       - 'src/02l_terrain_height_snapshot.js'
       - 'src/02m_terrain_source_mesh.js'
       - 'tools/reality/audit_real_dem_mesh.cjs'
+      - 'tools/reality/audit_real_ign_ski_contact.cjs'
       - 'test/jandri_full_mnt_mosaic_test.py'
       - '.github/workflows/p4-jandri-full-mnt-mosaic.yml'
   workflow_dispatch:
@@ -95,6 +96,12 @@ jobs:
             p4-evidence/jandri2-measured-grid-staging.json \
             p4-evidence/jandri2-measured-grid-tiles \
             p4-evidence/jandri2-real-mesh-verification.json
+      - name: Audit actual ski-contact stability over verified authentic IGN source heights (no game activation)
+        run: |
+          node tools/reality/audit_real_ign_ski_contact.cjs \
+            p4-evidence/jandri2-measured-grid-staging.json \
+            p4-evidence/jandri2-measured-grid-tiles \
+            p4-evidence/jandri2-real-ski-contact-evidence.json
       - name: Archive source hashes, source profiles and unpublished DEM candidate — no raw rasters
         if: always()
         uses: actions/upload-artifact@v4
