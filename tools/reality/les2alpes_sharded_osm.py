@@ -8,11 +8,13 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 try:
-    from .p4_osm import fetch, inspect, query_for_bbox
+    from .p4_osm import OVERPASS, inspect, query_for_bbox
 except ImportError:
-    from p4_osm import fetch, inspect, query_for_bbox
+    from p4_osm import OVERPASS, inspect, query_for_bbox
 
 DEFAULT_BBOX = (44.97, 6.05, 45.09, 6.23)
 
@@ -25,7 +27,24 @@ def shards(bbox=DEFAULT_BBOX):
     return [(south,west,midlat,midlon),(south,midlon,midlat,east),
             (midlat,west,north,midlon),(midlat,midlon,north,east)]
 
-def survey(out, query_fn=query_for_bbox, fetch_fn=fetch, bbox=DEFAULT_BBOX):
+def fetch_raw(query):
+    payload=urlencode({"data":query}).encode()
+    errors=[]
+    for url in OVERPASS:
+        try:
+            req=Request(url,data=payload,headers={
+                "User-Agent":"ColdSmokeReality/1.0 (source-only resort survey)",
+                "Content-Type":"application/x-www-form-urlencoded"})
+            with urlopen(req,timeout=75) as res:
+                raw=res.read(25*1024*1024+1)
+            if len(raw)>25*1024*1024:
+                raise ValueError("Overpass source exceeds size budget")
+            return raw
+        except (OSError,TimeoutError) as exc:
+            errors.append(type(exc).__name__)
+    raise RuntimeError("Both Overpass services failed: "+", ".join(errors))
+
+def survey(out, query_fn=query_for_bbox, fetch_fn=fetch_raw, bbox=DEFAULT_BBOX):
     out=Path(out)
     out.mkdir(parents=True,exist_ok=True)
     results=[]
@@ -35,9 +54,9 @@ def survey(out, query_fn=query_for_bbox, fetch_fn=fetch, bbox=DEFAULT_BBOX):
                "sourceApprovedForGameplay":False}
         try:
             # One bound request per box; never copy neighbours to cover gaps.
-            doc=fetch_fn(query_fn(box),attempts=1)
+            raw=fetch_fn(query_fn(box))
+            doc=json.loads(raw)
             review=inspect(doc)
-            raw=json.dumps(doc,ensure_ascii=False,separators=(",",":")).encode()
             if len(raw)>25*1024*1024:
                 raise ValueError("Source fragment exceeds 25MiB")
             sourcefile=out/(tag+"-overpass-raw.json")
