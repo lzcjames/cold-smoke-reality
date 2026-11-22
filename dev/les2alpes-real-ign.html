@@ -22,7 +22,7 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
 (async function(){
  const canvas=document.getElementById('scene'),status=document.getElementById('status');
  const show=s=>{status.textContent=s};
- const gl=canvas.getContext('webgl',{antialias:true,alpha:false,depth:true});
+ const gl=canvas.getContext('webgl',{antialias:true,alpha:false,depth:true,preserveDrawingBuffer:true});
  if(!gl){show('此浏览器不支持 WebGL。该预览需要支持 WebGL 的设备；正式游戏未受影响。');return;}
  if(!globalThis.crypto?.subtle){show('需要 HTTPS 安全环境才能核对地形 SHA-256。');return;}
  const shader=(type,source)=>{const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
@@ -129,6 +129,9 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
   }
   window.addEventListener('resize',draw);
   draw();
+  // Developer-only diagnostics. No player scene, physics or production asset activation.
+  window.__ignLab = Object.freeze({verified:true,tiles:meshItems.length,samples:sampleCount,
+   triangles,render:draw});
   show('已验证 6 个真实 IGN 地形块 · '+sampleCount.toLocaleString()+' 个含重叠高度点 · '+triangles.toLocaleString()+
    ' 个三角形。仅用于地形检查；未启用雪道、缆车或雪板碰撞。');
  }catch(error){console.error(error);show('预览拒绝加载：'+error.message+'。此处绝不显示伪造地形。');}
