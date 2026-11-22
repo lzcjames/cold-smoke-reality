@@ -13,22 +13,29 @@ const TiledDEM = (() => {
     const id = (x, y) => x + ':' + y;
     const nearly = (a, b) => Math.abs(a - b) <= seamToleranceM;
     function checkSeam(a, b, vertical) {
-      for (let i = 0; i < cells; i++) {
-        const p = vertical ? a.heights[i * cells + cells - 1] :
-          a.heights[(cells - 1) * cells + i];
-        const q = vertical ? b.heights[i * cells] : b.heights[i];
+      // Border tiles may be narrower/shorter than the nominal tile size.
+      if (vertical ? a.rows !== b.rows : a.cols !== b.cols)
+        throw Error('DEM seam sample count mismatch');
+      const samples = vertical ? a.rows : a.cols;
+      for (let i = 0; i < samples; i++) {
+        const p = vertical ? a.heights[i * a.cols + a.cols - 1] :
+          a.heights[(a.rows - 1) * a.cols + i];
+        const q = vertical ? b.heights[i * b.cols] : b.heights[i];
         if (!nearly(p, q)) throw Error('DEM seam mismatch between ' +
           id(a.x, a.y) + ' and ' + id(b.x, b.y) + ' at ' + i);
       }
     }
     function add(tile) {
       const x = tile?.x, y = tile?.y, h = tile?.heights;
+      const cols = tile?.cols ?? cells, rows = tile?.rows ?? cells;
       if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y) ||
+          !Number.isInteger(cols) || !Number.isInteger(rows) ||
+          cols < 2 || cols > cells || rows < 2 || rows > cells ||
           (!Array.isArray(h) && !(h instanceof Float32Array) && !(h instanceof Float64Array)) ||
-          h.length !== cells * cells || !Array.from(h).every(n => finite(n) && n >= 0 && n < 5000))
+          h.length !== cols * rows || !Array.from(h).every(n => finite(n) && n >= 0 && n < 5000))
         throw Error('Invalid measured DEM tile');
       if (tiles.has(id(x, y))) throw Error('Duplicate DEM tile');
-      const t = {x, y, heights: Float64Array.from(h)};
+      const t = {x, y, cols, rows, heights: Float64Array.from(h)};
       // Check *before* mutation: a failed add leaves the previous world valid.
       const west = tiles.get(id(x - 1, y)), eastTile = tiles.get(id(x + 1, y));
       const northTile = tiles.get(id(x, y - 1)), south = tiles.get(id(x, y + 1));
@@ -52,9 +59,9 @@ const TiledDEM = (() => {
         const col = (e - (east + x * span)) / step;
         const row = ((north - y * span) - n) / step;
         if (col >= -1e-8 && row >= -1e-8 &&
-            col <= cells - 1 + 1e-8 && row <= cells - 1 + 1e-8)
-          return {tile, col: Math.max(0, Math.min(cells - 1, col)),
-            row: Math.max(0, Math.min(cells - 1, row))};
+            col <= tile.cols - 1 + 1e-8 && row <= tile.rows - 1 + 1e-8)
+          return {tile, col: Math.max(0, Math.min(tile.cols - 1, col)),
+            row: Math.max(0, Math.min(tile.rows - 1, row))};
       }
       return null;
     }
@@ -62,11 +69,11 @@ const TiledDEM = (() => {
       const hit = tileAt(e, n);
       if (!hit) return null; // never use a fabricated height at missing coverage
       const {tile, col, row} = hit;
-      const i = Math.min(cells - 2, Math.floor(col));
-      const j = Math.min(cells - 2, Math.floor(row));
-      const tx = col - i, ty = row - j, k = j * cells + i, h = tile.heights;
+      const i = Math.min(tile.cols - 2, Math.floor(col));
+      const j = Math.min(tile.rows - 2, Math.floor(row));
+      const tx = col - i, ty = row - j, k = j * tile.cols + i, h = tile.heights;
       return (h[k] * (1 - tx) + h[k + 1] * tx) * (1 - ty) +
-        (h[k + cells] * (1 - tx) + h[k + cells + 1] * tx) * ty;
+        (h[k + tile.cols] * (1 - tx) + h[k + tile.cols + 1] * tx) * ty;
     }
     function has(e, n) { return tileAt(e, n) !== null; }
     function loaded() { return tiles.size; }
