@@ -5,7 +5,10 @@
   "license": "MIT",
   "private": true,
   "homepage": "https://github.com/lzcjames/cold-smoke-reality",
-  "repository": { "type": "git", "url": "https://github.com/lzcjames/cold-smoke-reality.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lzcjames/cold-smoke-reality.git"
+  },
   "scripts": {
     "build": "node build.js",
     "test": "node --test test/*.test.cjs",
@@ -13,7 +16,10 @@
     "check": "node tools/check-native.js",
     "motion": "node tools/motion/run.js",
     "start": "node build.js && node tools/serve.js",
-    "build:xhs": "node tools/build-xhs.js"
+    "build:xhs": "node tools/build-xhs.js",
+    "resort:import": "node tools/reality/import_portable_resort.cjs"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

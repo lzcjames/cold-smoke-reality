@@ -124,7 +124,7 @@ const Reality = (() => {
               // before accepting it; a damaged cache must be recoverable.
               try {
                 const terrain = create(candidate);
-                if (network) terrain.network = PisteNetwork.create(terrain, JandriLower.extend(candidate, terrain));
+                if (network) terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(candidate, terrain));
                 data = candidate;
                 cachedTerrain = terrain;
                 reusedResponse = clone;
@@ -146,7 +146,7 @@ const Reality = (() => {
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
       const terrain = cachedTerrain || create(data);
       terrain.resortName = resort.name;
-      if (network && !cachedTerrain) terrain.network = PisteNetwork.create(terrain, JandriLower.extend(data, terrain));
+      if (network && !cachedTerrain) terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(data, terrain));
       if (store && (responseForStore || reusedResponse)) {
         try {
           if (reusedResponse) await store.delete(url);
