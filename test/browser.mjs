@@ -356,8 +356,10 @@ try {
     p.open=true;
     d.value='jandri-3200'; d.dispatchEvent(new Event('change',{bubbles:true}));
     const summit=document.getElementById('jandri-winter-path').textContent;
+    const summitLegs=[...document.querySelectorAll('#jandri-winter-legs li')].map(e=>e.textContent);
     d.value='jandri-2600'; d.dispatchEvent(new Event('change',{bubbles:true}));
     const mid=document.getElementById('jandri-winter-path').textContent;
+    const midLegs=[...document.querySelectorAll('#jandri-winter-legs li')].map(e=>e.textContent);
     const day=document.getElementById('jandri-winter-date');
     day.value='2027-02-10'; day.dispatchEvent(new Event('change',{bubbles:true}));
     const midHours=document.getElementById('jandri-winter-hours').textContent;
@@ -369,11 +371,16 @@ try {
       document.getElementById('jandri-winter-express').disabled;
     const title=document.getElementById('title').classList.contains('on');
     p.open=false;
-    return {summit,mid,midHours,summitHours,unsourced,disabled,title,url:location.href};
+    return {summit,mid,summitLegs,midLegs,midHours,summitHours,unsourced,disabled,title,url:location.href};
   })()`);
   assert.equal(winterPreview.missing,undefined,'Jandri planner present on title');
   assert.match(winterPreview.summit,/1650.*2600.*3200/);
   assert.match(winterPreview.mid,/1650.*2600/);
+  assert.equal(winterPreview.summitLegs.length,2);
+  assert.equal(winterPreview.midLegs.length,1);
+  assert.match(winterPreview.summitLegs[0],/Jandri I.*1650.*2600/);
+  assert.match(winterPreview.summitLegs[1],/Jandri II.*2600.*3200/);
+  assert.match(winterPreview.summitLegs[1],/待核验/);
   assert.doesNotMatch(winterPreview.mid,/3200/);
   assert.match(winterPreview.midHours,/08:45.*16:45/);
   assert.doesNotMatch(winterPreview.midHours,/第二段/);
