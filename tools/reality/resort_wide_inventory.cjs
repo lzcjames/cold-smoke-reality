@@ -1,7 +1,6 @@
 'use strict';
 // General resort-wide GIS acquisition planner; no terrain or piste invented.
 // All tile coordinates derive from actual projected OSM source segments.
-const crypto=require('node:crypto');
 const pair=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite);
 function inventory(sectors,source) {
  if(sectors?.schema!=='cold-smoke-official-resort-sectors/v1'||
