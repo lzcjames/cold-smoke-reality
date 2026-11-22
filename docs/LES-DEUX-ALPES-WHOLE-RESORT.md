@@ -128,3 +128,22 @@ This demonstrates separate-file loading into a live Reality height
 provider. **It does not yet stream/unload tiles while moving**, and does
 not increase the geographic extent beyond the lower measured crop.
 Use `tileCollision=1` for the older in-memory A/B control experiment.
+
+## Dynamic tile I/O shadow trial — does not modify skier physics
+
+Developer opt-in `?reality=les-deux-alpes&network=1&tileAudit=1`
+loads the source-pinned tile manifest and checks its source-grid SHA-256 at
+startup, then **during actual skiing** asks for near-skier and velocity-ahead
+tiles at no more than 4 Hz. A bounded two-concurrent-request stream (default
+six resident tiles) verifies each fetched tile, retains the current footprint,
+evicts old tiles, and checks its height against the original IGN sample grid.
+
+The existing unpartitioned Reality grid remains the authority for render,
+collision and player state. The trial performs no per-frame await or terrain
+height replacement. The audit exposes counters through
+`Course.reality.tileShadow.status()`: `checked`, `peakErrorM`,
+`failures`, `updates`, `loaded`, and `protected`. Automated Node and
+Chromium tests exercise movement, cache pressure, corrupted sources and
+out-of-order network replies. **Passing the trial is not yet an endorsement
+to switch moving ski contact to streaming**; coverage beyond the original
+measured crop still requires licensed source data and gameplay tests.
