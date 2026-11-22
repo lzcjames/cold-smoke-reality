@@ -9,6 +9,8 @@ on:
       - 'tools/reality/jandri_full_mnt_mosaic.py'
       - 'tools/reality/export_measured_resort_grid.py'
       - 'tools/reality/tile_measured_dem.cjs'
+      - 'tools/reality/audit_real_dem_snapshot.cjs'
+      - 'src/02l_terrain_height_snapshot.js'
       - 'test/jandri_full_mnt_mosaic_test.py'
       - '.github/workflows/p4-jandri-full-mnt-mosaic.yml'
   workflow_dispatch:
@@ -79,6 +81,12 @@ jobs:
             p4-evidence/jandri2-measured-grid-staging.json \
             p4-evidence/jandri2-measured-grid-tiles \
             p4-evidence/jandri2-tile-verification.json
+      - name: Exhaustively verify measured DEM snapshot samples and real tile seams (not playable)
+        run: |
+          node tools/reality/audit_real_dem_snapshot.cjs \
+            p4-evidence/jandri2-measured-grid-staging.json \
+            p4-evidence/jandri2-measured-grid-tiles \
+            p4-evidence/jandri2-real-snapshot-evidence.json
       - name: Archive source hashes, source profiles and unpublished DEM candidate — no raw rasters
         if: always()
         uses: actions/upload-artifact@v4
