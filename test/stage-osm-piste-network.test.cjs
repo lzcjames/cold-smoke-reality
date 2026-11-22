@@ -53,3 +53,15 @@ test('no guessed shared-node junctions or duplicate route IDs',()=>{
  assert.throws(()=>stageSurveyRoutes(source,reportCopy,projection,
   [{osmWay:456,direction:'as_osm'}]),/matching pinned/);
 });
+
+test('staging is deterministic and never mutates source geometry or measured profile',()=>{
+ const before=structuredClone(source);
+ const evidence=report();
+ const snap=structuredClone(evidence);
+ const result=stageSurveyRoutes(source,evidence,projection,[{osmWay:456,direction:'as_osm'}]);
+ result.candidates[0].nodes[0]=999;
+ result.candidates[0].points[0][0]=999;
+ assert.deepEqual(source,before);
+ assert.deepEqual(evidence,snap);
+ assert.equal(result.junctions.length,0);
+});
