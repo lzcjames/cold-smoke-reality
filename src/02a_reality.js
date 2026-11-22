@@ -169,7 +169,11 @@ const Reality = (() => {
       const terrain = externalPreview ? create(data,externalPreview) :
         cachedTerrain || create(data);
       terrain.resortName = resort.name;
-      if (network && !cachedTerrain) terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(data, terrain));
+      // A cached single-grid Reality object cannot supply the network of a
+      // newly created tiled terrain: its slope/coordinates belong to the old
+      // object. Always construct the selected network on the returned terrain.
+      if (network && (externalPreview || !cachedTerrain))
+        terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(data, terrain));
       if (store && (responseForStore || reusedResponse)) {
         try {
           if (reusedResponse) await store.delete(url);
