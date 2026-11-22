@@ -23,6 +23,7 @@ test('motion permit requires measured contact coverage across tile boundary',asy
   assert.ok(ticket);
   assert.equal(f.count(),1);
   assert.equal(f.gate.permit(ticket,from,to),true);
+  assert.equal(f.gate.permit(ticket,from,to),false,'permit cannot be reused for another physics step');
   assert.equal(f.gate.permit(ticket,from,[25,0]),false);
   f.setCoverage(false);
   assert.equal(f.gate.permit(ticket,from,to),false);
@@ -76,4 +77,32 @@ test('footprint tiles must be pinned even when lookahead prioritization omits th
   assert.ok(ticket);
   assert.deepEqual(retained,['0:0','1:0']);
   assert.equal(gate.permit(ticket,[1,0],[3,0]),true);
+});
+
+test('out-of-order asynchronous tile download cannot authorize an obsolete skier step',async()=>{
+  let releaseFirst;
+  const firstGate=new Promise(resolve=>{releaseFirst=resolve;});
+  const events=[];
+  const neighborhood={
+    select:p=>({ready:true,ids:[p[0]<20?'0:0':'1:0']}),
+    tileIdAt:p=>p[0]<20?'0:0':'1:0',
+    known:id=>id==='0:0'||id==='1:0'
+  };
+  const stream={
+    retain:async ids=>{
+      events.push(ids.join(','));
+      if(events.length===1)await firstGate;
+    },
+    status:()=>({capacity:2})
+  };
+  const gate=Gate.create({neighborhood,stream,dem:{has:()=>true},
+    footprintM:0,sampleStepM:1});
+  const old=gate.prepare([1,0],[2,0]);
+  const latest=gate.prepare([21,0],[22,0]);
+  releaseFirst();
+  const [oldPermit,latestPermit]=await Promise.all([old,latest]);
+  assert.equal(oldPermit,null,'earlier delayed motion must not reauthorize after new request');
+  assert.ok(latestPermit);
+  assert.equal(gate.permit(latestPermit,[21,0],[22,0]),true);
+  assert.equal(gate.permit(latestPermit,[21,0],[22,0]),false);
 });
