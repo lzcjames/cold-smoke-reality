@@ -21,7 +21,7 @@ const server=createServer(async(req,res)=>{
  if(p!==root&&!p.startsWith(root+sep))return res.writeHead(403).end();
  const data=await readFile(p).catch(()=>null);
  if(!data)return res.writeHead(404).end();
- res.writeHead(200,{'Content-Type':filename.endsWith('.html')?'text/html':'application/json','Cache-Control':'no-store'}).end(data);
+ res.writeHead(200,{'Content-Type':filename.endsWith('.html')?'text/html':filename.endsWith('.js')?'text/javascript':'application/json','Cache-Control':'no-store'}).end(data);
 }).listen(0,'127.0.0.1');
 await once(server,'listening');
 const profile=await mkdtemp('/tmp/cold-smoke-ign-browser-');
