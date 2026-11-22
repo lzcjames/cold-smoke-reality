@@ -8,6 +8,7 @@ on:
     paths:
       - 'tools/reality/jandri_full_mnt_mosaic.py'
       - 'tools/reality/export_measured_resort_grid.py'
+      - 'tools/reality/tile_measured_dem.cjs'
       - 'test/jandri_full_mnt_mosaic_test.py'
       - '.github/workflows/p4-jandri-full-mnt-mosaic.yml'
   workflow_dispatch:
@@ -69,6 +70,15 @@ jobs:
             p4-evidence/jandri-full-measured-mosaic-report.json \
             docs/p4/JANDRI-OSM-INDEX.json \
             p4-evidence/jandri2-staging-integrity-report.json
+      - name: Split the authentic Jandri 2 DEM into integrity-checked source tiles
+        run: |
+          node tools/reality/tile_measured_dem.cjs \
+            p4-evidence/jandri2-measured-grid-staging.json \
+            p4-evidence/jandri2-measured-grid-tiles 64
+          node tools/reality/check_measured_tiles.cjs \
+            p4-evidence/jandri2-measured-grid-staging.json \
+            p4-evidence/jandri2-measured-grid-tiles \
+            p4-evidence/jandri2-tile-verification.json
       - name: Archive source hashes, source profiles and unpublished DEM candidate — no raw rasters
         if: always()
         uses: actions/upload-artifact@v4

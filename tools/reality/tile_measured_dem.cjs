@@ -3,6 +3,8 @@
 // Does not turn measured elevations into a playable piste or safety polygon.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+// Canonical grid identity is independent of JSON object property order.
+const gridHash=g=>sha(JSON.stringify([g.cols,g.rows,g.step,g.east,g.north,g.heights]));
 function split(asset,{tileCells=64,maxTileBytes=256*1024}={}){
  const g=asset?.grid;
  if(asset?.schema!=='cold-smoke-measured-dem-staging/v1'||
@@ -44,7 +46,7 @@ function split(asset,{tileCells=64,maxTileBytes=256*1024}={}){
  return {manifest:{schema:'cold-smoke-measured-tiles-staging/v1',
    resortId:asset.resortId,routeName:asset.routeName,
    sourceOSMSHA256:asset.sourceOSMSHA256,
-   originalGridSHA256:sha(JSON.stringify(g)),
+   originalGridSHA256:gridHash(g),
    grid:{cols:g.cols,rows:g.rows,step:g.step,east:g.east,north:g.north},
    tileCells,sourceTileCount:entries.length,sourceOnly:true,
    approvedForGameplay:false,readyForRuntime:false,tiles:entries},tiles};
@@ -91,7 +93,7 @@ function verify(manifest,loadTile){
   }
  }
  if(written.some(x=>x!==1))throw Error('Uncovered measured DEM tile in source grid');
- if(sha(JSON.stringify({...g,heights:out}))!==manifest.originalGridSHA256)
+ if(gridHash({...g,heights:out})!==manifest.originalGridSHA256)
   throw Error('Reassembled original measured DEM does not match');
  return {tiles:manifest.tiles.length,cols:g.cols,rows:g.rows,
    originalGridVerified:true,approvedForGameplay:false};
@@ -110,4 +112,4 @@ function main(args){
 if(require.main===module){try{main(process.argv.slice(2));}catch(e){
  console.error(e.message);process.exitCode=1;
 }}
-module.exports={split,verify,main};
+module.exports={split,verify,main,gridHash};
