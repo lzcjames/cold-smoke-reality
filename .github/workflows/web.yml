@@ -168,6 +168,15 @@ jobs:
         with:
           name: junction-abba-profiling
           path: junction-abba.json
+      - name: Retrieve archived measured IGN preview evidence (optional, not needed for gameplay)
+        id: ign-preview-source
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: p4-jandri-full-measured-mnt-gate
+          run-id: 45054544727
+          github-token: ${{ github.token }}
+          path: /tmp/cold-smoke-ign-preview
       - name: Stage website
         id: stage
         run: |
@@ -178,6 +187,30 @@ jobs:
           mkdir -p site
           cp dist/dev.html site/index.html
           cp -R dist/reality site/
+          # Independent open-data LiDAR HD viewer: never register as playable terrain.
+          # An expired/missing source archive does not block the normal site.
+          if [ -s /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json ] &&
+             [ -s /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles/manifest.json ]; then
+            node tools/reality/verify_measured_staging.cjs \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json \
+              /tmp/cold-smoke-ign-preview/jandri-full-measured-mosaic-report.json \
+              docs/p4/JANDRI-OSM-INDEX.json
+            node tools/reality/check_measured_tiles.cjs \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles
+            node tools/reality/audit_real_dem_snapshot.cjs \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles
+            node tools/reality/audit_real_dem_mesh.cjs \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles
+            mkdir -p site/ign-lab/data
+            cp dev/les2alpes-real-ign.html site/ign-lab/index.html
+            cp /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles/{manifest.json,tile-*.json} site/ign-lab/data/
+            echo 'Published verified developer-only IGN terrain preview (no ski gameplay)'
+          else
+            echo 'Archived IGN preview unavailable; leaving production site unchanged'
+          fi
           # A small independent piste atlas, NOT a playable new DEM pack.
           # Verify pinned real July 2026 OSM source and all 37 way geometries
           # before making the map visible to players.
@@ -197,6 +230,10 @@ jobs:
 
           echo "asset_sha=$(sha256sum site/reality/alpe-dhuez.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "p4_sha=$(sha256sum site/reality/les-deux-alpes.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Browser-smoke actual measured Jandri 2 LiDAR terrain WebGL lab
+        env:
+          BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+        run: node test/ign-viewer-browser.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: cold-smoke-web
