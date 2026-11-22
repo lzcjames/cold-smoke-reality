@@ -68,6 +68,7 @@ jobs:
         run: |
           /usr/bin/python3 -B test/reality-import.py
           /usr/bin/python3 -B test/p4-geodata.py
+          /usr/bin/python3 -B -m unittest discover -s test -p 'les2alpes_sharded_osm_test.py' -v
           /usr/bin/python3 -B -m unittest discover -s test -p 'measured_resort_grid_staging_test.py' -v
       - name: Audit shipped Jandri 2 line coverage on genuine game DEM (source-only)
         run: |
