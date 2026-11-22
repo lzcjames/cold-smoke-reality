@@ -1,0 +1,49 @@
+{
+  "schema": "cold-smoke-measured-evidence-ledger/v1",
+  "resortId": "les-deux-alpes",
+  "routeName": "Jandri 2",
+  "sourceRunId": 45048782414,
+  "sourceRunUrl": "https://github.com/lzcjames/cold-smoke-reality/actions/runs/45048782414",
+  "artifactId": 14765115341,
+  "artifactName": "p4-jandri-full-measured-mnt-gate",
+  "generatedAtUTC": "2026-11-22T17:22:07Z",
+  "sourceOSMSHA256": "40dcc37e95a259fb7d0f036e10e4147ce9c7343fb69b167c23ec92241da5ff26",
+  "originalSourceTiles": 24,
+  "originalMeasuredWays": 37,
+  "jandri2SourceWays": 11,
+  "grid": {
+    "cols": 140,
+    "rows": 68,
+    "stepM": 15,
+    "boundsLambert93": [
+      947520,
+      6438390,
+      949605,
+      6439395
+    ],
+    "heightSampleCount": 9520,
+    "minElevationM": 1966.93,
+    "maxElevationM": 2647.92
+  },
+  "stagingFile": {
+    "name": "jandri2-measured-grid-staging.json",
+    "sha256": "e3fd73f9817daf1a51bb8efdaf1c7fa10ce184069f4b1c166c95e3a9dad7c075",
+    "bytes": 76160
+  },
+  "auditReportFile": {
+    "name": "jandri-full-measured-mosaic-report.json",
+    "sha256": "4ca2e96276ece0a007a4b4f66e9a1e5bd0aa80e622b28ff5e3505b1c516d7168",
+    "bytes": 42917
+  },
+  "verifiedOriginalLineSamples": 771,
+  "publication": {
+    "approvedForGameplay": false,
+    "liveAsset": false,
+    "completeJandri2TopToBottom": false
+  },
+  "notes": [
+    "Source-only evidence; original raw 24 LiDAR tiles not published",
+    "Archived GitHub Actions artifacts expire; re-run official source workflow before using or redistributing",
+    "Do not infer official groomed boundaries, ski lift exits or downhill direction from this DEM"
+  ]
+}

@@ -62,6 +62,13 @@ jobs:
             --tiles-dir /tmp/jandri-measured-mnt \
             --name 'Jandri 2' --step 15 \
             --out p4-evidence/jandri2-measured-grid-staging.json
+      - name: Verify exact original source and fail-closed browser DEM staging
+        run: |
+          node tools/reality/verify_measured_staging.cjs \
+            p4-evidence/jandri2-measured-grid-staging.json \
+            p4-evidence/jandri-full-measured-mosaic-report.json \
+            docs/p4/JANDRI-OSM-INDEX.json \
+            p4-evidence/jandri2-staging-integrity-report.json
       - name: Archive source hashes, source profiles and unpublished DEM candidate — no raw rasters
         if: always()
         uses: actions/upload-artifact@v4
