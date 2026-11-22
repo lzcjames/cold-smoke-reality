@@ -30,7 +30,7 @@ const TerrainTileShadow = (() => {
       scheme:{east:m.east,north:m.north,span:(m.cells-1)*m.step},
       tileIds:stream.catalogIds(),radius:1,lookaheadSeconds,
       budget:capacity});
-    let running=false,queued=null,signature='',closed=false;
+    let running=false,queued=null,signature='',closed=false,generation=0;
     let checked=0,peakErrorM=0,failures=0,lastError='',updates=0;
     function expected(e,n) {
       const u=(e-g.east)/g.step,v=(g.north-n)/g.step;
@@ -52,7 +52,7 @@ const TerrainTileShadow = (() => {
             await stream.retain(request.ids);
             // Ground may have moved while the download ran. Only compare the
             // sample of the *latest* desired footprint, never an obsolete one.
-            if(queued||closed)continue;
+            if(queued||closed||request.generation!==generation)continue;
             for(const [e,n] of request.probes) {
               const h=dem.sample(e,n),original=expected(e,n);
               if(h===null||original===null)continue;
@@ -63,8 +63,12 @@ const TerrainTileShadow = (() => {
             }
             updates++;
           } catch(error) {
+            if(closed||queued||request.generation!==generation)continue;
             failures++;
             lastError=error?.message||String(error);
+            // Failed or corrupt requests must be eligible for a later
+            // retry at the same location; no per-frame retry loop.
+            signature='';
           }
         }
       } finally {running=false;}
@@ -72,14 +76,21 @@ const TerrainTileShadow = (() => {
     function observe(position,velocity=[0,0]) {
       if(closed||!pair(position)||!pair(velocity))return false;
       const choice=neighborhood.select(position,velocity);
-      if(!choice.ready)return false; // outside the sourced resort crop
+      if(!choice.ready) {
+        // Leaving known coverage cancels queued comparisons and invalidates
+        // an in-flight response. It must never masquerade as current ground.
+        generation++;
+        queued=null;
+        signature='';
+        return false;
+      } // outside the sourced resort crop
       const sig=choice.ids.join(',');
       if(sig===signature)return true; // bound network work by tile changes
       signature=sig;
       const projected=[position,
         [position[0]+velocity[0]*lookaheadSeconds,
           position[1]+velocity[1]*lookaheadSeconds]];
-      queued={ids:choice.ids,probes:projected};
+      queued={ids:choice.ids,probes:projected,generation:++generation};
       void drain();
       return true;
     }
@@ -88,7 +99,7 @@ const TerrainTileShadow = (() => {
         running,loaded:stream.status().loaded.length,
         protected:stream.status().protected.slice()});
     }
-    function close(){closed=true;queued=null;}
+    function close(){closed=true;generation++;queued=null;signature='';}
     return Object.freeze({observe,status,close});
   }
   return Object.freeze({create});
