@@ -1,0 +1,43 @@
+name: Les Deux Alpes regional OSM candidate survey (source only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  survey:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch approximate regional OSM candidates (not resort boundary)
+        run: |
+          mkdir -p regional-evidence
+          python3 tools/reality/p4_osm.py \
+            --bbox 44.97 6.05 45.09 6.23 \
+            --out regional-evidence/overpass-raw.json \
+            --review regional-evidence/overpass-review.json
+      - name: Convert original byte-pinned response and report incomplete sectors
+        run: |
+          node tools/reality/index_regional_overpass.cjs \
+            regional-evidence/overpass-raw.json \
+            regional-evidence/overpass-source-index.json \
+            44.97 6.05 45.09 6.23
+          node tools/reality/report_resort_inventory.cjs \
+            data/reality/les-deux-alpes-sectors.json \
+            regional-evidence/overpass-source-index.json \
+            regional-evidence/resort-gap-report.json
+          node -e "const a=require('./regional-evidence/resort-gap-report.json'); if(a.wholeResortSurveyComplete || a.approvedForGameplay) process.exit(1);"
+      - name: Archive raw OSM, attributed candidates and unresolved gaps only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: les2alpes-regional-osm-candidates-not-approved
+          path: regional-evidence/
+          if-no-files-found: warn
+          retention-days: 30
