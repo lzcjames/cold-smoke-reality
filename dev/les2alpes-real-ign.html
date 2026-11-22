@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cold Smoke · Les 2 Alpes 真实 IGN 地形实验室</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#09131e;color:#eef6fe}
+*{box-sizing:border-box}body{margin:0}header{padding:14px 20px;position:absolute;z-index:3;left:0;top:0;right:0;background:linear-gradient(#081421ed,#08142100)}
+h1{font-size:20px;margin:4px 0 6px}p{margin:5px 0;color:#b6cbd9;font-size:13px;line-height:1.5}
+#scene{display:block;width:100vw;height:100vh;touch-action:none;cursor:grab}
+#scene:active{cursor:grabbing}#status{position:absolute;z-index:3;bottom:20px;left:20px;right:20px;max-width:680px;background:#06121edc;border:1px solid #57768b;border-radius:12px;padding:12px 15px;font-size:13px;line-height:1.6}
+#legend{position:absolute;z-index:3;right:20px;top:110px;text-align:right;color:#bfd1de;font-size:12px}
+a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8px;border-radius:20px;font-size:11px}
+@media(max-width:600px){h1{font-size:17px}#legend{top:105px;right:15px}#status{bottom:10px;left:10px;right:10px}}
+</style></head>
+<body><header><span class="pill">仅开发预览 · 非可滑雪道</span><h1>Les 2 Alpes · Jandri 2 真实山体</h1>
+<p>IGN LiDAR HD / MNT · EPSG:2154 · 15m 采样 · 鼠标拖动旋转，滚轮缩放；手机触摸拖动旋转</p>
+<p><a href="../">返回 Cold Smoke Reality</a> · <a href="https://www.data.gouv.fr/datasets/mnt-lidar-hd" target="_blank" rel="noopener noreferrer">数据来源 © IGN — Licence Ouverte 2.0</a></p></header>
+<canvas id="scene" aria-label="实测 Jandri 2 山体三维旋转预览"></canvas>
+<div id="legend">灰白：高海拔<br>深青：低海拔<br>6 块真实地形 · 不是正式雪道</div>
+<div id="status" role="status" aria-live="polite">正在校验真实 IGN 数据与原始地形分块…</div>
+<script>
+'use strict';
+(async function(){
+ const canvas=document.getElementById('scene'),status=document.getElementById('status');
+ const show=s=>{status.textContent=s};
+ const gl=canvas.getContext('webgl',{antialias:true,alpha:false,depth:true});
+ if(!gl){show('此浏览器不支持 WebGL。该预览需要支持 WebGL 的设备；正式游戏未受影响。');return;}
+ if(!globalThis.crypto?.subtle){show('需要 HTTPS 安全环境才能核对地形 SHA-256。');return;}
+ const shader=(type,source)=>{const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
+ const prog=gl.createProgram();
+ gl.attachShader(prog,shader(gl.VERTEX_SHADER,`
+ attribute vec3 aPos; attribute vec3 aNormal;
+ uniform vec3 uCenter; uniform float uYaw,uPitch,uDistance,uAspect;
+ varying float vElevation,vLight;
+ void main(){
+  vec3 v=aPos-uCenter;
+  float cy=cos(uYaw),sy=sin(uYaw),cp=cos(uPitch),sp=sin(uPitch);
+  float x=cy*v.x-sy*v.z;
+  float z=sy*v.x+cy*v.z;
+  float y=cp*v.y-sp*z,depth=sp*v.y+cp*z;
+  float perspective=2.5/(uDistance+depth);
+  gl_Position=vec4(x*perspective/uAspect,y*perspective,0.2,1.);
+  vElevation=aPos.y;
+  vLight=clamp(dot(normalize(aNormal),normalize(vec3(0.3,1.0,-0.4))),0.35,1.0);
+ }`));
+ gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,`
+ precision mediump float;
+ varying float vElevation,vLight;
+ void main(){
+  float t=clamp((vElevation-140.0)/650.0,0.,1.);
+  vec3 low=vec3(0.10,0.34,0.39),high=vec3(0.88,0.93,0.95);
+  vec3 color=mix(low,high,pow(t,1.25));
+  gl_FragColor=vec4(color*(0.60+0.40*vLight),1.);
+ }`));
+ gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));
+ gl.useProgram(prog);gl.enable(gl.DEPTH_TEST);
+ const attrPos=gl.getAttribLocation(prog,'aPos'),attrNormal=gl.getAttribLocation(prog,'aNormal');
+ const uniforms={center:gl.getUniformLocation(prog,'uCenter'),yaw:gl.getUniformLocation(prog,'uYaw'),
+ pitch:gl.getUniformLocation(prog,'uPitch'),distance:gl.getUniformLocation(prog,'uDistance'),
+ aspect:gl.getUniformLocation(prog,'uAspect')};
+ const get=async url=>{const res=await fetch(url,{cache:'force-cache'});if(!res.ok)throw Error('地形文件不存在：'+url);
+  return res.text();};
+ const sha=async value=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');};
+ try{
+  const manifest=JSON.parse(await get('data/manifest.json'));
+  if(manifest.schema!=='cold-smoke-measured-tiles-staging/v1'||
+   manifest.resortId!=='les-deux-alpes'||manifest.routeName!=='Jandri 2'||
+   manifest.approvedForGameplay!==false||manifest.readyForRuntime!==false||
+   !Array.isArray(manifest.tiles)||manifest.tiles.length!==6||
+   manifest.grid.cols!==140||manifest.grid.rows!==68||manifest.grid.step!==15)
+    throw Error('不可信的实测地形来源或尺寸');
+  const meshItems=[];let sampleCount=0,triangles=0;
+  const base=1900,cx=manifest.grid.east+(manifest.grid.cols-1)*manifest.grid.step/2;
+  const cn=manifest.grid.north-(manifest.grid.rows-1)*manifest.grid.step/2;
+  for(const entry of manifest.tiles){
+   if(!/^tile-[0-9]+-[0-9]+\.json$/.test(entry.filename)||entry.bytes>256*1024)
+    throw Error('未经登记或过大的地形分块');
+   const body=await get('data/'+entry.filename);
+   if(new TextEncoder().encode(body).length!==entry.bytes || await sha(body)!==entry.sha256)
+    throw Error('地形数据完整性验证失败：'+entry.filename);
+   const tile=JSON.parse(body),g=tile.grid;
+   if(tile.approvedForGameplay!==false||tile.sourceOSMSHA256!==manifest.sourceOSMSHA256||
+    tile.schema!=='cold-smoke-dem-source-tile/v1'||g.cols!==entry.cols||g.rows!==entry.rows||
+    g.step!==manifest.grid.step||g.heights.length!==g.cols*g.rows||
+    g.cols*g.rows>4096||g.cols<2||g.rows<2)
+    throw Error('不可信的原始地形块');
+   const vertex=new Float32Array(g.cols*g.rows*6),indices=new Uint16Array((g.cols-1)*(g.rows-1)*6);
+   const elevation=(r,c)=>g.heights[r*g.cols+c];
+   for(let r=0;r<g.rows;r++)for(let c=0;c<g.cols;c++){
+    const k=(r*g.cols+c)*6,h=elevation(r,c);
+    if(!Number.isFinite(h)||h<0||h>5000)throw Error('存在无效地形高度');
+    vertex[k]=g.east+c*g.step-cx;vertex[k+1]=h-base;vertex[k+2]=cn-g.north+r*g.step;
+    const dx=(elevation(r,Math.min(g.cols-1,c+1))-elevation(r,Math.max(0,c-1)))/(g.step*(c===0||c===g.cols-1?1:2));
+    const dz=(elevation(Math.min(g.rows-1,r+1),c)-elevation(Math.max(0,r-1),c))/(g.step*(r===0||r===g.rows-1?1:2));
+    const length=Math.hypot(dx,1,dz);
+    vertex[k+3]=-dx/length;vertex[k+4]=1/length;vertex[k+5]=-dz/length;
+   }
+   for(let r=0,j=0;r<g.rows-1;r++)for(let c=0;c<g.cols-1;c++){
+    const a=r*g.cols+c,b=a+1,d=a+g.cols,e=d+1;
+    indices[j++]=a;indices[j++]=d;indices[j++]=b;
+    indices[j++]=b;indices[j++]=d;indices[j++]=e;
+   }
+   const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,vertex,gl.STATIC_DRAW);
+   const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);
+   meshItems.push({vb,ib,count:indices.length});sampleCount+=g.cols*g.rows;triangles+=indices.length/3;
+  }
+  let yaw=-0.55,pitch=0.70,distance=3300,dragging=false,lastX=0,lastY=0;
+  canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener('pointerup',()=>dragging=false);
+  canvas.addEventListener('pointercancel',()=>dragging=false);
+  canvas.addEventListener('pointermove',e=>{if(!dragging)return;
+   yaw+=(e.clientX-lastX)*0.008;pitch=Math.max(0.15,Math.min(1.38,pitch+(e.clientY-lastY)*0.006));
+   lastX=e.clientX;lastY=e.clientY;draw();});
+  canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(1800,Math.min(10000,distance*Math.exp(e.deltaY*.001)));draw();},{passive:false});
+  function draw(){
+   const w=Math.round(canvas.clientWidth*devicePixelRatio),h=Math.round(canvas.clientHeight*devicePixelRatio);
+   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+   gl.viewport(0,0,w,h);gl.clearColor(.04,.08,.13,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   gl.uniform3f(uniforms.center,0,390,0);gl.uniform1f(uniforms.yaw,yaw);gl.uniform1f(uniforms.pitch,pitch);
+   gl.uniform1f(uniforms.distance,distance);gl.uniform1f(uniforms.aspect,w/h);
+   for(const m of meshItems){
+    gl.bindBuffer(gl.ARRAY_BUFFER,m.vb);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.ib);
+    gl.enableVertexAttribArray(attrPos);gl.enableVertexAttribArray(attrNormal);
+    gl.vertexAttribPointer(attrPos,3,gl.FLOAT,false,24,0);
+    gl.vertexAttribPointer(attrNormal,3,gl.FLOAT,false,24,12);
+    gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_SHORT,0);
+   }
+  }
+  window.addEventListener('resize',draw);
+  draw();
+  show('已验证 6 个真实 IGN 地形块 · '+sampleCount.toLocaleString()+' 个含重叠高度点 · '+triangles.toLocaleString()+
+   ' 个三角形。仅用于地形检查；未启用雪道、缆车或雪板碰撞。');
+ }catch(error){console.error(error);show('预览拒绝加载：'+error.message+'。此处绝不显示伪造地形。');}
+})().catch(error=>{console.error(error);document.getElementById('status').textContent='预览初始化失败：'+error.message;});
+</script></body></html>
