@@ -91,6 +91,9 @@ function createMultiResSampler({detail,backdrop,edgeCells=3}) {
       highDetailCoverageMarginM:null,  // must be checked against piste width separately
       requiresHazardAndPisteAreaReview:true});
   }
-  return Object.freeze({height,coverage});
+  // Measured near-source height only: backdrop blending is purely visual and
+  // must not bias audit of actual downhill gradients or player contact.
+  const detailHeight=(x,z)=>sample(detail,x,z)?.height??null;
+  return Object.freeze({height,detailHeight,coverage});
 }
 module.exports={createMultiResSampler};
