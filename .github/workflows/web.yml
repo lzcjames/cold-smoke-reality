@@ -230,6 +230,10 @@ jobs:
 
           echo "asset_sha=$(sha256sum site/reality/alpe-dhuez.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "p4_sha=$(sha256sum site/reality/les-deux-alpes.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Browser-smoke actual measured Jandri 2 LiDAR terrain WebGL lab
+        env:
+          BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+        run: node test/ign-viewer-browser.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: cold-smoke-web
