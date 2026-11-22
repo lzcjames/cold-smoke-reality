@@ -40,9 +40,9 @@ raster decoder, DEM producer, piste-boundary survey, lift-terminal survey or
 boarding permission. Source DEM arrays still require independently licensed,
 verified data preparation and the existing Reality asset format for shipping.
 
-## Proposed live integration (separate audited PR)
+## Runtime loading integration (first phase complete)
 
-1. Prepare the new resort's genuine local DEM grids and explicit CRS
+The game and build now call `ResortRoutes.current(...)` in\n`src/02i_resort_routes.js`. This shared provider pipeline checks that\nimported route providers preserve the original resort's verified grid,\nprimary route, existing piste records and unique way IDs. The existing\nJandri lower clip is its first provider; both a fresh fetch and CacheStorage\ncache hit use exactly the same entry point. No new resort pack is enabled\nby this integration, and future sources still require independent review.\n\n## Remaining steps for a new playable mountain\n\n1. Prepare the new resort's genuine local DEM grids and explicit CRS
    transform. Keep near/far grids as separate lazy-loaded resources.
 2. Convert routes through this importer with real source IDs and measured
    coverage; verify downhill direction, widths and crossings independently.
