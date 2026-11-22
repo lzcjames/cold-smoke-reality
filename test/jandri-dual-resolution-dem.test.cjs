@@ -46,3 +46,28 @@ test('invalid source or datum is rejected and no-data cannot turn into a height'
  assert.equal(g.height(20,20),100);
  assert.equal(g.coverage([[20,20],[30,30]]).detailOnlyReady,false);
 });
+
+test('sparse OSM segment cannot bridge missing detail DEM even with covered endpoints',()=>{
+ const detail=grid(7,10,200);
+ detail.heights[3*7+3]=NaN;
+ const g=createMultiResSampler({detail,backdrop:grid(11,20,100)});
+ const report=g.coverage([[10,30],[50,30],[10,30]]);
+ assert.equal(report.detailVertices,3);
+ assert.equal(report.backdropOnlyVertices,0);
+ assert.equal(report.detailOnlyReady,false);
+ assert.deepEqual(report.uncoveredSegmentIndices,[1,2]);
+ assert.ok(report.sampledInteriorPoints>0);
+});
+test('interior nodata fails the segment gate and clean segments pass',()=>{
+ const detail=grid(7,10,200);
+ detail.heights[3*7+3]=NaN;
+ const sampler=createMultiResSampler({detail,backdrop:grid(11,20,100)});
+ const bad=sampler.coverage([[10,30],[50,30]]);
+ assert.equal(bad.detailVertices,2);
+ assert.equal(bad.detailOnlyReady,false);
+ assert.deepEqual(bad.uncoveredSegmentIndices,[1]);
+ const good=sampler.coverage([[10,10],[10,50]]);
+ assert.equal(good.detailOnlyReady,true);
+ assert.deepEqual(good.uncoveredSegmentIndices,[]);
+ assert.throws(()=>sampler.coverage([[10,10],[1e9,10]]),/sampling limit/);
+});
