@@ -34,7 +34,7 @@ jobs:
           d=Path("regional-evidence")
           status=json.loads((d/"status.json").read_text())
           for item in status["shards"]:
-              if item["status"]!="source_candidates_unreviewed": continue
+              if item["status"]!="source_candidates_unreviewed" or item.get("namedDownhillWays",0)==0: continue
               out=d/(item["id"]+"-source-index.json")
               subprocess.run(["node","tools/reality/index_regional_overpass.cjs",
                   str(d/item["file"]),str(out),
