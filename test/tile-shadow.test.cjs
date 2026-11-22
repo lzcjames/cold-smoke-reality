@@ -80,3 +80,32 @@ test('new skier destination wins after an older slow tile request',async()=>{
   assert.ok(result.checked>0);
   assert.ok(result.loaded<=2);
 });
+
+test('failed tile checksum can be retried on a later observation, without a tight loop',async()=>{
+  const f=fixture({corrupt:true});
+  assert.equal(f.shadow.observe([900025,6499990],[5,0]),true);
+  const first=await settle(f.shadow);
+  assert.equal(first.failures,1);
+  const before=f.calls();
+  // No automatic fetch storm between observations.
+  await new Promise(resolve=>setTimeout(resolve,5));
+  assert.equal(f.calls(),before);
+  assert.equal(f.shadow.observe([900025,6499990],[5,0]),true);
+  const second=await settle(f.shadow);
+  assert.equal(second.failures,2);
+  assert.ok(f.calls()>before,'same destination must not be poisoned forever');
+  assert.equal(second.checked,0);
+});
+test('leaving measured coverage invalidates delayed tile responses and permits re-entry',async()=>{
+  const f=fixture({delay:true});
+  assert.equal(f.shadow.observe([900005,6499990],[1,0]),true);
+  assert.equal(f.shadow.observe([900500,6499990],[1,0]),false);
+  f.release();
+  let status=await settle(f.shadow);
+  assert.equal(status.checked,0,'obsolete tile response must not be treated as current terrain');
+  assert.equal(status.updates,0);
+  assert.equal(f.shadow.observe([900005,6499990],[1,0]),true);
+  status=await settle(f.shadow);
+  assert.ok(status.checked>0,'returning inside real DEM must allow a new verified audit');
+  assert.equal(status.failures,0);
+});
