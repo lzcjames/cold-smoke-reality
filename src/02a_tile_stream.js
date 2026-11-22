@@ -58,6 +58,11 @@ const TerrainTileStream = (() => {
           const tile = dem.add(payload); // seam validation is atomic
           loaded.set(job.id, tile);
           evict();
+          // A speculative load cannot promise terrain if every cache slot
+          // belongs to the skier's protected footprint. Never report a tile
+          // that was immediately evicted and is absent from collision DEM.
+          if (!loaded.has(job.id))
+            throw Error('DEM tile cannot be retained within protected cache budget ' + job.id);
           return tile;
         })().then(value => {
           pending.delete(job.id);
