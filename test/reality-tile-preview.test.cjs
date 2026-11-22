@@ -44,3 +44,45 @@ test('tile preview stays disabled on unrelated resorts',()=>{
   const terrain=create(asset,'?reality=alpe-dhuez&tileCollision=1');
   assert.equal(terrain.tilePreviewEnabled,false);
 });
+
+test('measured tile seams preserve local terrain slopes used by skier ski contacts',t=>{
+  const file=path.join(root,'data/reality/les-deux-alpes.json');
+  if(!fs.existsSync(file))return t.skip('Optional measured IGN DEM not present');
+  const asset=JSON.parse(fs.readFileSync(file,'utf8'));
+  const original=create(asset,'?reality=les-deux-alpes');
+  const tiled=create(asset,'?reality=les-deux-alpes&tileCollision=1');
+  const {east,north,step,cols,rows}=asset.grid;
+  const pitch=40, eps=0.01, offset=0.35;
+  let maximumHeightError=0, maximumSlopeError=0, probes=0;
+  // Samples on BOTH sides of every internal 41-node tile boundary.
+  // A real DEM may have steep slopes. Compare to legacy *measured* source,
+  // not to a fabricated flat plane or arbitrary maximum physical grade.
+  function check(e,n){
+    const pos=original.project(e,n);
+    const legacy=original.height(...pos), split=tiled.height(...pos);
+    maximumHeightError=Math.max(maximumHeightError,Math.abs(legacy-split));
+    const pairs=[
+      [original.project(e+offset,n),original.project(e-offset,n)],
+      [original.project(e,n+offset),original.project(e,n-offset)]
+    ];
+    for(const [plus,minus] of pairs){
+      const da=(original.height(...plus)-original.height(...minus))/(2*offset);
+      const db=(tiled.height(...plus)-tiled.height(...minus))/(2*offset);
+      maximumSlopeError=Math.max(maximumSlopeError,Math.abs(da-db));
+    }
+    probes++;
+  }
+  for(let x=pitch;x<cols-1;x+=pitch)
+    for(let y=3;y<rows-3;y+=3)
+      for(const side of [-eps,0,eps])
+        check(east+(x*step)+side,north-y*step);
+  for(let y=pitch;y<rows-1;y+=pitch)
+    for(let x=3;x<cols-3;x+=3)
+      for(const side of [-eps,0,eps])
+        check(east+x*step,north-y*step+side);
+  assert.ok(probes>100,'No DEM boundary probes');
+  assert.ok(maximumHeightError<0.002,
+    'Tile boundary height A/B drift '+maximumHeightError+'m');
+  assert.ok(maximumSlopeError<0.002,
+    'Tile boundary gradient A/B drift '+maximumSlopeError);
+});
