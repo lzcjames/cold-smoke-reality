@@ -357,7 +357,17 @@ try {
     d.value='jandri-3200'; d.dispatchEvent(new Event('change',{bubbles:true}));
     const summit=document.getElementById('jandri-winter-path').textContent;
     const summitLegs=[...document.querySelectorAll('#jandri-winter-legs li')].map(e=>e.textContent);
+    const visual=document.getElementById('jandri-winter-schematic');
+    const diagram=visual?.querySelector('svg');
+    const summitDiagram={
+      label:visual?.textContent,aria:diagram?.getAttribute('aria-label'),
+      stations:diagram?.querySelectorAll('circle').length,
+      legs:diagram?.querySelectorAll('[data-jandri-leg]').length,
+      upperOpacity:diagram?.querySelector('[data-jandri-leg="jandri-ii"]')?.getAttribute('opacity'),
+      animations:diagram?.querySelectorAll('animateMotion').length
+    };
     d.value='jandri-2600'; d.dispatchEvent(new Event('change',{bubbles:true}));
+    const midDiagramOpacity=diagram?.querySelector('[data-jandri-leg="jandri-ii"]')?.getAttribute('opacity');
     const mid=document.getElementById('jandri-winter-path').textContent;
     const midLegs=[...document.querySelectorAll('#jandri-winter-legs li')].map(e=>e.textContent);
     const day=document.getElementById('jandri-winter-date');
@@ -371,11 +381,18 @@ try {
       document.getElementById('jandri-winter-express').disabled;
     const title=document.getElementById('title').classList.contains('on');
     p.open=false;
-    return {summit,mid,summitLegs,midLegs,midHours,summitHours,unsourced,disabled,title,url:location.href};
+    return {summit,mid,summitLegs,midLegs,summitDiagram,midDiagramOpacity,midHours,summitHours,unsourced,disabled,title,url:location.href};
   })()`);
   assert.equal(winterPreview.missing,undefined,'Jandri planner present on title');
   assert.match(winterPreview.summit,/1650.*2600.*3200/);
   assert.match(winterPreview.mid,/1650.*2600/);
+  assert.equal(winterPreview.summitDiagram.stations,3);
+  assert.equal(winterPreview.summitDiagram.legs,2);
+  assert.equal(winterPreview.summitDiagram.animations,2);
+  assert.equal(winterPreview.summitDiagram.upperOpacity,'1');
+  assert.equal(winterPreview.midDiagramOpacity,'0.25');
+  assert.match(winterPreview.summitDiagram.label,/非实景坐标/);
+  assert.match(winterPreview.summitDiagram.aria,/不是地理位置/);
   assert.equal(winterPreview.summitLegs.length,2);
   assert.equal(winterPreview.midLegs.length,1);
   assert.match(winterPreview.summitLegs[0],/Jandri I.*1650.*2600/);

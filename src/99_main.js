@@ -456,8 +456,13 @@ else {
     // The route diagram is linked to the pinned lift way/station graph;
     // it never invents station coordinates, ski exits or cabin transfers.
     const jandriLegList = document.getElementById('jandri-winter-legs');
+    // Animation is limited to the home-page planner SVG, not the 3D render
+    // loop. Without independently surveyed lift stations it stays schematic.
+    const jandriLiftDiagram = JandriLiftPreview.init(
+      document.getElementById('jandri-winter-schematic'), JandriLiftNetwork);
     const paintJandriPreview = () => {
       const route = JandriLiftNetwork.plan(jandriDestination.value);
+      if (jandriLiftDiagram) jandriLiftDiagram.paint(route);
       jandriPath.textContent = '冬季 · ' +
         route.stations.map(s => s.sectorAltitudeM).join(' → ') +
         (route.intermediateTransferRequired ?
