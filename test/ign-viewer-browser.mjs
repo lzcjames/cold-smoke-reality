@@ -21,7 +21,7 @@ const server=createServer(async(req,res)=>{
  if(p!==root&&!p.startsWith(root+sep))return res.writeHead(403).end();
  const data=await readFile(p).catch(()=>null);
  if(!data)return res.writeHead(404).end();
- res.writeHead(200,{'Content-Type':filename.endsWith('.html')?'text/html':'application/json','Cache-Control':'no-store'}).end(data);
+ res.writeHead(200,{'Content-Type':filename.endsWith('.html')?'text/html':filename.endsWith('.js')?'text/javascript':'application/json','Cache-Control':'no-store'}).end(data);
 }).listen(0,'127.0.0.1');
 await once(server,'listening');
 const profile=await mkdtemp('/tmp/cold-smoke-ign-browser-');
@@ -97,6 +97,27 @@ try{
   })()`);
  assert(visual.count>150,'WebGL image appears blank or lacks measured mountain pixels: '+JSON.stringify(visual));
  assert(visual.max-visual.min>40,'WebGL shading lacks terrain dynamic range');
+ const rider=await evaluate(`(()=>{
+   const lab=window.__ignLab;
+   if(!lab?.ride||lab.ride.approvedForGameplay!==false)return {error:'no safe ride'};
+   document.getElementById('ride-start').click();
+   const before=lab.ride.state();
+   for(let i=0;i<480;i++)lab.ride.step(1/60,{push:false});
+   const still=lab.ride.state();
+   for(let i=0;i<120;i++)lab.ride.step(1/60,{push:i<50});
+   const after=lab.ride.state();
+   lab.render();
+   return {before,still,after,webgl:lab.verified};
+ })()`);
+ assert(!rider.error,'Real IGN rider not mounted: '+rider.error);
+ assert.equal(rider.still.altitudeM,rider.before.altitudeM,'Stationary skis jitter in real IGN DEM');
+ assert.equal(rider.still.x,rider.before.x,'Standing rider drifts on real IGN DEM');
+ assert.equal(rider.after.approvedForGameplay,false,'Unreviewed real terrain was marked playable');
+ assert(rider.after.speed>0 && rider.after.frames>500,'Real measured contact ride did not move');
+ assert(rider.after.altitudeM<rider.before.altitudeM,'Rider did not descend on real measured DEM');
+ console.log('Real IGN browser contact test:',rider.after.speed,rider.after.altitudeM,
+   'standing height delta',rider.still.altitudeM-rider.before.altitudeM);
+
  console.log('Real IGN browser render passed:',result.details,visual);
 }finally{
  clearTimeout(timer);

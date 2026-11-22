@@ -7,6 +7,10 @@
 h1{font-size:20px;margin:4px 0 6px}p{margin:5px 0;color:#b6cbd9;font-size:13px;line-height:1.5}
 #scene{display:block;width:100vw;height:100vh;touch-action:none;cursor:grab}
 #scene:active{cursor:grabbing}#status{position:absolute;z-index:3;bottom:20px;left:20px;right:20px;max-width:680px;background:#06121edc;border:1px solid #57768b;border-radius:12px;padding:12px 15px;font-size:13px;line-height:1.6}
+#ride-ui{position:absolute;z-index:4;left:18px;top:112px;max-width:550px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#ride-ui button{background:#15516b;color:#eef7ff;border:1px solid #8eb6cb;border-radius:9px;padding:9px 12px;cursor:pointer;font-weight:600}
+#ride-ui button:disabled{opacity:.45;cursor:default}
+#ride-readout{font-size:12px;color:#d5ebf7;background:#071b2bd9;padding:5px 9px;border-radius:7px;line-height:1.5}
 #legend{position:absolute;z-index:3;right:20px;top:110px;text-align:right;color:#bfd1de;font-size:12px}
 a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8px;border-radius:20px;font-size:11px}
 @media(max-width:600px){h1{font-size:17px}#legend{top:105px;right:15px}#status{bottom:10px;left:10px;right:10px}}
@@ -14,9 +18,13 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
 <body><header><span class="pill">仅开发预览 · 非可滑雪道</span><h1>Les 2 Alpes · Jandri 2 真实山体</h1>
 <p>IGN LiDAR HD / MNT · EPSG:2154 · 15m 采样 · 鼠标拖动旋转，滚轮缩放；手机触摸拖动旋转</p>
 <p><a href="../">返回 Cold Smoke Reality</a> · <a href="https://www.data.gouv.fr/datasets/mnt-lidar-hd" target="_blank" rel="noopener noreferrer">数据来源 © IGN — Licence Ouverte 2.0</a></p></header>
+<div id="ride-ui"><button id="ride-start" disabled>开始实测接触实验</button><button id="ride-reset" disabled>重置</button><span id="ride-readout">仅地形接触实验 · W 加速、A/D 转向、S 刹车</span></div>
 <canvas id="scene" aria-label="实测 Jandri 2 山体三维旋转预览"></canvas>
 <div id="legend">灰白：高海拔<br>深青：低海拔<br>6 块真实地形 · 不是正式雪道</div>
 <div id="status" role="status" aria-live="polite">正在校验真实 IGN 数据与原始地形分块…</div>
+<script src="./terrain-height-snapshot.js"></script>
+<script src="./ign-lab-ride.js"></script>
+<script src="./ign-lab-ride-visual.js"></script>
 <script>
 'use strict';
 (async function(){
@@ -30,8 +38,8 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
  const prog=gl.createProgram();
  gl.attachShader(prog,shader(gl.VERTEX_SHADER,`
  attribute vec3 aPos; attribute vec3 aNormal;
- uniform vec3 uCenter; uniform float uYaw,uPitch,uDistance,uAspect;
- varying float vElevation,vLight;
+ uniform vec3 uCenter; uniform float uYaw,uPitch,uDistance,uAspect,uMarker;
+ varying float vElevation,vLight,vMarker;
  void main(){
   vec3 v=aPos-uCenter;
   float cy=cos(uYaw),sy=sin(uYaw),cp=cos(uPitch),sp=sin(uPitch);
@@ -41,23 +49,24 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
   float perspective=2.5/(uDistance+depth);
   gl_Position=vec4(x*perspective/uAspect,y*perspective,clamp(depth/2500.,-0.9,0.9),1.);
   vElevation=aPos.y;
+  vMarker=uMarker;
   vLight=clamp(dot(normalize(aNormal),normalize(vec3(0.3,1.0,-0.4))),0.35,1.0);
  }`));
  gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,`
  precision mediump float;
- varying float vElevation,vLight;
+ varying float vElevation,vLight,vMarker;
  void main(){
   float t=clamp((vElevation-140.0)/650.0,0.,1.);
   vec3 low=vec3(0.10,0.34,0.39),high=vec3(0.88,0.93,0.95);
   vec3 color=mix(low,high,pow(t,1.25));
-  gl_FragColor=vec4(color*(0.60+0.40*vLight),1.);
+  gl_FragColor=vec4(mix(color*(0.60+0.40*vLight),vec3(1.0,0.45,0.07),vMarker),1.);
  }`));
  gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));
  gl.useProgram(prog);gl.enable(gl.DEPTH_TEST);
  const attrPos=gl.getAttribLocation(prog,'aPos'),attrNormal=gl.getAttribLocation(prog,'aNormal');
  const uniforms={center:gl.getUniformLocation(prog,'uCenter'),yaw:gl.getUniformLocation(prog,'uYaw'),
  pitch:gl.getUniformLocation(prog,'uPitch'),distance:gl.getUniformLocation(prog,'uDistance'),
- aspect:gl.getUniformLocation(prog,'uAspect')};
+ aspect:gl.getUniformLocation(prog,'uAspect'),marker:gl.getUniformLocation(prog,'uMarker')};
  const get=async url=>{const res=await fetch(url,{cache:'force-cache'});if(!res.ok)throw Error('地形文件不存在：'+url);
   return res.text();};
  const sha=async value=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
@@ -70,7 +79,7 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
    !Array.isArray(manifest.tiles)||manifest.tiles.length!==6||
    manifest.grid.cols!==140||manifest.grid.rows!==68||manifest.grid.step!==15)
     throw Error('不可信的实测地形来源或尺寸');
-  const meshItems=[];let sampleCount=0,triangles=0;
+  const meshItems=[],loaded=[];let sampleCount=0,triangles=0;
   const base=1900,cx=manifest.grid.east+(manifest.grid.cols-1)*manifest.grid.step/2;
   const cn=manifest.grid.north-(manifest.grid.rows-1)*manifest.grid.step/2;
   for(const entry of manifest.tiles){
@@ -85,6 +94,7 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
     g.step!==manifest.grid.step||g.heights.length!==g.cols*g.rows||
     g.cols*g.rows>4096||g.cols<2||g.rows<2)
     throw Error('不可信的原始地形块');
+   loaded.push({name:entry.filename,grid:g});
    const vertex=new Float32Array(g.cols*g.rows*6),indices=new Uint16Array((g.cols-1)*(g.rows-1)*6);
    const elevation=(r,c)=>g.heights[r*g.cols+c];
    for(let r=0;r<g.rows;r++)for(let c=0;c<g.cols;c++){
@@ -106,6 +116,10 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
    meshItems.push({vb,ib,count:indices.length});sampleCount+=g.cols*g.rows;triangles+=indices.length/3;
   }
   let yaw=-0.55,pitch=0.70,distance=3300,dragging=false,lastX=0,lastY=0;
+   const snapshot=TerrainHeightSnapshot.create(manifest,loaded);
+   const rideView=IgnLabRideVisual.attach({snapshot,manifest,gl,
+     uniformMarker:uniforms.marker,attrPos,attrNormal,
+     base,centerEast:cx,centerNorth:cn,draw,setCamera:d=>{distance=d;}});
   canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointerup',()=>dragging=false);
   canvas.addEventListener('pointercancel',()=>dragging=false);
@@ -117,8 +131,11 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
    const w=Math.round(canvas.clientWidth*devicePixelRatio),h=Math.round(canvas.clientHeight*devicePixelRatio);
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
    gl.viewport(0,0,w,h);gl.clearColor(.04,.08,.13,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-   gl.uniform3f(uniforms.center,0,390,0);gl.uniform1f(uniforms.yaw,yaw);gl.uniform1f(uniforms.pitch,pitch);
+   const rideCenter=rideView.cameraCenter();
+   if(rideCenter)gl.uniform3f(uniforms.center,...rideCenter);
+   else gl.uniform3f(uniforms.center,0,390,0);gl.uniform1f(uniforms.yaw,yaw);gl.uniform1f(uniforms.pitch,pitch);
    gl.uniform1f(uniforms.distance,distance);gl.uniform1f(uniforms.aspect,w/h);
+   gl.uniform1f(uniforms.marker,0);
    for(const m of meshItems){
     gl.bindBuffer(gl.ARRAY_BUFFER,m.vb);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.ib);
     gl.enableVertexAttribArray(attrPos);gl.enableVertexAttribArray(attrNormal);
@@ -126,12 +143,13 @@ a{color:#a7d9ff}.pill{background:#244a61;border:1px solid #5e879d;padding:2px 8p
     gl.vertexAttribPointer(attrNormal,3,gl.FLOAT,false,24,12);
     gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_SHORT,0);
    }
+   rideView.drawMarker();
   }
   window.addEventListener('resize',draw);
   draw();
   // Developer-only diagnostics. No player scene, physics or production asset activation.
   window.__ignLab = Object.freeze({verified:true,tiles:meshItems.length,samples:sampleCount,
-   triangles,render:draw});
+   triangles,render:draw,ride:rideView.ride});
   show('已验证 6 个真实 IGN 地形块 · '+sampleCount.toLocaleString()+' 个含重叠高度点 · '+triangles.toLocaleString()+
    ' 个三角形。仅用于地形检查；未启用雪道、缆车或雪板碰撞。');
  }catch(error){console.error(error);show('预览拒绝加载：'+error.message+'。此处绝不显示伪造地形。');}
