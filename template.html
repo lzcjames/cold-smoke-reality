@@ -527,6 +527,8 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #jandri-winter-preview label { display: block; margin-bottom: .3rem; }
 #jandri-winter-destination { width: 100%; max-width: 100%; font: inherit; padding: .45rem; border-radius: 6px; color: var(--snow); background: #17232d; border: 1px solid #8198a6; }
 #jandri-winter-preview .jp-path { margin: .5rem 0; line-height: 1.4; }
+#jandri-winter-preview .jp-legs { margin: .35rem 0 .55rem; padding-left: 1.55em; color: #d4e4ee; line-height: 1.5; }
+#jandri-winter-preview .jp-legs li + li { margin-top: .25rem; }
 #jandri-winter-preview .jp-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
 #jandri-winter-preview button { font: inherit; border: 1px solid #8198a6; border-radius: 6px; padding: .35rem .6rem; }
 #jandri-winter-preview button:disabled { opacity: .58; cursor: not-allowed; }
@@ -566,6 +568,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
             <option value="jandri-3200">Jandri 3200 · 终点站</option>
           </select>
           <div id="jandri-winter-path" class="jp-path" role="status" aria-live="polite"></div>
+          <ol id="jandri-winter-legs" class="jp-legs" aria-label="Jandri 3S winter lift legs"></ol>
           <label for="jandri-winter-date">2026/27 冬季计划日期</label>
           <input type="date" id="jandri-winter-date" value="2026-11-28" min="2026-11-28" max="2027-05-02" style="width:100%;max-width:100%;box-sizing:border-box;padding:.4rem;color:var(--snow);background:#17232d;border:1px solid #8198a6;border-radius:6px;font:inherit">
           <div id="jandri-winter-hours" class="jp-path" role="status" aria-live="polite">计划班次待加载</div>

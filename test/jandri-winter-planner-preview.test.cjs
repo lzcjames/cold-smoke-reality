@@ -25,9 +25,12 @@ test('preview is only a route guide and updates after explicit destination selec
   assert.match(boot,/jandriDate\.addEventListener\('change', paintJandriPreview\)/);
   assert.match(boot,/JandriWinterSchedule\.lookup\(jandriDate\.value, jandriDestination\.value\)/);
   assert.ok(boot.indexOf('const jandriPreview =') < boot.indexOf('if ((REALITY_MODE ||'), 'preview must display even without optional 3D resort packs');
-  assert.match(boot,/1650 → 2600（中间站，换乘方式待核实）→ 3200/);
+  assert.match(boot,/JandriLiftNetwork\.plan\(jandriDestination\.value\)/);
+  assert.match(boot,/route\.stations\.map\(s => s\.sectorAltitudeM\)/);
+  assert.match(boot,/2600 站接驳方式待核实/);
+  assert.match(boot,/route\.legs/);
+  assert.match(tpl,/id="jandri-winter-legs"/);
   assert.doesNotMatch(boot,/1650 → 2600（中间换乘）→ 3200/, 'do not assert an unverified mandatory passenger interchange');
-  assert.match(boot,/1650 → 2600 · 第一段缆车/);
   assert.doesNotMatch(boot,/jandriDestination\.addEventListener\('change',\s*enterSelectedResort\)/);
   assert.doesNotMatch(boot,/jandri-winter-express.*\.click\(/);
 });

@@ -453,11 +453,25 @@ else {
   const jandriHours = document.getElementById('jandri-winter-hours');
   if (jandriPreview && jandriDestination && jandriDate && jandriPath && jandriHours) {
     jandriPreview.hidden = false;
+    // The route diagram is linked to the pinned lift way/station graph;
+    // it never invents station coordinates, ski exits or cabin transfers.
+    const jandriLegList = document.getElementById('jandri-winter-legs');
     const paintJandriPreview = () => {
-      const toSummit = jandriDestination.value === 'jandri-3200';
-      jandriPath.textContent = toSummit ?
-        '冬季 · 1650 → 2600（中间站，换乘方式待核实）→ 3200 · 两段缆车' :
-        '冬季 · 1650 → 2600 · 第一段缆车';
+      const route = JandriLiftNetwork.plan(jandriDestination.value);
+      jandriPath.textContent = '冬季 · ' +
+        route.stations.map(s => s.sectorAltitudeM).join(' → ') +
+        (route.intermediateTransferRequired ?
+          ' · 2600 站接驳方式待核实' : ' · 第一段缆车');
+      if (jandriLegList) {
+        jandriLegList.textContent = '';
+        for (const leg of route.legs) {
+          const station = id => route.stations.find(s => s.id === id).name;
+          const li = document.createElement('li');
+          li.textContent = leg.name + ' · ' + station(leg.from) + ' → ' +
+            station(leg.to) + ' · 站台及下车通道待核验';
+          jandriLegList.appendChild(li);
+        }
+      }
       const published = JandriWinterSchedule.lookup(jandriDate.value, jandriDestination.value);
       const hours = published.schedule;
       jandriHours.textContent = hours ?
