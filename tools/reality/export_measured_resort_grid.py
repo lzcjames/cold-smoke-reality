@@ -166,7 +166,12 @@ def main():
              "approvedForGameplay": False, "mergedIntoResort": False,
              **candidate}
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(asset, separators=(",", ":")) + "\n")
+    packed = json.dumps(asset, separators=(",", ":")) + "\n"
+    # This is an intentionally lightweight standalone browser resource.
+    # Never let a large grid silently bloat the HTML entry point or cache.
+    if len(packed.encode("utf-8")) > 2 * 1024 * 1024:
+        raise ValueError("Measured DEM staging JSON exceeds 2 MiB; split into geographic tiles")
+    args.out.write_text(packed)
     print("Source-only browser DEM candidate:", len(ways), "ways;",
           candidate["grid"]["cols"], "x", candidate["grid"]["rows"],
           "at", args.step, "m; NOT published")
