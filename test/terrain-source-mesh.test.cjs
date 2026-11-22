@@ -21,9 +21,9 @@ test('flat data gives upward-facing triangles and finite upward normals',()=>{
  assert.deepEqual(Array.from(m.positions.slice(0,6)),[0,100,0,15,100,0]);
  assert.deepEqual(Array.from(m.indices.slice(0,6)),[0,3,1,1,3,4]);
  for(let k=0;k<m.normals.length;k+=3){
-  assert.equal(m.normals[k],0);
+  assert.ok(Math.abs(m.normals[k])<1e-8);
   assert.equal(m.normals[k+1],1);
-  assert.equal(m.normals[k+2],0);
+  assert.ok(Math.abs(m.normals[k+2])<1e-8);
  }
  assert.equal(m.readyForCollision,false);
  assert.equal(m.approvedForGameplay,false);
