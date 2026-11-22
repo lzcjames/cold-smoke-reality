@@ -15,7 +15,8 @@ const TiledReality = (() => {
     if (Math.abs(Math.hypot(de, dn) - 1) > 1e-6)
       throw Error('Downhill reference must be a unit projected direction');
     const [e0, n0] = reference.originLambert93;
-    const dem = TiledDEM.create(grid);
+    const sampler = typeof TiledDEM !== 'undefined' ? TiledDEM : require('./02a_tiled_dem.js');
+    const dem = sampler.create(grid);
     for (const tile of tiles) dem.add(tile);
     function toWorld(e, n) {
       if (!Number.isFinite(e) || !Number.isFinite(n)) return null;
