@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tools/reality/les2alpes_sharded_osm.py'
+      - 'tools/reality/audit_osm_shards.cjs'
       - 'tools/reality/overpass_region_source.cjs'
       - 'tools/reality/index_regional_overpass.cjs'
       - 'data/reality/les-deux-alpes-sectors.json'
@@ -47,6 +48,9 @@ jobs:
                   raise RuntimeError("Unreviewed regional source falsely approved")
           print("Captured source quadrants:",status["numberOfIndependentResponses"],"/4")
           PY
+          node tools/reality/audit_osm_shards.cjs \
+            regional-evidence \
+            regional-evidence/deduplicated-source-audit.json
       - name: Archive raw OSM, attributed candidates and unresolved gaps only
         if: always()
         uses: actions/upload-artifact@v4
