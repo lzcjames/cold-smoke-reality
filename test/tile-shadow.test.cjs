@@ -119,9 +119,26 @@ test('leaving measured coverage invalidates delayed tile responses and permits r
 
 test('validly signed but incomplete tile coverage fails the actual ski-contact audit',async()=>{
   const f=fixture({partial:true});
-  assert.equal(f.shadow.observe([900035,6499990],[1,0]),true);
+  // Look west, so the cache contains source tile 0 and the deliberately
+  // shortened tile 1. Their shared west border is still exact; the
+  // missing sample at east=900035 must fail from coverage, not seam hashing.
+  assert.equal(f.shadow.observe([900035,6499990],[-1,0]),true);
   const status=await settle(f.shadow);
   assert.equal(status.checked,0);
   assert.equal(status.failures,1);
   assert.match(status.lastError,/tile missing at ski contact/);
+});
+
+test('movement within one large DEM tile continues auditing without redundant downloads',async()=>{
+  const f=fixture();
+  assert.equal(f.shadow.observe([900005,6499990],[1,0]),true);
+  const first=await settle(f.shadow);
+  assert.ok(first.checked>0);
+  const requests=f.calls();
+  // Both positions and their lookahead stay within the same tile.
+  assert.equal(f.shadow.observe([900015,6499990],[1,0]),true);
+  const second=await settle(f.shadow);
+  assert.ok(second.checked>first.checked,'moving within one tile must resample ski contacts');
+  assert.equal(second.updates,first.updates+1);
+  assert.equal(f.calls(),requests,'rechecking existing terrain must not refetch the same tile');
 });
