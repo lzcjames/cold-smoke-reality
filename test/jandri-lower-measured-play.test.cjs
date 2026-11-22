@@ -42,7 +42,10 @@ test('the Jandri routes are exact pinned real OSM node subsequences in IGN DEM',
       assert.equal(terrain.withinDEM(...world),true);
       assert.ok(Number.isFinite(terrain.altitude(...world)));
     }
-    assert.equal(segment.difficulty,'unrated','do not fabricate an official piste grade');
+    const originalDifficulty=original.tags?.['piste:difficulty'];
+    assert.equal(originalDifficulty,'easy','archived Jandri way must retain its actual blue OSM tag');
+    assert.equal(segment.difficulty,'easy','show source-backed OSM grade, not an invented rating');
+    assert.ok(segment.name.includes('下部实测片段'),'do not imply the upper Jandri route is loaded');
   }
 });
 
