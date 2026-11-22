@@ -49,6 +49,19 @@ const JandriLiftPreview = (() => {
       t.textContent=String(station.sectorAltitudeM);
     });
     host.appendChild(label);
+    // Do not keep SVG motion active during skiing or when this disclosure
+    // is collapsed. IntersectionObserver is event-driven, not a game tick.
+    const canAnimate = typeof matchMedia !== 'function' ||
+      !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (typeof svg.pauseAnimations === 'function') svg.pauseAnimations();
+    if (canAnimate && typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver(entries => {
+        if (entries[0]?.isIntersecting && !document.hidden)
+          svg.unpauseAnimations();
+        else svg.pauseAnimations();
+      }, {threshold:0.01});
+      observer.observe(svg);
+    }
     function paint(plan) {
       if (!plan || !Array.isArray(plan.legs)) return;
       const selected=new Set(plan.legs.map(x=>x.id));
