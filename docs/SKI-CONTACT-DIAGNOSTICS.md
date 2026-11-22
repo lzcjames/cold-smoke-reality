@@ -36,3 +36,15 @@ Do not change the contact solver, terrain normals, camera smoothing, frame
 scheduler or collision behavior based solely on one maximum value. Look for
 repeated alternating corrections during steady motion, across multiple
 pistes and frame rates; then create a separate small controlled fix.
+
+## Published site verification
+
+The main-branch GitHub Actions workflow `Web validation and Pages` rebuilds
+`site/index.html` and both real-resort data packs on each push to `main`,
+then publishes them through `actions/deploy-pages`. The deployment job
+checks the online page, the two actual DEM JSON checksums, and the Jandri
+OSM atlas checksum. Successful PR preview checks alone do **not** prove
+a live Pages deployment; confirm the **push-to-main** run's `deploy` job.
+
+The diagnostic is still optional: normal play needs no `skiDiag=1` flag,
+and the remaining mild ski jitter is not claimed to be resolved.
