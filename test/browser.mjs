@@ -374,11 +374,15 @@ try {
     if(!boot.startsWith('ok'))return {boot,error:k.err()};
     const t=k.m.Course.reality, start=k.sim(0), end=k.sim(1,k.pilot());
     return {boot,enabled:t.tilePreviewEnabled,tiles:t.tilePreviewCount,
+      measuredNetwork:!!t.network, pisteCount:t.network?.pistes?.length || 0,
       moved:end.p[2]<start.p[2],gap:Math.abs(end.p[1]-k.height(end.p[0],end.p[2])),
       error:k.err(),alive:!k.app().gfx.lost};
   })()`);
   assert.equal(diskTiles.boot,'ok webgl2',JSON.stringify(diskTiles));
   assert.equal(diskTiles.enabled,true,JSON.stringify(diskTiles));
+  assert.equal(diskTiles.measuredNetwork,true,
+    'cached original DEM must not drop the real piste network for tiled mode');
+  assert(diskTiles.pisteCount>=3,JSON.stringify(diskTiles));
   assert.equal(diskTiles.tiles,tileManifest.tiles.length,JSON.stringify(diskTiles));
   assert(diskTiles.moved && diskTiles.gap<0.5 && !diskTiles.error && diskTiles.alive,
     JSON.stringify(diskTiles));
