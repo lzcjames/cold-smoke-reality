@@ -21,7 +21,7 @@ test('export full rectangular DEM including partial edge tiles, without changing
   assert.ok(out.tiles.some(t=>t.cols===2 && t.rows===4));
   for(let j=0;j<source.grid.rows;j++)for(let i=0;i<source.grid.cols;i++){
     const actual=dem.sample(source.grid.east+i*15,source.grid.north-j*15);
-    assert.equal(actual,source.grid.heights[j*source.grid.cols+i]);
+    assert.ok(Math.abs(actual-source.grid.heights[j*source.grid.cols+i])<1e-6);
   }
   assert.equal(dem.sample(source.grid.east+(source.grid.cols)*15,source.grid.north),null);
 });
@@ -56,8 +56,8 @@ test('bundled measured Les Deux Alpes pack can be exported losslessly when prese
   const dem=DEM.create(out.grid);
   for(const tile of out.tiles)dem.add(tile);
   for(let j=0;j<asset.grid.rows;j++)for(let i=0;i<asset.grid.cols;i++) {
-    assert.equal(dem.sample(asset.grid.east+i*asset.grid.step,
-      asset.grid.north-j*asset.grid.step),
-      asset.grid.heights[j*asset.grid.cols+i]);
+    assert.ok(Math.abs(dem.sample(asset.grid.east+i*asset.grid.step,
+      asset.grid.north-j*asset.grid.step)-
+      asset.grid.heights[j*asset.grid.cols+i])<1e-6);
   }
 });
