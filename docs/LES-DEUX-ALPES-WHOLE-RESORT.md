@@ -170,3 +170,19 @@ fail CI. These coarse safety checks do **not** establish imperceptible ski
 jitter, stable 60 FPS on customer devices, or correctness across the
 unmeasured resort; the measured metrics are logged for subsequent tighter,
 hardware-informed bounds. The experiment still never changes live physics.
+
+### Measured jitter regression: title idle animation vs real ski physics
+
+From Chromium CI on head `5ef44e1`, the 180-step Les Deux Alpes
+`tileAudit=1` run measured maximum physical ski-surface gap 0.01766 m,
+maximum one-step gap change 0.01226 m, maximum source surface step 0.09189 m
+and visual root-to-surface difference 0.00280 m. These values bound only
+that automated route, not all slopes or all GPUs.
+
+Regression guards are now tighter: physical gap < 0.12 m, one-step gap
+change < 0.08 m, visual root difference < 0.08 m and measured terrain
+change per step < 0.5 m. A separate 120-frame stationary title-state
+test measures ski tip/tail segment motion relative to the skier root and
+rejects individual component jumps >= 0.30 m. It logs the actual measured
+jitter range to support future refinement. No pose or physics tuning was
+applied as part of this diagnostic.
