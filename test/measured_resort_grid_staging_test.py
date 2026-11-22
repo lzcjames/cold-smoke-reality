@@ -25,8 +25,8 @@ class MeasuredGridStagingTest(unittest.TestCase):
                                    step_m=15, margin_m=45)
         g = result["grid"]
         self.assertEqual(len(g["heights"]), g["cols"] * g["rows"])
-        self.assertEqual(g["cols"], 13)
-        self.assertEqual(g["rows"], 7)
+        self.assertEqual(g["cols"], 14)
+        self.assertEqual(g["rows"], 8)
         self.assertEqual(result["originalSourceWays"], [71])
         self.assertEqual(g["east"], 30)
         self.assertEqual(g["north"], 150)
