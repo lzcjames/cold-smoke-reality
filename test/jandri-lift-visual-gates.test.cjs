@@ -59,7 +59,7 @@ test('strict geometry produces only the supplied station/tower points',()=>{
   ]);
   assert.ok(Object.isFrozen(line));
   assert.ok(Object.isFrozen(line[0]));
-  line[0][0]=42;
+  assert.throws(()=>{line[0][0]=42;},TypeError);
   assert.notEqual(p.stations[1].anchor[0],42);
 });
 test('winter SVG schematic is title only and cannot enable lift transport',()=>{
