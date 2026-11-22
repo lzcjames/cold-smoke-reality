@@ -101,7 +101,14 @@ try{
 }finally{
  clearTimeout(timer);
  try{socket?.close()}catch{}
- browser.kill();
- server.close();
- await rm(profile,{recursive:true,force:true});
+ // Chromium can still be writing GPU/cache data after kill() returns.
+ // Wait for process exit before deleting the live profile directory.
+ if(browser.exitCode===null && browser.signalCode===null){
+  const exited=new Promise(resolve=>browser.once('exit',resolve));
+  browser.kill();
+  await Promise.race([exited,delay(5000)]);
+  if(browser.exitCode===null && browser.signalCode===null)browser.kill('SIGKILL');
+ }
+ await new Promise(resolve=>server.close(resolve));
+ await rm(profile,{recursive:true,force:true,maxRetries:12,retryDelay:200});
 }
