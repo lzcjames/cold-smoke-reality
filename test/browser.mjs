@@ -400,9 +400,30 @@ try {
     if(!boot.startsWith('ok'))return {boot,error:k.err()};
     const terrain=k.m.Course.reality;
     if(!terrain.tileShadow)return {boot,shadowMissing:true};
-    k.sim(2,k.pilot());
+    // Run the actual ski solver at 60 Hz and collect finite, per-step
+    // contact evidence. This reports frame-to-frame discontinuity rather
+    // than hiding occasional jitter behind a final position average.
+    const pilot=k.pilot();
+    let maxContactGap=0,maxGapStep=0,maxSurfaceStep=0,
+      maxRootSurfaceGap=0,observations=0,previousGap=null,previousSurface=null;
+    for(let i=0;i<180;i++) {
+      const frame=k.sim(1/60,pilot,{draw:false});
+      const surface=k.height(frame.p[0],frame.p[2]);
+      const clearance=frame.p[1]-surface;
+      const root=k.game().root.pos;
+      if(![surface,clearance,...root].every(Number.isFinite))
+        throw Error('Non-finite skier/terrain contact in live tile audit');
+      maxContactGap=Math.max(maxContactGap,Math.abs(clearance));
+      maxRootSurfaceGap=Math.max(maxRootSurfaceGap,Math.abs(root[1]-surface));
+      if(previousGap!==null)
+        maxGapStep=Math.max(maxGapStep,Math.abs(clearance-previousGap));
+      if(previousSurface!==null)
+        maxSurfaceStep=Math.max(maxSurfaceStep,Math.abs(surface-previousSurface));
+      previousGap=clearance;previousSurface=surface;observations++;
+    }
     await new Promise(resolve=>setTimeout(resolve,500));
     return {boot,terrain:terrain.id,shadow:terrain.tileShadow.status(),
+      contact:{observations,maxContactGap,maxGapStep,maxSurfaceStep,maxRootSurfaceGap},
       graphicsAlive:!k.app().gfx.lost,error:k.err()};
   })()`);
   assert.equal(auditBoot.boot,'ok webgl2',JSON.stringify(auditBoot));
@@ -412,6 +433,13 @@ try {
     JSON.stringify(auditBoot));
   assert(auditBoot.shadow.loaded<=6 && auditBoot.graphicsAlive && !auditBoot.error,
     JSON.stringify(auditBoot));
+  assert.equal(auditBoot.contact.observations,180,JSON.stringify(auditBoot));
+  assert(Object.values(auditBoot.contact).every(Number.isFinite),
+    'Each 60 Hz skier/terrain contact metric must remain finite');
+  assert(auditBoot.contact.maxContactGap<5 && auditBoot.contact.maxGapStep<5,
+    'Extreme skier/terrain contact jump: '+JSON.stringify(auditBoot.contact));
+  console.log('Measured 60Hz skier/surface continuity (diagnostic, not proof of zero jitter)',
+    auditBoot.contact);
   console.log('Live verified DEM shadow follows real skier without changing collision',
     auditBoot.shadow);
 
