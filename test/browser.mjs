@@ -892,6 +892,8 @@ try {
       const pilot=k.pilot();
       let prevGap=null,maxGapStep=0,maxGap=0,maxTerrainStep=0,
         prevGround=null,maxHorizontalTravel=0;
+      const trace=window.__skiSkiDiag, recorded=[];
+      trace?.clear();
       for(let i=0;i<180;i++) {
         const frame=k.sim(1/60,pilot,{draw:false});
         const ground=k.height(frame.p[0],frame.p[2]);
@@ -905,16 +907,45 @@ try {
         maxGap=Math.max(maxGap,Math.abs(gap));
         maxHorizontalTravel=Math.max(maxHorizontalTravel,
           Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2]));
+        const contact=trace?.snapshot().at(-1);
+        recorded.push({frame:i,contactOn:contact?.on??null,
+          gapM:gap,groundM:ground,gapStepM:prevGap===null?0:Math.abs(gap-prevGap),
+          terrainStepM:prevGround===null?0:Math.abs(ground-prevGround),
+          displacementM:Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2])});
         prevGap=gap;prevGround=ground;
       }
+      const peak=[...recorded].sort((a,b)=>Math.abs(b.gapM)-Math.abs(a.gapM))[0];
+      const stepPeak=[...recorded].sort((a,b)=>b.gapStepM-a.gapStepM)[0];
+      const on=recorded.filter(v=>v.contactOn===true);
+      const off=recorded.filter(v=>v.contactOn===false);
+      const stable=recorded.filter(v=>v.frame>=30&&v.contactOn===true);
+      const maxAbs=rows=>rows.reduce((v,r)=>Math.max(v,Math.abs(r.gapM)),0);
+      const maxStep=rows=>rows.reduce((v,r)=>Math.max(v,r.gapStepM),0);
+      const compact=at=>recorded.slice(Math.max(0,at-3),Math.min(180,at+4));
       return {samples:180,maxGap,maxGapStep,maxTerrainStep,
         maxHorizontalTravel,finish:k.game().s.p.slice(),
-        realMeasuredBend:point};
+        realMeasuredBend:point,phase:{
+          onFrames:on.length,offFrames:off.length,
+          maxOnGapM:maxAbs(on),maxOffGapM:maxAbs(off),
+          maxAfterWarmupOnGapM:maxAbs(stable),
+          maxAfterWarmupOnGapStepM:maxStep(stable)
+        },peakContact:peak,peakGapStep:stepPeak,
+        aroundPeakGap:compact(peak.frame),
+        aroundPeakStep:compact(stepPeak.frame)};
+
     })()`);
     assert.equal(bend.samples,180);
     assert([bend.maxGap,bend.maxGapStep,bend.maxTerrainStep,
-      bend.maxHorizontalTravel,...bend.finish].every(Number.isFinite),
+      bend.maxHorizontalTravel,...bend.finish,
+      bend.phase.maxOnGapM,bend.phase.maxOffGapM,
+      bend.phase.maxAfterWarmupOnGapM,bend.phase.maxAfterWarmupOnGapStepM]
+      .every(Number.isFinite),
       'Nonfinite Jandri 1 measured turn-state metrics');
+    assert.equal(bend.phase.onFrames+bend.phase.offFrames,180,
+      'Every Jandri 1 bend physics frame must have ski contact classification');
+    assert(bend.peakContact && bend.peakGapStep &&
+      bend.aroundPeakGap.length>=1 && bend.aroundPeakStep.length>=1,
+      'A Jandri bend peak requires an attributable local contact window');
     console.log('Real Jandri 1 OSM bend live 180-frame contact diagnostic',bend);
   }
 
