@@ -204,6 +204,13 @@ jobs:
             node tools/reality/audit_real_dem_mesh.cjs \
               /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json \
               /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles
+            # Run the actual unchanged ski solver on verified measured IGN
+            # source. Keep the source-only report for CI review.
+            node --check tools/reality/audit_real_ign_ski_contact.cjs
+            node tools/reality/audit_real_ign_ski_contact.cjs \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-staging.json \
+              /tmp/cold-smoke-ign-preview/jandri2-measured-grid-tiles \
+              /tmp/jandri2-real-ign-ski-contact.json
             mkdir -p site/ign-lab/data
             cp dev/les2alpes-real-ign.html site/ign-lab/index.html
             cp src/02l_terrain_height_snapshot.js site/ign-lab/terrain-height-snapshot.js
