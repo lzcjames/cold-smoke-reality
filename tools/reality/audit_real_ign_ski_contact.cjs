@@ -40,10 +40,24 @@ function audit(data,folder){
     Course,location:{search:''}};
   vm.runInNewContext(solverSource,context);
   const contact=context.Skier.ground,sec={},output=[];
+  const sourceProfiles=[];
   if(typeof contact!=='function')throw Error('Actual ski solver unavailable');
   for(let i=0;i<frames;i++){
    const root={pos:[initialX+i*dx,base,initialZ],fwd:[0,0,-1]};
    const toW=q=>[root.pos[0]+q[0],root.pos[1]+q[1],root.pos[2]+q[2]];
+   // Independently read the exact original IGN heights under all
+   // nine longitudinal stations of BOTH 1.5m skis. Comparing this
+   // source motion with solver output separates terrain variation
+   // from additional contact solver corrections.
+   const profile=[];
+   for(const lateral of [-.31/2,.31/2])
+    for(let station=0;station<9;station++){
+     const h=local(root.pos[0]+lateral,root.pos[2]-.75+station*1.5/8);
+     if(!Number.isFinite(h))
+      throw Error('Unverified authentic DEM height under ski station');
+     profile.push(h);
+    }
+   sourceProfiles.push(profile);
    const pair=contact({onSnow:1,stance:.31,sink:0,mogK:1,
     crouch:.2,lead:0},root,[0,1,0],toW,sec,1/60);
    const vec=Array.from(pair);
@@ -61,12 +75,20 @@ function audit(data,folder){
     max=Math.max(max,Math.abs(active[j][field]-active[j-1][field]));
    return max;
   });
+  let maximumSourceFrameDeltaM=0;
+  for(let j=1;j<sourceProfiles.length;j++)
+   for(let k=0;k<18;k++)
+    maximumSourceFrameDeltaM=Math.max(maximumSourceFrameDeltaM,
+     Math.abs(sourceProfiles[j][k]-sourceProfiles[j-1][k]));
+  if(dx===0&&maximumSourceFrameDeltaM>1e-8)
+   throw Error('Standing authentic terrain source changed between frames');
   if(dx===0&&ranges.some(v=>v>0.002))
    throw Error('Stationary actual-ground ski contact oscillates: '+ranges);
   if(dx!==0&&(Math.max(maximumFrameDelta[0],maximumFrameDelta[2])>0.3 ||
     Math.max(maximumFrameDelta[1],maximumFrameDelta[3])>0.2))
    throw Error('Large sudden ski contact jump on measured ground: '+maximumFrameDelta);
   return {column,row,moveMPerFrame:dx,frames,
+   sourceContactStationsPerFrame:18,maximumSourceFrameDeltaM,
    last120Range:ranges,last120MaxStep:maximumFrameDelta};
  }
  // Fixed interior point and both sides of the original 64-cell tile seam:
