@@ -101,7 +101,10 @@ let launchError;
 browser.on('error', error => { launchError = error; });
 // Each launch has an independent watchdog; the P3 stress suite no longer
 // accumulates the regular regression's elapsed time in one Chromium process.
-const timer = setTimeout(() => browser.kill(), p3Only ? 780_000 : 410_000);
+// The full multi-resort regression can exceed seven minutes on CI's
+// software GPU. Fail individual stalled CDP operations rather than silently
+// killing Chromium mid-scenario and leaving an unresolved evaluation.
+const timer = setTimeout(() => browser.kill(), p3Only ? 780_000 : 900_000);
 try {
   let port;
   for (let i=0;i<100 && !port;i++) {
@@ -117,20 +120,35 @@ try {
   function cdp(method, params={}) {
     const seq=++id;
     return new Promise((resolve,reject)=>{
-      function close() {
-        socket.removeEventListener('message', receive);
-        reject(new Error('Chromium closed during ' + method));
-      }
-      function receive(e) {
-        const msg=JSON.parse(e.data);
-        if(msg.id!==seq) return;
+      let finished=false;
+      const timeout=setTimeout(()=>finish(new Error(
+        'CDP timeout after 90s: '+method+' (command '+seq+')')),90_000);
+      function cleanup(){
+        clearTimeout(timeout);
         socket.removeEventListener('message',receive);
-        socket.removeEventListener('close', close);
-        if(msg.error) reject(msg.error); else resolve(msg.result);
+        socket.removeEventListener('close',close);
+        socket.removeEventListener('error',errored);
+      }
+      function finish(error,result){
+        if(finished)return;
+        finished=true;
+        cleanup();
+        if(error)reject(error);else resolve(result);
+      }
+      function close(){finish(new Error('Chromium closed during '+method));}
+      function errored(){finish(new Error('Chromium socket errored during '+method));}
+      function receive(e){
+        let msg;
+        try{msg=JSON.parse(e.data);}catch(error){finish(error);return;}
+        if(msg.id!==seq)return;
+        if(msg.error)finish(new Error(JSON.stringify(msg.error)));
+        else finish(null,msg.result);
       }
       socket.addEventListener('message',receive);
-      socket.addEventListener('close', close, { once: true });
-      socket.send(JSON.stringify({id:seq,method,params}));
+      socket.addEventListener('close',close);
+      socket.addEventListener('error',errored);
+      try{socket.send(JSON.stringify({id:seq,method,params}));}
+      catch(error){finish(error);}
     });
   }
   async function evaluate(expression) {
@@ -780,6 +798,7 @@ try {
   assert.equal(await evaluate('location.href'),beforeReturn.url,'quick return must not navigate');
   assert.equal(await evaluate('performance.timeOrigin'),beforeReturn.timeOrigin,'quick return must not reload');
   console.log('Measured piste quick return: actual click, same terrain and active replay passed');
+  console.log('Beginning isolated Jandri 2 lower-segment browser scenario');
   // Jandri 2 lower segment is an authentic July-2026 OSM way clipped to the
   // currently measured lower IGN DEM. Also exercise opt-in contact telemetry.
   await navigate('/?' + options + '&ui&lang=zh&backend=webgl2&skiDiag=1',
