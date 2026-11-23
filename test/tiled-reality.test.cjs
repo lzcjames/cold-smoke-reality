@@ -132,3 +132,46 @@ test('moving twin-ski contacts cross measured tile seam without height spikes',(
   const [x,z]=t.project(900025,6499990);
   assert.equal(t.sampleSkiFootprint(x,z,Math.PI/2),null);
 });
+
+
+test('route audit traverses both skis across a fully loaded projected DEM seam',()=>{
+  const o=opts();o.tiles=[tile(0,0),tile(1,0)];
+  const r=TiledReality.create(o);
+  const route=[[900005,6499990],[900035,6499990]];
+  const result=r.auditSkiRoute(route);
+  assert.equal(result.complete,true);
+  assert.equal(result.checked,16);
+  assert.ok(Math.abs(result.distanceM-30)<1e-9);
+  assert.ok(result.maxGroundStepM<0.05);
+  assert.equal(result.missingAtProjected,null);
+  assert.equal(result.approvedForGameplay,false);
+});
+test('route audit reports first missing ski footprint without permitting gameplay',()=>{
+  const o=opts();o.tiles=[tile(0,0)];
+  const r=TiledReality.create(o);
+  const route=[[900005,6499990],[900035,6499990]];
+  const missing=r.auditSkiRoute(route);
+  assert.equal(missing.complete,false);
+  assert.ok(missing.checked>0);
+  assert.ok(missing.distanceM<30);
+  assert.ok(missing.missingAtProjected[0]>900019);
+  assert.equal(missing.approvedForGameplay,false);
+  r.dem.add(tile(1,0));
+  assert.equal(r.auditSkiRoute(route).complete,true);
+});
+test('route audit refuses a centreline with an unloaded lateral ski',()=>{
+  const o=opts();o.tiles=[tile(0,0)];
+  const r=TiledReality.create(o);
+  const route=[[900019.9,6499980],[900019.9,6499995]];
+  assert.equal(r.auditSkiRoute(route,{stanceM:0.6}).complete,false);
+});
+test('route preflight is budgeted and rejects invalid route parameters',()=>{
+  const o=opts();o.tiles=[tile(0,0)];
+  const r=TiledReality.create(o);
+  assert.throws(()=>r.auditSkiRoute([[900000,6500000],[900000,6500000]]),
+    /Invalid ski route segment/);
+  assert.throws(()=>r.auditSkiRoute([[900000,6500000],[900030,6499990]],{sampleStepM:0}),
+    /Invalid surveyed ski route/);
+  assert.throws(()=>r.auditSkiRoute([[900000,6500000],[900000,6450000]]),
+    /sample budget/);
+});
