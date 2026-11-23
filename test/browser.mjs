@@ -424,7 +424,13 @@ try {
     const G=k.game(),skier=k.m.Skier,origin=k.m.Render.origin;
     let idleDelta=0,idleRange=0,idleSamples=0,previousSkis=null,firstSkis=null;
     if(G.mode!=='title')throw Error('Expected idle title state');
+    // Skier.update derives its animation dt from App.t, not the Game.update
+    // argument. Advancing Game alone produced an invalid "zero wobble" test:
+    // the visual skier was sampled 120 times at the same animation time.
+    const app=k.app(), idleStartT=app.t;
+    if(!Number.isFinite(idleStartT))throw Error('Missing live animation clock');
     for(let t=0;t<120;t++) {
+      app.t=idleStartT+(t+1)/60;
       G.update(1/60);
       skier.update(G.root,G.pose,origin);
       const pts=skier.world.seg?.slice(0,2).flatMap(pair=>pair.flatMap(p=>[
@@ -439,8 +445,9 @@ try {
         idleRange=Math.max(idleRange,Math.abs(pts[n]-firstSkis[n]));
       previousSkis=pts;idleSamples++;
     }
-    const idle={observations:idleSamples,maxEndpointStep:idleDelta,
-      maxEndpointRange:idleRange};
+    app.t=idleStartT;
+    const idle={observations:idleSamples,advancedSeconds:120/60,
+      maxEndpointStep:idleDelta,maxEndpointRange:idleRange};
     // Run the actual ski solver at 60 Hz and collect finite, per-step
     // contact evidence. This reports frame-to-frame discontinuity rather
     // than hiding occasional jitter behind a final position average.
