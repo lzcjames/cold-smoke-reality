@@ -878,6 +878,46 @@ try {
   assert(movingContinuity.skiContact?.contactFrames>0,
     'Real Jandri 60Hz movement must produce actual ski contact telemetry');
   console.log('Live lower Jandri 180-frame skier/terrain continuity',wayName,movingContinuity);
+  // Additional authentic-source stress position: Jandri 1 OSM vertex 41,
+  // roughly 877m along the pinned lower source polyline. This runs the real
+  // game solver on IGN ground *at* the bend, not an invented slope. Starting at
+  // the vertex is not proof of actually carving through its entire turn.
+  if (wayId===219275197) {
+    const bend=await evaluate(`(() => {
+      const k=window.__ski,t=k.m.Course.reality,
+        point=[947080.546,6439003.569],pos=t.project(...point);
+      if(!t.withinDEM(...pos))throw Error('Measured Jandri 1 bend not covered');
+      k.game().reset(-pos[1],pos[0]);
+      const start=k.game().s.p.slice();
+      const pilot=k.pilot();
+      let prevGap=null,maxGapStep=0,maxGap=0,maxTerrainStep=0,
+        prevGround=null,maxHorizontalTravel=0;
+      for(let i=0;i<180;i++) {
+        const frame=k.sim(1/60,pilot,{draw:false});
+        const ground=k.height(frame.p[0],frame.p[2]);
+        const gap=frame.p[1]-ground;
+        if(![...frame.p,ground,gap].every(Number.isFinite))
+          throw Error('Non-finite live bend physics');
+        if(prevGap!==null)
+          maxGapStep=Math.max(maxGapStep,Math.abs(gap-prevGap));
+        if(prevGround!==null)
+          maxTerrainStep=Math.max(maxTerrainStep,Math.abs(ground-prevGround));
+        maxGap=Math.max(maxGap,Math.abs(gap));
+        maxHorizontalTravel=Math.max(maxHorizontalTravel,
+          Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2]));
+        prevGap=gap;prevGround=ground;
+      }
+      return {samples:180,maxGap,maxGapStep,maxTerrainStep,
+        maxHorizontalTravel,finish:k.game().s.p.slice(),
+        realMeasuredBend:point};
+    })()`);
+    assert.equal(bend.samples,180);
+    assert([bend.maxGap,bend.maxGapStep,bend.maxTerrainStep,
+      bend.maxHorizontalTravel,...bend.finish].every(Number.isFinite),
+      'Nonfinite Jandri 1 measured turn-state metrics');
+    console.log('Real Jandri 1 OSM bend live 180-frame contact diagnostic',bend);
+  }
+
   const jandriTrace=await evaluate(`(() => {
     const diag=window.__skiSkiDiag;
     if(!diag)return null;
