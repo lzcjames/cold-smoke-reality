@@ -798,19 +798,24 @@ try {
   assert.equal(await evaluate('location.href'),beforeReturn.url,'quick return must not navigate');
   assert.equal(await evaluate('performance.timeOrigin'),beforeReturn.timeOrigin,'quick return must not reload');
   console.log('Measured piste quick return: actual click, same terrain and active replay passed');
-  console.log('Beginning isolated Jandri 2 lower-segment browser scenario');
-  // Jandri 2 lower segment is an authentic July-2026 OSM way clipped to the
+  // Each authentic lower segment must be selectable and start a real, live
+  // Chromium game run with contact telemetry. Do not conflate lower portions
+  // with the full Jandri pistes.
+  for (const [wayId, wayName] of [[219275197, 'Jandri 1'],
+                                  [644393970, 'Jandri 2']]) {
+  console.log('Beginning isolated real lower-segment browser scenario', wayName);
+  // Both lower Jandri segments are pinned July-2026 OSM ways clipped to the
   // currently measured lower IGN DEM. Also exercise opt-in contact telemetry.
   await navigate('/?' + options + '&ui&lang=zh&backend=webgl2&skiDiag=1',
     'Boolean(window.__ski?.app()?.ready && document.getElementById("reality-select"))');
   const jandriChosen=await evaluate(`(() => {
     const r=document.getElementById('reality-select'),p=document.getElementById('reality-start-piste');
     r.value='les-deux-alpes';r.dispatchEvent(new Event('change',{bubbles:true}));
-    p.value='644393970';p.dispatchEvent(new Event('change',{bubbles:true}));
-    window.__jandriPisteSentinel='jandri-2-lower-IGN-preview';
+    p.value='${wayId}';p.dispatchEvent(new Event('change',{bubbles:true}));
+    window.__jandriPisteSentinel='jandri-${wayId}-lower-IGN-preview';
     return {selected:p.value,shown:!document.getElementById('reality-start-piste-wrap').hidden};
   })()`);
-  assert.deepEqual(jandriChosen,{selected:'644393970',shown:true});
+  assert.deepEqual(jandriChosen,{selected:String(wayId),shown:true});
   const jandriButton=await evaluate(`(() => {
     const b=document.getElementById('reality-enter').getBoundingClientRect();
     return {x:b.left+b.width/2,y:b.top+b.height/2};
@@ -824,15 +829,15 @@ try {
     jandriStarted=await evaluate(`(() => {
       const k=window.__ski,t=k?.m?.Course?.reality;
       return k?.ui()?.state==='run'&&k?.game()?.mode==='run'&&
-        t?.id==='les-deux-alpes' && t.selectedPiste?.osmWay===644393970 &&
+        t?.id==='les-deux-alpes' && t.selectedPiste?.osmWay===${wayId} &&
         t.selectedPiste?.name.includes('下部实测片段') &&
-        location.search.includes('piste=644393970') &&
-        window.__jandriPisteSentinel==='jandri-2-lower-IGN-preview';
+        location.search.includes('piste=${wayId}') &&
+        window.__jandriPisteSentinel==='jandri-${wayId}-lower-IGN-preview';
     })()`).catch(()=>false);
     if(jandriStarted)break;
     await delay(200);
   }
-  assert.equal(jandriStarted,true,'Jandri 2 lower OSM segment must start on real IGN terrain');
+  assert.equal(jandriStarted,true,'Lower Jandri OSM segment must start on real IGN terrain');
   const jandriMoving=await evaluate(`(() => {
     const k=window.__ski,t=k.m.Course.reality,p=t.selectedSpawn;
     const h=t.height(...p);
@@ -850,13 +855,13 @@ try {
   assert.ok(jandriTrace && jandriTrace.frames>0,
     'actual Chromium Jandri ski run must produce opt-in contact samples');
   assert.ok(Number.isFinite(jandriTrace.maxDelta.leftPitchRad));
-  console.log('Real IGN/OSM Jandri 2 contact trace captured', jandriTrace);
+  console.log('Real IGN/OSM lower Jandri contact trace captured', wayName, jandriTrace);
   const skiSamples = await evaluate(`(() => {
     const rows=window.__skiSkiDiag.snapshot();
     return rows.slice(-28).map(({frame,dt,on,leftPitch,rightPitch,
       leftY,rightY,rootY})=>({frame,dt,on,leftPitch,rightPitch,leftY,rightY,rootY}));
   })()`);
-  console.log('Jandri 2 final contact samples', JSON.stringify(skiSamples));
+  console.log('Lower Jandri final contact samples', wayName, JSON.stringify(skiSamples));
   const skiStartup=await evaluate(`(() => {
     const rows=window.__skiSkiDiag.snapshot();
     const early=rows.slice(0,40);
@@ -877,12 +882,14 @@ try {
       snowSink})=>({frame,dt,on,leftPitch,rightPitch,leftY,rightY,rootY,snowSink})),
       transitions:transitions.slice(0,24)};
   })()`);
-  console.log('Jandri 2 contact startup / exceptional transitions', JSON.stringify(skiStartup));
+  console.log('Lower Jandri contact startup / exceptional transitions', wayName, JSON.stringify(skiStartup));
   assert.ok(skiStartup.early.length>=2);
   assert.ok(skiStartup.transitions.length<=24);
   assert.ok(jandriTrace.pitchReversals.left.reversals <=
     jandriTrace.pitchReversals.left.compared);
-  console.log('Real IGN/OSM Jandri 2 lower segment skiing passed');
+  console.log('Real IGN/OSM lower segment skiing passed', wayName);
+  }
+
   }
 
   if (p3) {
