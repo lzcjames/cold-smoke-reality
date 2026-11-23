@@ -29,6 +29,18 @@ const realityAsset = process.argv.includes('--release')
 const playableLes2 = JSON.parse(await readFile(
   new URL('dist/reality/les-deux-alpes.json', root), 'utf8'));
 assert.equal(playableLes2.id,'les-deux-alpes');
+// Experimental real-source tile files are produced by build.js. Serve them
+// verbatim in this private browser harness, never as synthetic resort terrain.
+const tileDir=new URL('dist/reality/les-deux-alpes-tiles/',root);
+const tileManifest=JSON.parse(await readFile(new URL('manifest.json',tileDir),'utf8'));
+pages.set('/reality/les-deux-alpes-tiles/manifest.json',
+  [JSON.stringify(tileManifest),'application/json']);
+for(const entry of tileManifest.tiles) {
+  const name=entry.url;
+  assert(/^[a-zA-Z0-9_.-]+\.json$/.test(name),'Unsafe tile path in manifest');
+  pages.set('/reality/les-deux-alpes-tiles/'+name,
+    [await readFile(new URL(name,tileDir)), 'application/json']);
+}
 const alternateAsset = fixture();
 alternateAsset.id = 'test-only-resort';
 alternateAsset.piste.name = 'Synthetic Test Ridge';
@@ -323,6 +335,147 @@ try {
         backend === 'webgpu');
     }
   }
+
+  // Real IGN DEM tile A/B: browser-rendered, shared skier collision path.
+  // All measured tiles are already present before boot; no async swapping.
+  for (const backend of ['webgl2', 'webgpu']) {
+    await navigate('/?' + options + '&reality=les-deux-alpes&network=1&tileCollision=1&backend=' + backend,
+      'Boolean(window.__ski)');
+    const audit = await evaluate(`(async () => {
+      const k = window.__ski;
+      const boot = await k.boot();
+      if (!boot.startsWith('ok')) return {boot};
+      const t = k.m.Course.reality;
+      const before = k.sim(0);
+      const after = k.sim(2, k.pilot());
+      const surface = k.height(after.p[0], after.p[2]);
+      return {boot,tiles:t.tilePreviewCount,enabled:t.tilePreviewEnabled,
+        inDEM:t.withinDEM(after.p[0],after.p[2]),
+        groundGap:Math.abs(after.p[1]-surface),
+        progressed:after.p[2]<before.p[2],gfxAlive:!k.app().gfx.lost,
+        error:k.err()};
+    })()`);
+    assert.equal(audit.boot,'ok '+backend,JSON.stringify(audit));
+    assert.equal(audit.enabled,true,JSON.stringify(audit));
+    assert.equal(audit.tiles,16,JSON.stringify(audit));
+    assert.equal(audit.gfxAlive,true,JSON.stringify(audit));
+    assert.equal(audit.progressed,true,JSON.stringify(audit));
+    assert.ok(audit.groundGap<0.5,JSON.stringify(audit));
+    assert(!audit.error,JSON.stringify(audit));
+    console.log('Real Les Deux Alpes tileCollision A/B browser skier render passed', backend, audit);
+  }
+
+  // Separate-file real DEM path: fetch 16 independently verified tile files,
+  // make them collision-ready before skiing, then render in actual Chromium.
+  await navigate('/?' + options + '&reality=les-deux-alpes&network=1&tileStream=1&backend=webgl2',
+    'Boolean(window.__ski)');
+  const diskTiles = await evaluate(`(async () => {
+    const k=window.__ski, boot=await k.boot();
+    if(!boot.startsWith('ok'))return {boot,error:k.err()};
+    const t=k.m.Course.reality, start=k.sim(0), end=k.sim(1,k.pilot());
+    return {boot,enabled:t.tilePreviewEnabled,tiles:t.tilePreviewCount,
+      measuredNetwork:!!t.network,
+      junctionCount:t.network?.junctions?.length || 0,
+      hasPisteLookup:typeof t.network?.lookup==='function',
+      moved:end.p[2]<start.p[2],gap:Math.abs(end.p[1]-k.height(end.p[0],end.p[2])),
+      error:k.err(),alive:!k.app().gfx.lost};
+  })()`);
+  assert.equal(diskTiles.boot,'ok webgl2',JSON.stringify(diskTiles));
+  assert.equal(diskTiles.enabled,true,JSON.stringify(diskTiles));
+  assert.equal(diskTiles.measuredNetwork,true,
+    'cached original DEM must not drop the real piste network for tiled mode');
+  assert(diskTiles.junctionCount>0 && diskTiles.hasPisteLookup,
+    JSON.stringify(diskTiles));
+  assert.equal(diskTiles.tiles,tileManifest.tiles.length,JSON.stringify(diskTiles));
+  assert(diskTiles.moved && diskTiles.gap<0.5 && !diskTiles.error && diskTiles.alive,
+    JSON.stringify(diskTiles));
+  console.log('Separate-file SHA verified real DEM collision & WebGL2 skiing passed',diskTiles);
+
+  // In-motion verified DEM streaming shadow, on actual moving skier.
+  // Collision stays on the established real source grid during this trial.
+  await navigate('/?' + options + '&reality=les-deux-alpes&network=1&tileAudit=1&backend=webgl2',
+    'Boolean(window.__ski)');
+  const auditBoot=await evaluate(`(async()=>{
+    const k=window.__ski,boot=await k.boot();
+    if(!boot.startsWith('ok'))return {boot,error:k.err()};
+    const terrain=k.m.Course.reality;
+    if(!terrain.tileShadow)return {boot,shadowMissing:true};
+    // Title-state ski geometry: isolate animation from physics while the
+    // skier is stationary. Measure left/right ski tail/tip motion relative
+    // to the unchanged player root; benign idle weight shifts are allowed.
+    const G=k.game(),skier=k.m.Skier,origin=k.m.Render.origin;
+    let idleDelta=0,idleRange=0,idleSamples=0,previousSkis=null,firstSkis=null;
+    if(G.mode!=='title')throw Error('Expected idle title state');
+    for(let t=0;t<120;t++) {
+      G.update(1/60);
+      skier.update(G.root,G.pose,origin);
+      const pts=skier.world.seg?.slice(0,2).flatMap(pair=>pair.flatMap(p=>[
+        p[0]-G.root.pos[0]+origin[0],p[1]-G.root.pos[1]+origin[1],
+        p[2]-G.root.pos[2]+origin[2]]));
+      if(!pts||pts.length!==12||!pts.every(Number.isFinite))
+        throw Error('Nonfinite or missing idle ski endpoints');
+      if(!firstSkis)firstSkis=pts;
+      if(previousSkis)for(let n=0;n<pts.length;n++)
+        idleDelta=Math.max(idleDelta,Math.abs(pts[n]-previousSkis[n]));
+      for(let n=0;n<pts.length;n++)
+        idleRange=Math.max(idleRange,Math.abs(pts[n]-firstSkis[n]));
+      previousSkis=pts;idleSamples++;
+    }
+    const idle={observations:idleSamples,maxEndpointStep:idleDelta,
+      maxEndpointRange:idleRange};
+    // Run the actual ski solver at 60 Hz and collect finite, per-step
+    // contact evidence. This reports frame-to-frame discontinuity rather
+    // than hiding occasional jitter behind a final position average.
+    const pilot=k.pilot();
+    let maxContactGap=0,maxGapStep=0,maxSurfaceStep=0,
+      maxRootSurfaceGap=0,observations=0,previousGap=null,previousSurface=null;
+    for(let i=0;i<180;i++) {
+      const frame=k.sim(1/60,pilot,{draw:false});
+      const surface=k.height(frame.p[0],frame.p[2]);
+      const clearance=frame.p[1]-surface;
+      const root=k.game().root.pos;
+      if(![surface,clearance,...root].every(Number.isFinite))
+        throw Error('Non-finite skier/terrain contact in live tile audit');
+      maxContactGap=Math.max(maxContactGap,Math.abs(clearance));
+      maxRootSurfaceGap=Math.max(maxRootSurfaceGap,Math.abs(root[1]-surface));
+      if(previousGap!==null)
+        maxGapStep=Math.max(maxGapStep,Math.abs(clearance-previousGap));
+      if(previousSurface!==null)
+        maxSurfaceStep=Math.max(maxSurfaceStep,Math.abs(surface-previousSurface));
+      previousGap=clearance;previousSurface=surface;observations++;
+    }
+    await new Promise(resolve=>setTimeout(resolve,500));
+    return {boot,terrain:terrain.id,shadow:terrain.tileShadow.status(),
+      contact:{observations,maxContactGap,maxGapStep,maxSurfaceStep,maxRootSurfaceGap},
+      idle,
+      graphicsAlive:!k.app().gfx.lost,error:k.err()};
+  })()`);
+  assert.equal(auditBoot.boot,'ok webgl2',JSON.stringify(auditBoot));
+  assert.equal(auditBoot.terrain,'les-deux-alpes');
+  assert(auditBoot.shadow && auditBoot.shadow.checked>0 &&
+    auditBoot.shadow.peakErrorM<0.002 && auditBoot.shadow.failures===0,
+    JSON.stringify(auditBoot));
+  assert(auditBoot.shadow.loaded<=6 && auditBoot.graphicsAlive && !auditBoot.error,
+    JSON.stringify(auditBoot));
+  assert.equal(auditBoot.idle.observations,120,JSON.stringify(auditBoot));
+  assert(auditBoot.idle.maxEndpointStep<0.30,
+    'Large idle ski-geometry single-frame jump: '+JSON.stringify(auditBoot.idle));
+  console.log('Idle ski endpoint continuity (animation diagnostic)',auditBoot.idle);
+  assert.equal(auditBoot.contact.observations,180,JSON.stringify(auditBoot));
+  assert(Object.values(auditBoot.contact).every(Number.isFinite),
+    'Each 60 Hz skier/terrain contact metric must remain finite');
+  // Initial 180-frame run observed 17.7 mm max separation and 12.3 mm
+  // max frame change. These tighter regression ceilings catch material
+  // worsening without claiming every perceptible animation wobble is solved.
+  assert(auditBoot.contact.maxContactGap<0.12 &&
+    auditBoot.contact.maxGapStep<0.08 &&
+    auditBoot.contact.maxRootSurfaceGap<0.08 &&
+    auditBoot.contact.maxSurfaceStep<0.5,
+    'Skier/terrain continuity regression: '+JSON.stringify(auditBoot.contact));
+  console.log('Measured 60Hz skier/surface continuity (diagnostic, not proof of zero jitter)',
+    auditBoot.contact);
+  console.log('Live verified DEM shadow follows real skier without changing collision',
+    auditBoot.shadow);
 
   // Also exercise the generated menu link, not only direct ?reality= URLs.
   await navigate('/?' + options + '&ui&lang=en&backend=webgl2',

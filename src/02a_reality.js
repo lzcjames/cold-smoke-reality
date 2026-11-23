@@ -19,7 +19,7 @@ const Reality = (() => {
   const defaultId = () => catalog()[0]?.id || id;
   const clampTo = (n, max) => Math.max(0, Math.min(max, n));
   const mix = (a, b, t) => a + (b - a) * t;
-  function create(data) {
+  function create(data, suppliedTilePreview = null) {
     const { grid, piste, elevationSource } = data || {};
     const valid = (grid && piste && data.version === 1 &&
       typeof data.id === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.id) &&
@@ -55,9 +55,22 @@ const Reality = (() => {
     if (route.some((p, i) => (i > 0 && p[1] <= route[i - 1][1]) || !inside(...piste.points[i]))) {
       throw new Error('Alpe d’Huez piste must run downhill through the DEM coverage.');
     }
+    // Developer-only A/B audit on the EXISTING real source. Preload all
+    // tile samples before any camera or skier query; never async-swap ground.
+    // Render and collision use the same elevation() path, so the experiment
+    // measures seam continuity without altering skier contact code.
+    const tilePreview = suppliedTilePreview || (data.id === 'les-deux-alpes' &&
+      typeof location !== 'undefined' &&
+      /(?:^|[?&])tileCollision=1(?:&|$)/.test(location.search || '') &&
+      typeof RealityTilePreview !== 'undefined'
+      ? RealityTilePreview.fromGrid(grid) : null);
     function elevation(x, z) {
-      const u = clampTo((e0 - x * dn - z * de - east) / step, cols - 1);
-      const v = clampTo((north - n0 - x * de + z * dn) / step, rows - 1);
+      const e=e0-x*dn-z*de, n=n0+x*de-z*dn;
+      if (tilePreview && tilePreview.covers(e,n))
+        return tilePreview.height(e,n);
+      // Preserve existing clamped outer-edge rendering beyond DEM coverage.
+      const u = clampTo((e - east) / step, cols - 1);
+      const v = clampTo((north - n) / step, rows - 1);
       const i = Math.min(Math.floor(u), cols - 2), j = Math.min(Math.floor(v), rows - 2);
       const k = j * cols + i;
       return mix(mix(heights[k], heights[k + 1], u - i),
@@ -83,6 +96,7 @@ const Reality = (() => {
     const withinDEM = (x, z) => inside(e0 - x * dn - z * de, n0 + x * de - z * dn);
     return {
       id: data.id, piste: piste.name, osmWay: piste.osmWay, elevationSource, length, start, halfWidth,
+      tilePreviewEnabled: !!tilePreview, tilePreviewCount: tilePreview?.tiles || 0,
       difficulty: typeof piste.difficulty === 'string' ? piste.difficulty : null,
       height, centre,
       // Absolute IGN DEM elevation for altitude-aware *procedural* off-piste
@@ -90,6 +104,12 @@ const Reality = (() => {
       altitude: elevation,
       project(e, n) {
         return [(n - n0) * de - (e - e0) * dn, -(e - e0) * de - (n - n0) * dn];
+      },
+      toProjected(x, z) {
+        return [e0 - x * dn - z * de, n0 + x * de - z * dn];
+      },
+      velocityToProjected(vx, vz) {
+        return [-vx * dn - vz * de, vx * de - vz * dn];
       },
       withinDEM,
       contains(x, z) {
@@ -144,9 +164,41 @@ const Reality = (() => {
         data = await response.json();
       }
       if (data.id !== resort.id) throw new Error('Resort asset identity mismatch.');
-      const terrain = cachedTerrain || create(data);
+      // External tiles are verified and fully loaded before the first physics
+      // or camera height query. Normal player boot remains unchanged.
+      const externalTiles = resort.id === 'les-deux-alpes' &&
+        typeof location !== 'undefined' &&
+        /(?:^|[?&])tileStream=1(?:&|$)/.test(location.search || '');
+      const externalPreview = externalTiles
+        ? await RealityTileExternal.load(data,'reality/les-deux-alpes-tiles/manifest.json')
+        : null;
+      const terrain = externalPreview ? create(data,externalPreview) :
+        cachedTerrain || create(data);
       terrain.resortName = resort.name;
-      if (network && !cachedTerrain) terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(data, terrain));
+      // Shadow-audit true network streaming while skiing, with the original
+      // already measured grid remaining the sole physics/render authority.
+      // No extra requests or per-frame allocations in default gameplay.
+      const auditTiles = resort.id === 'les-deux-alpes' &&
+        typeof location !== 'undefined' &&
+        /(?:^|[?&])tileAudit=1(?:&|$)/.test(location.search || '');
+      if (auditTiles) {
+        const manifestUrl='reality/les-deux-alpes-tiles/manifest.json';
+        const response=await fetch(manifestUrl,{cache:'force-cache'});
+        if(!response.ok)throw Error('Measured shadow DEM manifest unavailable');
+        const manifest=await response.json();
+        const digest=await TerrainTileStream.sha256(
+          new TextEncoder().encode(JSON.stringify(data.grid.heights)));
+        if(digest!==manifest.sourceHeightSHA256)
+          throw Error('Shadow DEM source checksum mismatch');
+        const directory=manifestUrl.slice(0,manifestUrl.lastIndexOf('/')+1);
+        terrain.tileShadow=TerrainTileShadow.create({asset:data,manifest,
+          fetchTile:url=>fetch(directory+url,{cache:'force-cache'})});
+      }
+      // A cached single-grid Reality object cannot supply the network of a
+      // newly created tiled terrain: its slope/coordinates belong to the old
+      // object. Always construct the selected network on the returned terrain.
+      if (network && (externalPreview || !cachedTerrain))
+        terrain.network = PisteNetwork.create(terrain, ResortRoutes.current(data, terrain));
       if (store && (responseForStore || reusedResponse)) {
         try {
           if (reusedResponse) await store.delete(url);
