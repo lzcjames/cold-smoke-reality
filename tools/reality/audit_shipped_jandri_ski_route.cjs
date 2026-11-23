@@ -19,12 +19,48 @@ function audit(asset,segments,{stepM=2}={}) {
     elevationSource:asset.elevationSource,
     reference:{originLambert93:start,downhillLambert93:d.map(x=>x/length),
       datumM:0},grid,tiles});
+  // At a centreline junction two consecutive headings can put the tip of
+  // the same ski on different real ground, even with no skier translation.
+  // Quantify this separately from measured vertical ground motion.
+  function junctionOrientationAudit(points) {
+    const junctions=[];
+    for(let i=1;i<points.length-1;i++){
+      const prev=terrain.project(...points[i-1]);
+      const curr=terrain.project(...points[i]);
+      const next=terrain.project(...points[i+1]);
+      const inbound=Math.atan2(curr[0]-prev[0],curr[1]-prev[1]);
+      const outbound=Math.atan2(next[0]-curr[0],next[1]-curr[1]);
+      const a=terrain.sampleSkiFootprint(...curr,inbound);
+      const b=terrain.sampleSkiFootprint(...curr,outbound);
+      let delta=null;
+      if(a&&b){
+        delta=0;
+        for(let side=0;side<2;side++)
+          for(let k=0;k<9;k++)
+            delta=Math.max(delta,Math.abs(a[side][k]-b[side][k]));
+      }
+      const turn=Math.atan2(Math.sin(outbound-inbound),
+        Math.cos(outbound-inbound));
+      junctions.push({sourceVertex:i,projected:points[i],
+        turnAngleDeg:Math.abs(turn)*180/Math.PI,
+        stationaryOrientationHeightDeltaM:delta});
+    }
+    return junctions;
+  }
   const routes=segments.map(s=>{
     if(s.points.length<2||s.points.length!==s.nodes.length)
       throw Error('Pinned Jandri source geometry mismatch');
     const result=terrain.auditSkiRoute(s.points,{sampleStepM:stepM});
+    const junctions=junctionOrientationAudit(s.points);
+    const maxJunctionOrientationHeightDeltaM=Math.max(0,
+      ...junctions.map(j=>j.stationaryOrientationHeightDeltaM??0));
+    const worstJunction=junctions.find(j=>
+      j.stationaryOrientationHeightDeltaM===maxJunctionOrientationHeightDeltaM)||null;
     return {osmWay:s.osmWay,name:s.name,sourceVertices:s.points.length,
-      ...result};
+      ...result,junctionCount:junctions.length,
+      maxJunctionOrientationHeightDeltaM,
+      worstJunction,
+      junctions};
   });
   return {schema:'cold-smoke-shipped-jandri-twin-ski-route/v1',
     source:'pinned OSM lower segments and shipped IGN LiDAR DEM',
@@ -45,7 +81,10 @@ function main(args){
   const report=audit(asset,jandri.segments);
   if(out)fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n');
   for(const r of report.routes)console.log(r.name, r.complete?'covered':'missing',
-    'after',r.distanceM.toFixed(1),'m',r.missingAtProjected||'');
+    'after',r.distanceM.toFixed(1),'m',r.missingAtProjected||'',
+    'max stationary heading-change source delta',
+    r.maxJunctionOrientationHeightDeltaM.toFixed(3),'m',
+    'at vertex',r.worstJunction?.sourceVertex??'none');
   console.log('Source-only route coverage',report.completed+'/'+report.routeCount,
     '(NOT a playable resort approval)');
 }
