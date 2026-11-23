@@ -908,6 +908,8 @@ try {
       let lastRelative=null, maxEndpointRelativeStepM=0,
         maxRenderedEndpointPenetrationM=0, maxRenderedEndpointClearanceM=0,
         maxObservedEndpointStepM=0, lastEndpoints=null, visualFrames=0;
+      const endpointTrace=[];
+      let maxSteadyRelativeStepM=0, peakEndpoint=null;
       let maxSkiGroundGapM=0, maxSkiGroundStepM=0,
         lastSkiGroundGapM=null, maxLegCompressionM=0;
       trace?.clear();
@@ -932,9 +934,22 @@ try {
           throw Error('Nonfinite rendered ski tail/tip at real Jandri bend');
         const relative=ends.flatMap(p=>[
           p[0]-frame.p[0],p[1]-frame.p[1],p[2]-frame.p[2]]);
-        if(lastRelative)for(let n=0;n<relative.length;n++)
-          maxEndpointRelativeStepM=Math.max(maxEndpointRelativeStepM,
-            Math.abs(relative[n]-lastRelative[n]));
+        let largestRelativeStepM=0, largestComponent=-1;
+        if(lastRelative)for(let n=0;n<relative.length;n++){
+          const delta=Math.abs(relative[n]-lastRelative[n]);
+          if(delta>largestRelativeStepM){
+            largestRelativeStepM=delta;largestComponent=n;
+          }
+          maxEndpointRelativeStepM=Math.max(maxEndpointRelativeStepM,delta);
+        }
+        if(i>=30) maxSteadyRelativeStepM=Math.max(
+          maxSteadyRelativeStepM,largestRelativeStepM);
+        endpointTrace.push({frame:i,stepM:largestRelativeStepM,
+          component:largestComponent,rootY:frame.p[1],
+          legM:k.game().s.leg,contactOn:k.game().s.contact,
+          skierSpeedMps:k.game().s.speed});
+        if(!peakEndpoint||largestRelativeStepM>peakEndpoint.stepM)
+          peakEndpoint=endpointTrace[endpointTrace.length-1];
         if(lastEndpoints)for(let n=0;n<4;n++)
           maxObservedEndpointStepM=Math.max(maxObservedEndpointStepM,
             Math.hypot(...ends[n].map((v,k)=>v-lastEndpoints[n][k])));
@@ -967,6 +982,8 @@ try {
         prevGap=gap;prevGround=ground;
       }
       app.t=visualTime;
+      const endpointPeakWindow=endpointTrace.slice(
+        Math.max(0,peakEndpoint.frame-3),Math.min(180,peakEndpoint.frame+4));
       const peak=[...recorded].sort((a,b)=>Math.abs(b.gapM)-Math.abs(a.gapM))[0];
       const stepPeak=[...recorded].sort((a,b)=>b.gapStepM-a.gapStepM)[0];
       const on=recorded.filter(v=>v.contactOn===true);
@@ -977,6 +994,7 @@ try {
       const compact=at=>recorded.slice(Math.max(0,at-3),Math.min(180,at+4));
       return {samples:180,maxGap,maxGapStep,maxTerrainStep,
         visual:{frames:visualFrames,maxEndpointRelativeStepM,
+          maxSteadyRelativeStepM,peakEndpoint,endpointPeakWindow,
           maxObservedEndpointStepM,maxRenderedEndpointPenetrationM,
           maxRenderedEndpointClearanceM},
         maxSkiGroundGapM,maxSkiGroundStepM,maxLegCompressionM,
@@ -993,8 +1011,15 @@ try {
     })()`);
     assert.equal(bend.samples,180);
     assert.equal(bend.visual.frames,180);
-    assert(Object.values(bend.visual).every(Number.isFinite),
+    assert([bend.visual.maxEndpointRelativeStepM,
+      bend.visual.maxSteadyRelativeStepM,
+      bend.visual.maxObservedEndpointStepM,
+      bend.visual.maxRenderedEndpointPenetrationM,
+      bend.visual.maxRenderedEndpointClearanceM].every(Number.isFinite),
       'Jandri real rendered ski tip/tail metrics must be finite');
+    assert(bend.visual.peakEndpoint?.frame>=0 &&
+      bend.visual.endpointPeakWindow.length>=1,
+      'Every rendered ski endpoint jump must be attributable to a frame');
     assert([bend.maxGap,bend.maxGapStep,bend.maxTerrainStep,
       bend.maxSkiGroundGapM,bend.maxSkiGroundStepM,
       bend.maxLegCompressionM,bend.maxHorizontalTravel,...bend.finish,
