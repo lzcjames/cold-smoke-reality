@@ -893,6 +893,8 @@ try {
       let prevGap=null,maxGapStep=0,maxGap=0,maxTerrainStep=0,
         prevGround=null,maxHorizontalTravel=0;
       const trace=window.__skiSkiDiag, recorded=[];
+      let maxSkiGroundGapM=0, maxSkiGroundStepM=0,
+        lastSkiGroundGapM=null, maxLegCompressionM=0;
       trace?.clear();
       for(let i=0;i<180;i++) {
         const frame=k.sim(1/60,pilot,{draw:false});
@@ -908,8 +910,22 @@ try {
         maxHorizontalTravel=Math.max(maxHorizontalTravel,
           Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2]));
         const contact=trace?.snapshot().at(-1);
+        // Physical root is allowed to compress into snow by up to E_MIN.
+        // The skiing contact point is root height minus the leg travel.
+        // Report both to avoid falsely labeling normal flex as a buried ski.
+        const legM=k.game().s.leg,contactHeightM=frame.p[1]-legM;
+        const skiGroundGapM=contactHeightM-ground;
+        if(![legM,contactHeightM,skiGroundGapM].every(Number.isFinite))
+          throw Error('Non-finite leg-adjusted ski contact');
+        maxSkiGroundGapM=Math.max(maxSkiGroundGapM,Math.abs(skiGroundGapM));
+        maxLegCompressionM=Math.max(maxLegCompressionM,Math.max(0,-legM));
+        if(lastSkiGroundGapM!==null)
+          maxSkiGroundStepM=Math.max(maxSkiGroundStepM,
+            Math.abs(skiGroundGapM-lastSkiGroundGapM));
+        lastSkiGroundGapM=skiGroundGapM;
         recorded.push({frame:i,contactOn:contact?.on??null,
-          gapM:gap,groundM:ground,gapStepM:prevGap===null?0:Math.abs(gap-prevGap),
+          gapM:gap,legM,skiGroundGapM,
+          groundM:ground,gapStepM:prevGap===null?0:Math.abs(gap-prevGap),
           terrainStepM:prevGround===null?0:Math.abs(ground-prevGround),
           displacementM:Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2])});
         prevGap=gap;prevGround=ground;
@@ -923,6 +939,7 @@ try {
       const maxStep=rows=>rows.reduce((v,r)=>Math.max(v,r.gapStepM),0);
       const compact=at=>recorded.slice(Math.max(0,at-3),Math.min(180,at+4));
       return {samples:180,maxGap,maxGapStep,maxTerrainStep,
+        maxSkiGroundGapM,maxSkiGroundStepM,maxLegCompressionM,
         maxHorizontalTravel,finish:k.game().s.p.slice(),
         realMeasuredBend:point,phase:{
           onFrames:on.length,offFrames:off.length,
@@ -936,11 +953,14 @@ try {
     })()`);
     assert.equal(bend.samples,180);
     assert([bend.maxGap,bend.maxGapStep,bend.maxTerrainStep,
-      bend.maxHorizontalTravel,...bend.finish,
+      bend.maxSkiGroundGapM,bend.maxSkiGroundStepM,
+      bend.maxLegCompressionM,bend.maxHorizontalTravel,...bend.finish,
       bend.phase.maxOnGapM,bend.phase.maxOffGapM,
       bend.phase.maxAfterWarmupOnGapM,bend.phase.maxAfterWarmupOnGapStepM]
       .every(Number.isFinite),
       'Nonfinite Jandri 1 measured turn-state metrics');
+    assert(bend.maxLegCompressionM<=0.301,
+      'Leg displacement exceeded intentional physics E_MIN travel');
     assert.equal(bend.phase.onFrames+bend.phase.offFrames,180,
       'Every Jandri 1 bend physics frame must have ski contact classification');
     assert(bend.peakContact && bend.peakGapStep &&
