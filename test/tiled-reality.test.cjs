@@ -51,3 +51,24 @@ test('invalid geographic references fail closed',()=>{
   const q=opts();q.tiles=[{...tile(0,0),heights:[NaN]}];
   assert.throws(()=>TiledReality.create(q),/Invalid measured/);
 });
+
+test('wide corridor rejects holes between its centre and edges',()=>{
+  const o=opts();
+  // Three separated measured strips: centre and both outer edges have
+  // ground, but the two 20m-wide interior strips are missing.
+  o.tiles=[tile(0,0),tile(2,0),tile(4,0)];
+  const t=TiledReality.create(o);
+  const centreline=[[900045,6499995],[900045,6499985]];
+  assert.equal(t.validateCorridor(centreline,40),false);
+  t.dem.add(tile(1,0));
+  assert.equal(t.validateCorridor(centreline,40),false);
+  t.dem.add(tile(3,0));
+  assert.equal(t.validateCorridor(centreline,40),true);
+  assert.equal(t.validateCorridor(centreline,0),true);
+});
+test('oversized corridor rejects unbounded transverse sampling',()=>{
+  const o=opts();o.tiles=[tile(0,0)];
+  const t=TiledReality.create(o);
+  assert.throws(()=>t.validateCorridor([[900005,6499995],[900005,6499985]],11000),
+    /coverage sample budget/);
+});
