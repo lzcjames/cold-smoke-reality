@@ -67,9 +67,19 @@ const TiledReality = (() => {
         const nx = -dz / length, nz = dx / length;
         for (let j = i === 1 ? 0 : 1; j <= count; j++) {
           const t = j / count, x = a[0] + t * dx, z = a[1] + t * dz;
-          for (const offset of [-halfWidthM, 0, halfWidthM])
+          // Cover the whole width, not just centre and outer edges.
+          // Otherwise a missing interior tile can falsely pass validation.
+          // Sampling is limited to 5m intervals and bounded to avoid huge
+          // preflight workloads for accidentally oversized corridors.
+          const transverseCount = Math.max(1, Math.ceil(2 * halfWidthM / 5));
+          if (transverseCount > 4096)
+            throw Error('Surveyed corridor exceeds coverage sample budget');
+          for (let k = 0; k <= transverseCount; k++) {
+            const offset = halfWidthM === 0 ? 0 :
+              -halfWidthM + 2 * halfWidthM * k / transverseCount;
             if (!covered(x + nx * offset, z + nz * offset))
               return false;
+          }
         }
       }
       return true;
