@@ -847,6 +847,37 @@ try {
   assert.equal(jandriMoving.inDEM,true);
   assert.ok(Number.isFinite(jandriMoving.height));
   assert.equal(jandriMoving.changed,true);
+  // Actual live lower-piste movement, not merely selecting the start button.
+  // Keep this diagnostic bounded to three seconds; it does NOT claim to
+  // traverse the sharp Jandri 1 OSM bend ~877 m down the surveyed centreline.
+  const movingContinuity=await evaluate(`(() => {
+    const k=window.__ski,pilot=k.pilot(), samples=180;
+    let lastClearance=null, lastHeight=null, maxGapStep=0,
+      maxTerrainStep=0, maxClearance=0, maxRootSurfaceGap=0;
+    for(let i=0;i<samples;i++){
+      const frame=k.sim(1/60,pilot,{draw:false});
+      const height=k.height(frame.p[0],frame.p[2]);
+      const clearance=frame.p[1]-height;
+      const rootY=k.game().root.pos[1];
+      if(![height,clearance,rootY].every(Number.isFinite))
+        throw Error('Non-finite live Jandri skier/ground contact');
+      maxClearance=Math.max(maxClearance,Math.abs(clearance));
+      maxRootSurfaceGap=Math.max(maxRootSurfaceGap,Math.abs(rootY-height));
+      if(lastClearance!==null)
+        maxGapStep=Math.max(maxGapStep,Math.abs(clearance-lastClearance));
+      if(lastHeight!==null)
+        maxTerrainStep=Math.max(maxTerrainStep,Math.abs(height-lastHeight));
+      lastClearance=clearance;lastHeight=height;
+    }
+    return {samples,maxClearance,maxGapStep,maxTerrainStep,maxRootSurfaceGap,
+      skiContact:window.__skiSkiDiag?.summary()};
+  })()`);
+  assert.equal(movingContinuity.samples,180);
+  assert(Object.entries(movingContinuity).filter(([k])=>k!=='skiContact')
+    .every(([,v])=>Number.isFinite(v)),JSON.stringify(movingContinuity));
+  assert(movingContinuity.skiContact?.contactFrames>0,
+    'Real Jandri 60Hz movement must produce actual ski contact telemetry');
+  console.log('Live lower Jandri 180-frame skier/terrain continuity',wayName,movingContinuity);
   const jandriTrace=await evaluate(`(() => {
     const diag=window.__skiSkiDiag;
     if(!diag)return null;
