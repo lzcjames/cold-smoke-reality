@@ -900,6 +900,14 @@ try {
       let prevGap=null,maxGapStep=0,maxGap=0,maxTerrainStep=0,
         prevGround=null,maxHorizontalTravel=0;
       const trace=window.__skiSkiDiag, recorded=[];
+      // Measure the actual animated ski tail/tip mesh endpoints too.
+      // The physics root alone cannot establish whether the visible skis
+      // jitter, clip into IGN terrain, or move relative to the rider.
+      const visual=k.m.Skier,origin=k.m.Render.origin,app=k.app();
+      const visualTime=app.t;
+      let lastRelative=null, maxEndpointRelativeStepM=0,
+        maxRenderedEndpointPenetrationM=0, maxRenderedEndpointClearanceM=0,
+        maxObservedEndpointStepM=0, lastEndpoints=null, visualFrames=0;
       let maxSkiGroundGapM=0, maxSkiGroundStepM=0,
         lastSkiGroundGapM=null, maxLegCompressionM=0;
       trace?.clear();
@@ -916,6 +924,27 @@ try {
         maxGap=Math.max(maxGap,Math.abs(gap));
         maxHorizontalTravel=Math.max(maxHorizontalTravel,
           Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2]));
+        app.t=visualTime+(i+1)/60;
+        visual.update(k.game().root,k.game().pose,origin);
+        const ends=visual.world.seg?.slice(0,2).flatMap(seg=>seg.map(p=>[
+          p[0]+origin[0],p[1]+origin[1],p[2]+origin[2]]));
+        if(!ends||ends.length!==4||!ends.every(p=>p.every(Number.isFinite)))
+          throw Error('Nonfinite rendered ski tail/tip at real Jandri bend');
+        const relative=ends.flatMap(p=>[
+          p[0]-frame.p[0],p[1]-frame.p[1],p[2]-frame.p[2]]);
+        if(lastRelative)for(let n=0;n<relative.length;n++)
+          maxEndpointRelativeStepM=Math.max(maxEndpointRelativeStepM,
+            Math.abs(relative[n]-lastRelative[n]));
+        if(lastEndpoints)for(let n=0;n<4;n++)
+          maxObservedEndpointStepM=Math.max(maxObservedEndpointStepM,
+            Math.hypot(...ends[n].map((v,k)=>v-lastEndpoints[n][k])));
+        for(const p of ends){
+          const snow=k.height(p[0],p[2]),gap=p[1]-snow;
+          if(!Number.isFinite(gap))throw Error('Nonfinite real ski tip/terrain sample');
+          maxRenderedEndpointPenetrationM=Math.max(maxRenderedEndpointPenetrationM,-gap);
+          maxRenderedEndpointClearanceM=Math.max(maxRenderedEndpointClearanceM,gap);
+        }
+        lastRelative=relative;lastEndpoints=ends;visualFrames++;
         const contact=trace?.snapshot().at(-1);
         // Physical root is allowed to compress into snow by up to E_MIN.
         // The skiing contact point is root height minus the leg travel.
@@ -937,6 +966,7 @@ try {
           displacementM:Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2])});
         prevGap=gap;prevGround=ground;
       }
+      app.t=visualTime;
       const peak=[...recorded].sort((a,b)=>Math.abs(b.gapM)-Math.abs(a.gapM))[0];
       const stepPeak=[...recorded].sort((a,b)=>b.gapStepM-a.gapStepM)[0];
       const on=recorded.filter(v=>v.contactOn===true);
@@ -946,6 +976,9 @@ try {
       const maxStep=rows=>rows.reduce((v,r)=>Math.max(v,r.gapStepM),0);
       const compact=at=>recorded.slice(Math.max(0,at-3),Math.min(180,at+4));
       return {samples:180,maxGap,maxGapStep,maxTerrainStep,
+        visual:{frames:visualFrames,maxEndpointRelativeStepM,
+          maxObservedEndpointStepM,maxRenderedEndpointPenetrationM,
+          maxRenderedEndpointClearanceM},
         maxSkiGroundGapM,maxSkiGroundStepM,maxLegCompressionM,
         maxHorizontalTravel,finish:k.game().s.p.slice(),
         realMeasuredBend:point,phase:{
@@ -959,6 +992,9 @@ try {
 
     })()`);
     assert.equal(bend.samples,180);
+    assert.equal(bend.visual.frames,180);
+    assert(Object.values(bend.visual).every(Number.isFinite),
+      'Jandri real rendered ski tip/tail metrics must be finite');
     assert([bend.maxGap,bend.maxGapStep,bend.maxTerrainStep,
       bend.maxSkiGroundGapM,bend.maxSkiGroundStepM,
       bend.maxLegCompressionM,bend.maxHorizontalTravel,...bend.finish,
