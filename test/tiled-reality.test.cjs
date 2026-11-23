@@ -72,3 +72,33 @@ test('oversized corridor rejects unbounded transverse sampling',()=>{
   assert.throws(()=>t.validateCorridor([[900005,6499995],[900005,6499985]],11000),
     /coverage sample budget/);
 });
+
+test('both ski contact profiles use one measured height datum without drift',()=>{
+  const o=opts();
+  o.tiles=[tile(0,0),tile(1,0),tile(0,1),tile(1,1)];
+  const t=TiledReality.create(o);
+  const [x,z]=t.project(900018,6499982);
+  const profiles=t.sampleSkiFootprint(x,z,0.3,0.31,1.5);
+  assert.equal(profiles.length,2);
+  for(let side=0;side<2;side++)for(let i=0;i<9;i++){
+    const along=(i/8-.5)*1.5, lateral=(side-.5)*.31;
+    const px=x+Math.cos(.3)*lateral+Math.sin(.3)*along;
+    const pz=z-Math.sin(.3)*lateral+Math.cos(.3)*along;
+    assert.ok(Math.abs(profiles[side][i]-t.requireHeight(px,pz))<1e-9);
+  }
+  for(let step=0;step<120;step++)
+    assert.deepEqual(t.sampleSkiFootprint(x,z,0.3),profiles);
+  assert.equal(t.approvedForGameplay,false);
+});
+test('ski footprint fails closed when either ski enters an unloaded tile',()=>{
+  const o=opts();o.tiles=[tile(0,0)];
+  const t=TiledReality.create(o);
+  // Body remains on loaded ground, but the right ski crosses its east edge.
+  const [x,z]=t.project(900019.9,6499990);
+  assert.ok(Number.isFinite(t.height(x,z)));
+  assert.equal(t.sampleSkiFootprint(x,z,0,0.6),null);
+  t.dem.add(tile(1,0));
+  assert.ok(t.sampleSkiFootprint(x,z,0,0.6));
+  assert.throws(()=>t.sampleSkiFootprint(x,z,NaN),/Invalid measured ski footprint/);
+  assert.throws(()=>t.sampleSkiFootprint(x,z,0,0.31,10),/Invalid measured ski footprint/);
+});

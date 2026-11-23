@@ -47,6 +47,32 @@ const TiledReality = (() => {
       if (h === null) throw Error('DEM tile missing: gameplay must await verified coverage');
       return h;
     }
+    // Non-playable contact preflight for the two existing 1.5 m skis.
+    // Sample identical world-height datum at nine stations along each ski.
+    // Every station must lie on loaded, measured DEM; a missing station
+    // invalidates the whole footprint rather than blending invented ground.
+    function sampleSkiFootprint(x, z, headingRad, stanceM = 0.31,
+                               skiLengthM = 1.5) {
+      if (![x, z, headingRad, stanceM, skiLengthM].every(Number.isFinite) ||
+          stanceM <= 0 || stanceM > 2 || skiLengthM <= 0 || skiLengthM > 3)
+        throw Error('Invalid measured ski footprint');
+      const forwardX = Math.sin(headingRad), forwardZ = Math.cos(headingRad);
+      const sideX = forwardZ, sideZ = -forwardX;
+      const skis = [];
+      for (const side of [-0.5, 0.5]) {
+        const heights = [];
+        for (let i = 0; i < 9; i++) {
+          const along = (i / 8 - 0.5) * skiLengthM;
+          const px = x + sideX * side * stanceM + forwardX * along;
+          const pz = z + sideZ * side * stanceM + forwardZ * along;
+          const measured = height(px, pz);
+          if (measured === null || !Number.isFinite(measured)) return null;
+          heights.push(measured);
+        }
+        skis.push(Object.freeze(heights));
+      }
+      return Object.freeze(skis);
+    }
     function validateCorridor(centreline, halfWidthM, sampleStepM = 5) {
       if (!Array.isArray(centreline) || centreline.length < 2 ||
           centreline.some(p => !finitePair(p)) ||
@@ -86,7 +112,7 @@ const TiledReality = (() => {
     }
     return Object.freeze({id, resortName:name, elevationSource, project:toWorld,
       toProjected, altitude, height, requireHeight, withinDEM,
-      validateCorridor, dem, // intentionally no legacy Course.setReality activation
+      validateCorridor, sampleSkiFootprint, dem, // no live Course activation
       approvedForGameplay:false});
   }
   return Object.freeze({create});
