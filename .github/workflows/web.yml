@@ -91,7 +91,7 @@ jobs:
           node tools/reality/audit_shipped_jandri_ski_route.cjs \
             data/reality/les-deux-alpes.json \
             /tmp/jandri-shipped-twin-ski-route.json
-          node -e "const r=require('/tmp/jandri-shipped-twin-ski-route.json'); if(r.routeCount!==2||r.approvedForGameplay!==false||!r.sourceOnly) process.exit(1)"
+          node -e "const r=require('/tmp/jandri-shipped-twin-ski-route.json'); if(r.routeCount!==2||r.approvedForGameplay!==false||!r.sourceOnly||r.routes.some(w=>w.junctionCount!==w.sourceVertices-2||!Number.isFinite(w.maxJunctionOrientationHeightDeltaM))) process.exit(1)"
 
       - name: Preserve measured Jandri 1/2 twin-ski coverage report
         if: always()
