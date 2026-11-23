@@ -102,3 +102,33 @@ test('ski footprint fails closed when either ski enters an unloaded tile',()=>{
   assert.throws(()=>t.sampleSkiFootprint(x,z,NaN),/Invalid measured ski footprint/);
   assert.throws(()=>t.sampleSkiFootprint(x,z,0,0.31,10),/Invalid measured ski footprint/);
 });
+
+
+test('moving twin-ski contacts cross measured tile seam without height spikes',()=>{
+  const o=opts(); o.tiles=[tile(0,0),tile(1,0)];
+  const t=TiledReality.create(o);
+  let prev=null, maxDelta=0, frames=0;
+  // 180 deterministic motion frames; direction +east is heading PI/2
+  // in the adapter world frame for downhill north = -1.
+  for(let frame=0;frame<180;frame++){
+    const east=900010+20*frame/179;
+    const [x,z]=t.project(east,6499990);
+    const contact=t.sampleSkiFootprint(x,z,Math.PI/2);
+    assert.ok(contact, 'missing contact at moving frame '+frame);
+    if(prev)for(let ski=0;ski<2;ski++)for(let k=0;k<9;k++){
+      const delta=Math.abs(contact[ski][k]-prev[ski][k]);
+      maxDelta=Math.max(maxDelta,delta);
+    }
+    prev=contact;
+    frames++;
+  }
+  assert.equal(frames,180);
+  // The known measured-style plane rises only 2 cm per metre; moving
+  // 20m / 179 intervals should change each contact by ~2.3mm.
+  assert.ok(maxDelta<0.005, 'unexpected height discontinuity: '+maxDelta);
+  // Once the next tile leaves the verified cache, no old edge value may
+  // be reused or clamped as if measured terrain still existed.
+  t.dem.remove(1,0);
+  const [x,z]=t.project(900025,6499990);
+  assert.equal(t.sampleSkiFootprint(x,z,Math.PI/2),null);
+});
