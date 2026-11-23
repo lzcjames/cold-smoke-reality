@@ -73,6 +73,59 @@ const TiledReality = (() => {
       }
       return Object.freeze(skis);
     }
+    // Verify the full *ski* footprint along a source-projected trail, not
+    // just the route centreline. This is a source-only readiness audit:
+    // passing it does not grant gameplay authorization or check piste rules.
+    function auditSkiRoute(centreline, {sampleStepM = 2,
+      stanceM = 0.31, skiLengthM = 1.5} = {}) {
+      if (!Array.isArray(centreline) || centreline.length < 2 ||
+          centreline.some(p => !finitePair(p)) ||
+          ![sampleStepM, stanceM, skiLengthM].every(Number.isFinite) ||
+          sampleStepM <= 0 || sampleStepM > 5 ||
+          stanceM <= 0 || stanceM > 2 ||
+          skiLengthM <= 0 || skiLengthM > 3)
+        throw Error('Invalid surveyed ski route');
+      const world = centreline.map(p => toWorld(...p));
+      const spans = [], counts = [];
+      let total = 0;
+      for (let i = 1; i < world.length; i++) {
+        const a = world[i - 1], b = world[i], distance =
+          Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (!(distance > 0) || distance > 100000)
+          throw Error('Invalid ski route segment');
+        const count = Math.ceil(distance / sampleStepM);
+        total += count + (i === 1 ? 1 : 0);
+        if (total > 20000) throw Error('Ski route exceeds sample budget');
+        spans.push(distance);
+        counts.push(count);
+      }
+      let checked = 0, maxGroundStepM = 0, last = null, distanceM = 0;
+      for (let i = 1; i < world.length; i++) {
+        const a = world[i - 1], b = world[i];
+        const dx = b[0] - a[0], dz = b[1] - a[1];
+        const heading = Math.atan2(dx, dz), n = counts[i - 1];
+        for (let j = i === 1 ? 0 : 1; j <= n; j++) {
+          const t = j / n, x = a[0] + t * dx, z = a[1] + t * dz;
+          const profile = sampleSkiFootprint(x, z, heading, stanceM, skiLengthM);
+          if (profile === null) return Object.freeze({
+            complete:false, checked, distanceM:distanceM + t * spans[i - 1],
+            missingAtProjected:Object.freeze(toProjected(x, z)),
+            approvedForGameplay:false
+          });
+          if (last) {
+            for (let side = 0; side < 2; side++)
+              for (let k = 0; k < 9; k++)
+                maxGroundStepM = Math.max(maxGroundStepM,
+                  Math.abs(profile[side][k] - last[side][k]));
+          }
+          last = profile;
+          checked++;
+        }
+        distanceM += spans[i - 1];
+      }
+      return Object.freeze({complete:true, checked, distanceM,
+        maxGroundStepM, missingAtProjected:null, approvedForGameplay:false});
+    }
     function validateCorridor(centreline, halfWidthM, sampleStepM = 5) {
       if (!Array.isArray(centreline) || centreline.length < 2 ||
           centreline.some(p => !finitePair(p)) ||
@@ -112,7 +165,7 @@ const TiledReality = (() => {
     }
     return Object.freeze({id, resortName:name, elevationSource, project:toWorld,
       toProjected, altitude, height, requireHeight, withinDEM,
-      validateCorridor, sampleSkiFootprint, dem, // no live Course activation
+      validateCorridor, sampleSkiFootprint, auditSkiRoute, dem, // no live Course activation
       approvedForGameplay:false});
   }
   return Object.freeze({create});
