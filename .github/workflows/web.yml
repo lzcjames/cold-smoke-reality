@@ -85,6 +85,22 @@ jobs:
           print('Measured Jandri 2 complete detailed-ground ways:',r['fullyDetailedWayCount'],'/11')
           PY
 
+      - name: Audit pinned lower Jandri dual-ski coverage on shipped IGN DEM (source-only)
+        run: |
+          node --check tools/reality/audit_shipped_jandri_ski_route.cjs
+          node tools/reality/audit_shipped_jandri_ski_route.cjs \
+            data/reality/les-deux-alpes.json \
+            /tmp/jandri-shipped-twin-ski-route.json
+          node -e "const r=require('/tmp/jandri-shipped-twin-ski-route.json'); if(r.routeCount!==2||r.approvedForGameplay!==false||!r.sourceOnly||r.routes.some(w=>w.junctionCount!==w.sourceVertices-2||!Number.isFinite(w.maxJunctionOrientationHeightDeltaM))) process.exit(1)"
+
+      - name: Preserve measured Jandri 1/2 twin-ski coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jandri-lower-shipped-twin-ski-coverage
+          path: /tmp/jandri-shipped-twin-ski-route.json
+          if-no-files-found: warn
+
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
