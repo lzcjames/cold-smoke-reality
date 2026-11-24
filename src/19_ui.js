@@ -123,6 +123,11 @@ const UI = (() => {
     if (el && el.xr) el.xr.hidden = !XR.ok;
     if (!el) return; U.state = 'title';
     el.load.classList.remove('on'); el.veil.classList.add('lift'); el.shade.classList.add('on'); el.title.classList.add('on'); el.snd.classList.add('on');
+    // Loading can use the old forced frame. Only the interactive title needs
+    // to be upright on portrait phones; after entry the run stays landscape.
+    View.titlePortrait = true;
+    U.layout();
+    if (App.fit) App.fit();
     el.app.classList.toggle('resort-picker-open', !!$('reality-picker') && !$('reality-picker').hidden);
     if (!U.hh && fsAvail()) el.fs.classList.add('on');
     el.bar.classList.add('on'); paint(); sayMountain();
@@ -146,6 +151,11 @@ const UI = (() => {
   U.go = async function () {
     if (U.state !== 'title') return; U.state = 'starting';
     Sound.unlock();
+    // Switch only the game frame to landscape. Use the same View coordinate
+    // transform that already handles steering, touch and safe-area mapping.
+    View.titlePortrait = false;
+    U.layout();
+    if (App.fit) App.fit();
     if (U.hh && !XR.active) U.fullscreen(true);      // a phone: take the whole screen if it will let us (asked for inside this tap)
     if (U.open) U.menu(false);
     el.app.classList.remove('resort-picker-open');
