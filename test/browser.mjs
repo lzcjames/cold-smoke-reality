@@ -659,7 +659,7 @@ try {
   });
   try {
     const mobileResortPicker=await evaluate(`(() => {
-      UI.layout();
+      window.__ski.ui().layout();
       const app=document.getElementById('app'),
         title=document.getElementById('title'),
         select=document.getElementById('reality-select');
@@ -699,7 +699,7 @@ try {
   } finally {
     await cdp('Emulation.clearDeviceMetricsOverride');
     await cdp('Emulation.setTouchEmulationEnabled',{enabled:false});
-    await evaluate('UI.layout()');
+    await evaluate('window.__ski.ui().layout()');
   }
 
   // Main Pages may contain the independently validated real P4 resort in
