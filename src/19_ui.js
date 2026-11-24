@@ -26,6 +26,9 @@ const UI = (() => {
     if (!U.dev) el.app.querySelectorAll('.dev-only').forEach(n => n.remove());
     el.moreView = el.more.querySelector('[data-sec="view"]'); el.moreDaily = el.more.querySelector('[data-daily]'); el.daily = $('sw-daily'); el.mtDaily = el.menu.querySelector('section[data-sec="mt"] [data-daily]');
     I18N.capture(el.app); I18N.on(relang);
+    // Keep the initial loading cover upright too; do not flash a rotated
+    // loading screen just before the portrait resort selection appears.
+    View.titlePortrait = true;
     U.layout();
     el.go.addEventListener('click', e => { e.stopPropagation(); U.go(); });
     // immersive mode, only where the browser can open a headset (Safari on Apple Vision Pro): 21_xr.js
