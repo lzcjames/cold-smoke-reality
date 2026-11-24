@@ -647,11 +647,9 @@ try {
   assert.equal(committed.title,true,'Enter inside select must never auto-start');
   console.log('Native dropdown click and Enter selection do not launch a resort');
 
-  // Regression: actual phone CSS pixels, touch input and portrait-to-landscape
-  // rotation. A phone's OUTER viewport can be 390x844 even though its
-  // landscape game frame is only 390px high. The picker must be visible and
-  // hit-testable without scrolling, including the verified Les 2 Alpes piste
-  // selector and the explicit entry button. Do not start a resort on change.
+  // Regression: real phone-size touch viewport. Home/resort selection stays
+  // upright in portrait; skiing deliberately uses the original rotated
+  // landscape input frame. Both orientations keep three controls tappable.
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
   await cdp('Emulation.setDeviceMetricsOverride',{
     width:390,height:844,deviceScaleFactor:2,mobile:true,
@@ -684,17 +682,56 @@ try {
         viewport:[innerWidth,innerHeight],controls,
         titleVisible:title.classList.contains('on')};
     })()`);
-    console.log('Portrait phone rotated resort picker geometry',mobileResortPicker);
-    assert.equal(mobileResortPicker.rotated,true);
+    console.log('Portrait phone upright resort picker geometry',mobileResortPicker);
+    assert.equal(mobileResortPicker.rotated,false);
     assert.equal(mobileResortPicker.handheld,true);
     assert.equal(mobileResortPicker.compact,true);
     assert.equal(mobileResortPicker.scroll,'auto');
     assert.equal(mobileResortPicker.titleVisible,true);
     for(const control of mobileResortPicker.controls){
-      assert(!control.hidden && control.width>=30 && control.height>=28,
-        'Phone menu control missing: '+JSON.stringify(control));
+      assert(!control.hidden && control.width>=44 && control.height>=44,
+        'Portrait menu control below touch target size: '+JSON.stringify(control));
       assert(control.insideViewport && control.hit,
         'Phone menu control outside screen or not touchable: '+JSON.stringify(control));
+    }
+    // Verify the orientation hand-off used by UI.go without entering a piste
+    // or mutating the game state in this menu-only regression.
+    const runOrientation=await evaluate(`(() => {
+      const v=window.__ski.m.View,u=window.__ski.ui();
+      v.titlePortrait=false;u.layout();
+      const state={rotated:document.getElementById('app').classList.contains('rot'),
+        frame:[v.w,v.h]};
+      v.titlePortrait=true;u.layout();
+      return state;
+    })()`);
+    assert.equal(runOrientation.rotated,true,'Skiing on portrait phone uses landscape');
+    assert.deepEqual(runOrientation.frame,[844,390]);
+    // When the physical phone rotates, the same chooser should still fit.
+    await cdp('Emulation.setDeviceMetricsOverride',{
+      width:844,height:390,deviceScaleFactor:2,mobile:true,
+      screenWidth:844,screenHeight:390
+    });
+    const landscapePicker=await evaluate(`(() => {
+      window.__ski.ui().layout();
+      const app=document.getElementById('app'),s=document.getElementById('reality-select');
+      const previous=s.value;s.value='les-deux-alpes';
+      s.dispatchEvent(new Event('change',{bubbles:true}));
+      const controls=['reality-select','reality-start-piste','reality-enter'].map(id=>{
+        const e=document.getElementById(id),r=e.getBoundingClientRect(),
+          x=r.left+r.width/2,y=r.top+r.height/2,
+          hit=document.elementFromPoint(x,y);
+        return {id,width:r.width,height:r.height,
+          visible:!e.hidden&&x>=0&&x<innerWidth&&y>=0&&y<innerHeight,
+          hit:hit===e||e.contains(hit)};
+      });
+      s.value=previous;s.dispatchEvent(new Event('change',{bubbles:true}));
+      return {rotated:app.classList.contains('rot'),controls};
+    })()`);
+    console.log('Landscape phone resort picker geometry',landscapePicker);
+    assert.equal(landscapePicker.rotated,false);
+    for(const control of landscapePicker.controls){
+      assert(control.width>=32&&control.height>=30&&control.visible&&control.hit,
+        'Landscape phone menu control unreachable: '+JSON.stringify(control));
     }
   } finally {
     await cdp('Emulation.clearDeviceMetricsOverride');

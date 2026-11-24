@@ -587,6 +587,39 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #app.resort-picker-open:not(.desk) #title.on #reality-picker #reality-enter {
   min-height: 36px; padding: 6px 10px;
 }
+/* Mobile-first resort choice: portrait home is upright, never a narrow
+   vertical strip created by rotating the entire title with the game. */
+#app.resort-picker-open:not(.desk):not(.wide) #title.on {
+  align-items: center; justify-content: flex-start; gap: 22px;
+  padding: calc(max(var(--st), var(--xt)) + 36px) max(16px, var(--sl), var(--sr))
+    calc(max(var(--sb), var(--xb)) + 24px);
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on > .mark {
+  align-items: center; text-align: center;
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on .mark .cn {
+  font-size: clamp(34px, 9vw, 52px);
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on .cta {
+  width: min(420px, 100%);
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on #go {
+  height: 48px; font-size: 17px;
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on #reality-picker {
+  padding: 16px; gap: 11px;
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on #reality-picker select {
+  min-height: 48px; padding: 10px 12px; font-size: 16px;
+}
+#app.resort-picker-open:not(.desk):not(.wide) #title.on #reality-picker #reality-enter {
+  min-height: 48px; font-size: 16px;
+}
+/* In actual landscape play, leave room for the notch and the thumb controls.
+   These targets do not change steering physics or the renderer workload. */
+#app:not(.desk) #bar button { width: 44px; height: 44px; }
+#app:not(.desk) #menu nav button { min-height: 42px; touch-action: manipulation; }
+#app:not(.desk) #reality-return-start { min-height: 44px; touch-action: manipulation; }
 </style>
 <div id="app" data-reality-catalog="missing">
   <canvas id="view"></canvas>
