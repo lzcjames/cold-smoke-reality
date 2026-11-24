@@ -63,8 +63,13 @@ const UI = (() => {
       el.fs.classList.toggle('full', on); el.fs.setAttribute('aria-pressed', on ? 'true' : 'false'); U.layout(); if (U.open) paint();
       if (!on && !own) U.pause();          // thrown out of the whole screen (the system's Esc, a back gesture): the run waits
     }); /*}web*/
-    // nothing here scrolls or zooms
-    el.app.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    // Gameplay must not scroll, but the title's resort selector needs native
+    // touch scrolling on short (including portrait-rotated) phone screens.
+    el.app.addEventListener('touchmove', e => {
+      if (el.app.classList.contains('resort-picker-open') &&
+          U.state === 'title' && el.title.contains(e.target)) return;
+      e.preventDefault();
+    }, { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault());
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('visibilitychange', () => { if (!document.hidden && U.state === 'run') U.keepAwake(); });
@@ -118,6 +123,7 @@ const UI = (() => {
     if (el && el.xr) el.xr.hidden = !XR.ok;
     if (!el) return; U.state = 'title';
     el.load.classList.remove('on'); el.veil.classList.add('lift'); el.shade.classList.add('on'); el.title.classList.add('on'); el.snd.classList.add('on');
+    el.app.classList.toggle('resort-picker-open', !!$('reality-picker') && !$('reality-picker').hidden);
     if (!U.hh && fsAvail()) el.fs.classList.add('on');
     el.bar.classList.add('on'); paint(); sayMountain();
   };
@@ -141,7 +147,9 @@ const UI = (() => {
     if (U.state !== 'title') return; U.state = 'starting';
     Sound.unlock();
     if (U.hh && !XR.active) U.fullscreen(true);      // a phone: take the whole screen if it will let us (asked for inside this tap)
-    if (U.open) U.menu(false); el.title.classList.remove('on');
+    if (U.open) U.menu(false);
+    el.app.classList.remove('resort-picker-open');
+    el.title.classList.remove('on');
     // tilt has to be asked for from this tap (iOS shows its own prompt); where it is refused the finger takes over
     let asked = false; if (!XR.active) try { asked = await Promise.race([Input.requestTilt(), new Promise(r => setTimeout(() => r(false), 8000))]); } catch (e) { }
     Input.zeroPending = true; U.keepAwake();
