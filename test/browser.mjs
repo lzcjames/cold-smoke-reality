@@ -910,6 +910,8 @@ try {
       let lastRelative=null, maxEndpointRelativeStepM=0,
         maxRenderedEndpointPenetrationM=0, maxRenderedEndpointClearanceM=0,
         maxObservedEndpointStepM=0, lastEndpoints=null, visualFrames=0;
+      let maxRightTipClearanceM=0,maxRightTipPenetrationM=0,
+        maxRightTipClearanceStepM=0,lastRightTipClearance=null;
       const endpointTrace=[];
       let lastEndpointTerrain=null, lastRootY=null;
       let maxSteadyRelativeStepM=0, peakEndpoint=null;
@@ -973,11 +975,19 @@ try {
         if(lastEndpoints)for(let n=0;n<4;n++)
           maxObservedEndpointStepM=Math.max(maxObservedEndpointStepM,
             Math.hypot(...ends[n].map((v,k)=>v-lastEndpoints[n][k])));
-        for(const p of ends){
-          const snow=k.height(p[0],p[2]),gap=p[1]-snow;
+        for(let n=0;n<ends.length;n++){
+          const p=ends[n],snow=k.height(p[0],p[2]),gap=p[1]-snow;
           if(!Number.isFinite(gap))throw Error('Nonfinite real ski tip/terrain sample');
           maxRenderedEndpointPenetrationM=Math.max(maxRenderedEndpointPenetrationM,-gap);
           maxRenderedEndpointClearanceM=Math.max(maxRenderedEndpointClearanceM,gap);
+          if(n===3){
+            maxRightTipClearanceM=Math.max(maxRightTipClearanceM,gap);
+            maxRightTipPenetrationM=Math.max(maxRightTipPenetrationM,-gap);
+            if(lastRightTipClearance!==null)
+              maxRightTipClearanceStepM=Math.max(maxRightTipClearanceStepM,
+                Math.abs(gap-lastRightTipClearance));
+            lastRightTipClearance=gap;
+          }
         }
         lastRelative=relative;lastEndpoints=ends;visualFrames++;
         const contact=trace?.snapshot().at(-1);
@@ -1015,7 +1025,8 @@ try {
         visual:{frames:visualFrames,maxEndpointRelativeStepM,
           maxSteadyRelativeStepM,peakEndpoint,endpointPeakWindow,
           maxObservedEndpointStepM,maxRenderedEndpointPenetrationM,
-          maxRenderedEndpointClearanceM},
+          maxRenderedEndpointClearanceM,maxRightTipClearanceM,
+          maxRightTipPenetrationM,maxRightTipClearanceStepM},
         maxSkiGroundGapM,maxSkiGroundStepM,maxLegCompressionM,
         maxHorizontalTravel,finish:k.game().s.p.slice(),
         realMeasuredBend:point,phase:{
@@ -1034,7 +1045,9 @@ try {
       bend.visual.maxSteadyRelativeStepM,
       bend.visual.maxObservedEndpointStepM,
       bend.visual.maxRenderedEndpointPenetrationM,
-      bend.visual.maxRenderedEndpointClearanceM].every(Number.isFinite),
+      bend.visual.maxRenderedEndpointClearanceM,
+      bend.visual.maxRightTipClearanceM,bend.visual.maxRightTipPenetrationM,
+      bend.visual.maxRightTipClearanceStepM].every(Number.isFinite),
       'Jandri real rendered ski tip/tail metrics must be finite');
     assert(bend.visual.peakEndpoint?.frame>=0 &&
       bend.visual.endpointPeakWindow.length>=1,
@@ -1108,9 +1121,14 @@ try {
       'No-terrain-correction ski control must stay finite');
     console.log('Jandri 1 real IGN contact solver on/off comparison',
       JSON.stringify({contactOn:{peakRelativeStepM:bend.visual.maxEndpointRelativeStepM,
-        maxTipEndpointPenetrationM:bend.visual.maxRenderedEndpointPenetrationM,
-        maxTipEndpointClearanceM:bend.visual.maxRenderedEndpointClearanceM,
+        rightTipPenetrationM:bend.visual.maxRightTipPenetrationM,
+        rightTipClearanceM:bend.visual.maxRightTipClearanceM,
+        rightTipClearanceStepM:bend.visual.maxRightTipClearanceStepM,
+        allEndpointPenetrationM:bend.visual.maxRenderedEndpointPenetrationM,
+        allEndpointClearanceM:bend.visual.maxRenderedEndpointClearanceM,
         finish:bend.finish},contactCorrectionBypassed:noSkiContactCorrection}));
+    assert.deepEqual(noSkiContactCorrection.finish,bend.finish,
+      'Visual-only contact-solver A/B must not change the physical ski trajectory');
   }
 
   const jandriTrace=await evaluate(`(() => {
