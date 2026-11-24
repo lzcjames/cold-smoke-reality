@@ -1057,6 +1057,60 @@ try {
     console.log('Jandri 1 rendered ski peak frame and local terrain decomposition',
       JSON.stringify({peak:bend.visual.peakEndpoint,
         frames:bend.visual.endpointPeakWindow}));
+    // Paired control: follow the same real Jandri 1 bend with ONLY the
+    // optional terrain-contact pose correction bypassed. This is a test
+    // override, not a production option or a change to physical collision.
+    // The game's 60 Hz physics, pilot and IGN heightmap remain unchanged.
+    const noSkiContactCorrection=await evaluate(`(() => {
+      const k=window.__ski,terrain=k.m.Course.reality,
+        point=[947080.546,6439003.569],pos=terrain.project(...point);
+      const model=k.m.Skier,originalGround=model.ground;
+      const start=k.game().s.p.slice(),pilot=k.pilot();
+      let prev=null,prevClearance=null,maxRelativeStepM=0,
+        maxTipClearanceM=0,maxTipPenetrationM=0,
+        maxClearanceStepM=0,frames=0,finish;
+      try {
+        model.ground=()=>null;
+        k.game().reset(-pos[1],pos[0]);
+        for(let i=0;i<180;i++){
+          const frame=k.sim(1/60,pilot,{draw:false});
+          const ends=model.world.seg?.slice(0,2).flatMap(
+            seg=>seg.map(p=>[p[0]+k.m.Render.origin[0],
+              p[1]+k.m.Render.origin[1],p[2]+k.m.Render.origin[2]]));
+          if(!ends||ends.length!==4||!ends.every(p=>p.every(Number.isFinite)))
+            throw Error('No finite no-ground ski model geometry');
+          const rel=ends.flatMap(p=>[p[0]-frame.p[0],
+            p[1]-frame.p[1],p[2]-frame.p[2]]);
+          if(prev)for(let n=0;n<rel.length;n++)
+            maxRelativeStepM=Math.max(maxRelativeStepM,Math.abs(rel[n]-prev[n]));
+          const gap=ends[3][1]-k.height(ends[3][0],ends[3][2]);
+          if(!Number.isFinite(gap))throw Error('No finite no-ground tip clearance');
+          maxTipClearanceM=Math.max(maxTipClearanceM,gap);
+          maxTipPenetrationM=Math.max(maxTipPenetrationM,-gap);
+          if(prevClearance!==null)
+            maxClearanceStepM=Math.max(maxClearanceStepM,Math.abs(gap-prevClearance));
+          prevClearance=gap;prev=rel;frames++;
+        }
+        finish=k.game().s.p.slice();
+      } finally {
+        model.ground=originalGround;
+      }
+      return {frames,maxRelativeStepM,maxTipClearanceM,
+        maxTipPenetrationM,maxClearanceStepM,finish,
+        initialBeforeReplay:start};
+    })()`);
+    assert.equal(noSkiContactCorrection.frames,180);
+    assert([noSkiContactCorrection.maxRelativeStepM,
+      noSkiContactCorrection.maxTipClearanceM,
+      noSkiContactCorrection.maxTipPenetrationM,
+      noSkiContactCorrection.maxClearanceStepM,
+      ...noSkiContactCorrection.finish].every(Number.isFinite),
+      'No-terrain-correction ski control must stay finite');
+    console.log('Jandri 1 real IGN contact solver on/off comparison',
+      JSON.stringify({contactOn:{peakRelativeStepM:bend.visual.maxEndpointRelativeStepM,
+        maxTipEndpointPenetrationM:bend.visual.maxRenderedEndpointPenetrationM,
+        maxTipEndpointClearanceM:bend.visual.maxRenderedEndpointClearanceM,
+        finish:bend.finish},contactCorrectionBypassed:noSkiContactCorrection}));
   }
 
   const jandriTrace=await evaluate(`(() => {
