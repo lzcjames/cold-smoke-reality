@@ -903,8 +903,10 @@ try {
       // Measure the actual animated ski tail/tip mesh endpoints too.
       // The physics root alone cannot establish whether the visible skis
       // jitter, clip into IGN terrain, or move relative to the rider.
-      const visual=k.m.Skier,origin=k.m.Render.origin,app=k.app();
-      const visualTime=app.t;
+      const visual=k.m.Skier,origin=k.m.Render.origin;
+      // k.sim already advances the browser app/render model. Never invoke
+      // Skier.update a second time here: doing so caused alternating zero-dt
+      // solver updates in the diagnostic and contaminated the endpoint trace.
       let lastRelative=null, maxEndpointRelativeStepM=0,
         maxRenderedEndpointPenetrationM=0, maxRenderedEndpointClearanceM=0,
         maxObservedEndpointStepM=0, lastEndpoints=null, visualFrames=0;
@@ -927,8 +929,6 @@ try {
         maxGap=Math.max(maxGap,Math.abs(gap));
         maxHorizontalTravel=Math.max(maxHorizontalTravel,
           Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2]));
-        app.t=visualTime+(i+1)/60;
-        visual.update(k.game().root,k.game().pose,origin);
         const ends=visual.world.seg?.slice(0,2).flatMap(seg=>seg.map(p=>[
           p[0]+origin[0],p[1]+origin[1],p[2]+origin[2]]));
         if(!ends||ends.length!==4||!ends.every(p=>p.every(Number.isFinite)))
@@ -1001,7 +1001,6 @@ try {
           displacementM:Math.hypot(frame.p[0]-start[0],frame.p[2]-start[2])});
         prevGap=gap;prevGround=ground;
       }
-      app.t=visualTime;
       const endpointPeakWindow=endpointTrace.slice(
         Math.max(0,peakEndpoint.frame-3),Math.min(180,peakEndpoint.frame+4));
       const peak=[...recorded].sort((a,b)=>Math.abs(b.gapM)-Math.abs(a.gapM))[0];
