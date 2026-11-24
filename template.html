@@ -542,6 +542,51 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #reality-return-start:disabled { opacity: .5; cursor: wait; }
 #reality-back { position: absolute; z-index: 100; top: 1rem; left: 1rem; }
 #reality-credits { position: absolute; z-index: 2; bottom: .5rem; right: .75rem; padding: .25rem .5rem; background: #101820cc; font-size: 11px; pointer-events: auto; }
+/* Resort entry on phones. The page may rotate a portrait viewport with a
+   transform: CSS @media(max-height) then sees the OUTER portrait viewport,
+   not the short landscape game frame. Use the app's actual handheld class
+   instead, keeping the resort selector in the visible first screen. */
+#app.resort-picker-open:not(.desk) { touch-action: pan-y; }
+#app.resort-picker-open:not(.desk) #title.on {
+  justify-content: flex-start; align-items: flex-start; gap: 6px;
+  padding: calc(max(var(--st), var(--xt)) + 6px) calc(var(--gr) + 2px)
+    calc(max(var(--sb), var(--xb)) + 12px) calc(var(--gl) + 2px);
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y; pointer-events: auto;
+}
+#app.resort-picker-open:not(.desk) #title.on > .mark {
+  align-items: flex-start; text-align: left; flex: 0 0 auto;
+}
+#app.resort-picker-open:not(.desk) #title.on .mark .cn {
+  font-size: clamp(25px, 7vmin, 38px); line-height: 1.1;
+}
+#app.resort-picker-open:not(.desk) #title.on .mark .rule,
+#app.resort-picker-open:not(.desk) #title.on .mark .en,
+#app.resort-picker-open:not(.desk) #title.on .tag,
+#app.resort-picker-open:not(.desk) #title.on .cta > p,
+#app.resort-picker-open:not(.desk) #title.on .cta .act .more,
+#app.resort-picker-open:not(.desk) #jandri-winter-preview { display: none !important; }
+#app.resort-picker-open:not(.desk) #title.on .cta {
+  align-items: stretch; text-align: left; flex: 0 0 auto;
+  box-sizing: border-box; width: min(420px, 100%); gap: 6px;
+}
+#app.resort-picker-open:not(.desk) #title.on .cta .act {
+  width: 100%; flex: 0 0 auto; align-items: stretch; gap: 0;
+}
+#app.resort-picker-open:not(.desk) #title.on #go {
+  box-sizing: border-box; width: 100%; min-width: 0;
+  height: 34px; font-size: 14px; padding: 0 10px;
+}
+#app.resort-picker-open:not(.desk) #title.on #reality-picker {
+  width: 100%; max-width: 100%; margin: 0; padding: 7px 9px;
+  gap: 5px; flex: 0 0 auto;
+}
+#app.resort-picker-open:not(.desk) #title.on #reality-picker select {
+  min-height: 34px; padding: 5px 8px; font-size: 13px;
+}
+#app.resort-picker-open:not(.desk) #title.on #reality-picker #reality-enter {
+  min-height: 36px; padding: 6px 10px;
+}
 </style>
 <div id="app" data-reality-catalog="missing">
   <canvas id="view"></canvas>

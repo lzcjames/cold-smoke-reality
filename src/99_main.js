@@ -568,6 +568,9 @@ else {
     select.value = chosen.id;
     updatePisteChoice();
     picker.hidden = false;
+    // Mobile title layout must prioritize the selector even when portrait
+    // viewports are rotated into a short landscape game frame.
+    document.getElementById('app').classList.add('resort-picker-open');
     const enterSelectedResort = async () => {
       const selected = Reality.get(select.value);
       if (!selected || !App.ready || enter.disabled || UI.state !== 'title') return;
