@@ -647,6 +647,61 @@ try {
   assert.equal(committed.title,true,'Enter inside select must never auto-start');
   console.log('Native dropdown click and Enter selection do not launch a resort');
 
+  // Regression: actual phone CSS pixels, touch input and portrait-to-landscape
+  // rotation. A phone's OUTER viewport can be 390x844 even though its
+  // landscape game frame is only 390px high. The picker must be visible and
+  // hit-testable without scrolling, including the verified Les 2 Alpes piste
+  // selector and the explicit entry button. Do not start a resort on change.
+  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+  await cdp('Emulation.setDeviceMetricsOverride',{
+    width:390,height:844,deviceScaleFactor:2,mobile:true,
+    screenWidth:390,screenHeight:844
+  });
+  try {
+    const mobileResortPicker=await evaluate(`(() => {
+      UI.layout();
+      const app=document.getElementById('app'),
+        title=document.getElementById('title'),
+        select=document.getElementById('reality-select');
+      const before=select.value;
+      select.value='les-deux-alpes';
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+      const controls=['reality-select','reality-start-piste','reality-enter'].map(id=>{
+        const el=document.getElementById(id),b=el.getBoundingClientRect();
+        const center=[b.left+b.width/2,b.top+b.height/2],
+          hit=document.elementFromPoint(...center);
+        return {id,hidden:el.hidden,width:b.width,height:b.height,
+          center,insideViewport:center[0]>=0&&center[0]<innerWidth &&
+            center[1]>=0&&center[1]<innerHeight,
+          hit:hit===el||el.contains(hit)};
+      });
+      select.value=before;
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+      return {rotated:app.classList.contains('rot'),
+        handheld:!app.classList.contains('desk'),
+        compact:app.classList.contains('resort-picker-open'),
+        scroll:getComputedStyle(title).overflowY,
+        viewport:[innerWidth,innerHeight],controls,
+        titleVisible:title.classList.contains('on')};
+    })()`);
+    console.log('Portrait phone rotated resort picker geometry',mobileResortPicker);
+    assert.equal(mobileResortPicker.rotated,true);
+    assert.equal(mobileResortPicker.handheld,true);
+    assert.equal(mobileResortPicker.compact,true);
+    assert.equal(mobileResortPicker.scroll,'auto');
+    assert.equal(mobileResortPicker.titleVisible,true);
+    for(const control of mobileResortPicker.controls){
+      assert(!control.hidden && control.width>=30 && control.height>=28,
+        'Phone menu control missing: '+JSON.stringify(control));
+      assert(control.insideViewport && control.hit,
+        'Phone menu control outside screen or not touchable: '+JSON.stringify(control));
+    }
+  } finally {
+    await cdp('Emulation.clearDeviceMetricsOverride');
+    await cdp('Emulation.setTouchEmulationEnabled',{enabled:false});
+    await evaluate('UI.layout()');
+  }
+
   // Main Pages may contain the independently validated real P4 resort in
   // addition to the synthetic regression-only resort appended by this server.
   const officialIds = JSON.parse(attribute[1].replace(/&quot;/g, '"')
