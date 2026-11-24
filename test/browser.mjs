@@ -909,6 +909,7 @@ try {
         maxRenderedEndpointPenetrationM=0, maxRenderedEndpointClearanceM=0,
         maxObservedEndpointStepM=0, lastEndpoints=null, visualFrames=0;
       const endpointTrace=[];
+      let lastEndpointTerrain=null, lastRootY=null;
       let maxSteadyRelativeStepM=0, peakEndpoint=null;
       let maxSkiGroundGapM=0, maxSkiGroundStepM=0,
         lastSkiGroundGapM=null, maxLegCompressionM=0;
@@ -944,10 +945,29 @@ try {
         }
         if(i>=30) maxSteadyRelativeStepM=Math.max(
           maxSteadyRelativeStepM,largestRelativeStepM);
+        // Separate visible geometry displacement from the measured terrain
+        // moving under that same tip. This tracks both skis, all four ends.
+        const terrainAtEnds=ends.map(p=>k.height(p[0],p[2]));
+        const terrainDelta=lastEndpointTerrain?
+          terrainAtEnds.map((v,n)=>v-lastEndpointTerrain[n]):
+          [0,0,0,0];
+        const tipIndex=largestComponent<0?-1:Math.floor(largestComponent/3);
+        const tipAxis=largestComponent<0?-1:largestComponent%3;
+        const endpointDelta=tipIndex<0?0:
+          ends[tipIndex][tipAxis]-lastEndpoints[tipIndex][tipAxis];
+        const relativeDelta=largestComponent<0?0:
+          relative[largestComponent]-lastRelative[largestComponent];
         endpointTrace.push({frame:i,stepM:largestRelativeStepM,
-          component:largestComponent,rootY:frame.p[1],
+          component:largestComponent,tipIndex,tipAxis,
+          relativeDeltaM:relativeDelta,endpointDeltaM:endpointDelta,
+          rootDeltaYM:lastRootY===null?0:frame.p[1]-lastRootY,
+          terrainDeltaAtTipM:tipIndex<0?0:terrainDelta[tipIndex],
+          rightTipY:ends[3][1],rightTipSnowY:terrainAtEnds[3],
+          rightTipClearanceM:ends[3][1]-terrainAtEnds[3],
+          pitchR:k.game().pose.pitchR,rootY:frame.p[1],
           legM:k.game().s.leg,contactOn:k.game().s.contact,
           skierSpeedMps:k.game().s.speed});
+        lastEndpointTerrain=terrainAtEnds;lastRootY=frame.p[1];
         if(!peakEndpoint||largestRelativeStepM>peakEndpoint.stepM)
           peakEndpoint=endpointTrace[endpointTrace.length-1];
         if(lastEndpoints)for(let n=0;n<4;n++)
@@ -1035,6 +1055,9 @@ try {
       bend.aroundPeakGap.length>=1 && bend.aroundPeakStep.length>=1,
       'A Jandri bend peak requires an attributable local contact window');
     console.log('Real Jandri 1 OSM bend live 180-frame contact diagnostic',bend);
+    console.log('Jandri 1 rendered ski peak frame and local terrain decomposition',
+      JSON.stringify({peak:bend.visual.peakEndpoint,
+        frames:bend.visual.endpointPeakWindow}));
   }
 
   const jandriTrace=await evaluate(`(() => {
